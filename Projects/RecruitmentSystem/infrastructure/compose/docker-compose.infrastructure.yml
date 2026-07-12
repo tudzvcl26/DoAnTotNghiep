@@ -1,0 +1,99 @@
+version: "3.9"
+
+# Shared local infrastructure for the RecruitmentSystem modular monolith.
+services:
+  postgres:
+    image: postgres:17
+    container_name: recruitment-postgres
+    restart: unless-stopped
+    env_file:
+      - ../env/postgres.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - recruitment-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:8
+    container_name: recruitment-redis
+    restart: unless-stopped
+    env_file:
+      - ../env/redis.env
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - recruitment-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: recruitment-rabbitmq
+    restart: unless-stopped
+    env_file:
+      - ../env/rabbitmq.env
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - recruitment-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  minio:
+    image: minio/minio:latest
+    container_name: recruitment-minio
+    restart: unless-stopped
+    env_file:
+      - ../env/minio.env
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - recruitment-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  recruitment-network:
+    name: recruitment-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: recruitment-postgres-data
+  redis_data:
+    name: recruitment-redis-data
+  rabbitmq_data:
+    name: recruitment-rabbitmq-data
+  minio_data:
+    name: recruitment-minio-data
