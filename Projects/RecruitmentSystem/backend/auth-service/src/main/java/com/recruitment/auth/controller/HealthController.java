@@ -1,10 +1,10 @@
 package com.recruitment.auth.controller;
 
+import com.recruitment.auth.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -12,17 +12,21 @@ import java.util.Map;
 public class HealthController {
 
     @GetMapping("/api/v1/health")
-    public ResponseEntity<Map<String, Object>> health() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> health() {
 
-        Map<String, Object> response = new LinkedHashMap<>();
+        Map<String, Object> data = new LinkedHashMap<>();
 
-        response.put("status", "UP");
-        response.put("service", "auth-service");
-        response.put("version", "1.0.0");
-        response.put("timestamp", Instant.now());
+        data.put("status", "UP");
+        data.put("service", "auth-service");
+        data.put("version", "1.0.0");
 
-        return ResponseEntity.ok(response);
-
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Authentication Service is running",
+                        data,
+                        "/api/v1/health"
+                )
+        );
     }
 
 }
