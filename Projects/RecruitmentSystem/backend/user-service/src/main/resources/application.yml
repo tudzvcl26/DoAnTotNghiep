@@ -1,0 +1,88 @@
+spring:
+
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/recruitment_db
+    username: recruitment_app
+    password: RecruitmentDev_Pg_2026!
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    show-sql: true
+
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        default_schema: user_service
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    create-schemas: true
+    schemas: user_service
+    default-schema: user_service
+    table: user_service_flyway_schema_history
+    locations: classpath:db/migration
+
+server:
+  port: 8082
+
+springdoc:
+
+  api-docs:
+    path: /v3/api-docs
+
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+logging:
+
+  level:
+
+    root: INFO
+
+    org.springframework: INFO
+
+    org.springframework.security: INFO
+
+    org.hibernate.SQL: DEBUG
+
+    org.hibernate.orm.jdbc.bind: TRACE
+
+management:
+
+  endpoints:
+
+    web:
+
+      exposure:
+
+        include: health,info
+
+  endpoint:
+
+    health:
+
+      show-details: always
+
+storage:
+
+  endpoint: http://localhost:9000
+
+  access-key: recruitment-admin
+
+  secret-key: RecruitmentDev_Minio_2026!
+
+  bucket: recruitment-assets
+
+  auto-create-bucket: true

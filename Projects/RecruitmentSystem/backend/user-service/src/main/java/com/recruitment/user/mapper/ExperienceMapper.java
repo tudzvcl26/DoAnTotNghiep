@@ -1,0 +1,3 @@
+package com.recruitment.user.mapper;
+import com.recruitment.user.dto.request.CreateExperienceRequest; import com.recruitment.user.dto.request.UpdateExperienceRequest; import com.recruitment.user.dto.response.ExperienceResponse; import com.recruitment.user.entity.Experience; import org.mapstruct.Mapper; import org.mapstruct.MappingTarget;
+@Mapper(componentModel = "spring") public interface ExperienceMapper { Experience toEntity(CreateExperienceRequest request); ExperienceResponse toResponse(Experience entity); void updateEntity(UpdateExperienceRequest request, @MappingTarget Experience entity); }
