@@ -1,6 +1,7 @@
 package com.recruitment.user.controller;
 
 import com.recruitment.user.common.ApiResponse;
+import com.recruitment.user.dto.request.InitializeProfileRequest;
 import com.recruitment.user.dto.request.UpdateProfileRequest;
 import com.recruitment.user.dto.response.ProfileResponse;
 import com.recruitment.user.security.CurrentUserId;
@@ -19,6 +20,27 @@ public class ProfileController {
 
     private final ProfileService profileService;
 
+    @PostMapping("/initialize")
+    public ApiResponse<ProfileResponse> initializeProfile(
+            @Valid @RequestBody InitializeProfileRequest body,
+            HttpServletRequest request
+    ) {
+
+        profileService.initialize(
+                CurrentUserId.get(),
+                body.getDisplayName()
+        );
+
+        return ApiResponse.success(
+                "Profile initialized successfully",
+                profileService.getProfile(
+                        CurrentUserId.get()
+                ),
+                request.getRequestURI()
+        );
+
+    }
+
     @GetMapping("/me")
     public ApiResponse<ProfileResponse> getMyProfile(
             HttpServletRequest request
@@ -26,7 +48,9 @@ public class ProfileController {
 
         return ApiResponse.success(
                 "Profile retrieved successfully",
-                profileService.getProfile(CurrentUserId.get()),
+                profileService.getProfile(
+                        CurrentUserId.get()
+                ),
                 request.getRequestURI()
         );
 
@@ -68,7 +92,9 @@ public class ProfileController {
             HttpServletRequest request
     ) {
 
-        profileService.delete(CurrentUserId.get());
+        profileService.delete(
+                CurrentUserId.get()
+        );
 
         return ApiResponse.success(
                 "Profile deleted successfully",

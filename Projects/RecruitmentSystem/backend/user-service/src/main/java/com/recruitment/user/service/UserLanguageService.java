@@ -29,6 +29,7 @@ public class UserLanguageService {
  private final LanguageRepository languageRepository;
  private final UserLanguageMapper mapper;
  private final ProfileService profileService;
+ private final CompletionScoreService completionScoreService;
 
  private String normalizeCode(String value) {
 
@@ -111,9 +112,11 @@ public class UserLanguageService {
   UserLanguage entity = mapper.toEntity(request);
 
   entity.setProfile(profile);
-
   entity.setLanguage(language);
+
   UserLanguage saved = userLanguageRepository.save(entity);
+
+  completionScoreService.recalculate(profile);
 
   return mapper.toResponse(saved);
 
@@ -156,6 +159,8 @@ public class UserLanguageService {
 
   UserLanguage saved = userLanguageRepository.save(entity);
 
+  completionScoreService.recalculate(saved.getProfile());
+
   return mapper.toResponse(saved);
 
  }
@@ -174,6 +179,8 @@ public class UserLanguageService {
   entity.setDeletedAt(LocalDateTime.now());
 
   userLanguageRepository.save(entity);
+
+  completionScoreService.recalculate(entity.getProfile());
 
  }
 

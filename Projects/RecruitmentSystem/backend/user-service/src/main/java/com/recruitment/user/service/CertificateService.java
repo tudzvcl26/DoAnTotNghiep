@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -25,6 +26,7 @@ public class CertificateService {
     private final CertificateRepository repository;
     private final CertificateMapper mapper;
     private final ProfileService profileService;
+    private final CompletionScoreService completionScoreService;
 
     @Transactional(readOnly = true)
     public Page<CertificateResponse> getAll(
@@ -66,6 +68,11 @@ public class CertificateService {
 
         Profile profile = profileService.getByUserId(userId);
 
+        validateDate(
+                request.getIssueDate(),
+                request.getExpiryDate()
+        );
+
         if (repository.existsByProfileIdAndCertificateNameAndIssuerNameAndIssueDateAndDeletedAtIsNull(
                 profile.getId(),
                 request.getCertificateName(),
@@ -85,9 +92,12 @@ public class CertificateService {
 
         Certificate saved = repository.save(entity);
 
+        completionScoreService.recalculate(profile);
+
         return mapper.toResponse(saved);
 
     }
+
     public CertificateResponse update(
             UUID certificateId,
             UpdateCertificateRequest request
@@ -100,12 +110,19 @@ public class CertificateService {
                                 "Certificate not found"
                         ));
 
+        validateDate(
+                request.getIssueDate(),
+                request.getExpiryDate()
+        );
+
         mapper.updateEntity(
                 request,
                 entity
         );
 
         Certificate saved = repository.save(entity);
+
+        completionScoreService.recalculate(saved.getProfile());
 
         return mapper.toResponse(saved);
 
@@ -125,6 +142,30 @@ public class CertificateService {
         entity.setDeletedAt(LocalDateTime.now());
 
         repository.save(entity);
+
+        completionScoreService.recalculate(entity.getProfile());
+
+    }
+
+    private void validateDate(
+            LocalDate issueDate,
+            LocalDate expiryDate
+    ) {
+
+        if (issueDate == null) {
+            throw new IllegalArgumentException(
+                    "Issue date is required."
+            );
+        }
+
+        if (expiryDate != null &&
+                expiryDate.isBefore(issueDate)) {
+
+            throw new IllegalArgumentException(
+                    "Expiry date must be after or equal to issue date."
+            );
+
+        }
 
     }
 

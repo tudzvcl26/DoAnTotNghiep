@@ -22,6 +22,7 @@ public class CareerObjectiveService {
  private final CareerObjectiveRepository repository;
  private final ProfileService profileService;
  private final CareerObjectiveMapper mapper;
+ private final CompletionScoreService completionScoreService;
 
  public CareerObjectiveResponse upsert(
          UUID userId,
@@ -41,6 +42,8 @@ public class CareerObjectiveService {
   mapper.updateEntity(request, entity);
 
   CareerObjective saved = repository.save(entity);
+
+  completionScoreService.recalculate(profile);
 
   return mapper.toResponse(saved);
 
@@ -80,6 +83,8 @@ public class CareerObjectiveService {
   entity.setDeletedAt(LocalDateTime.now());
 
   repository.save(entity);
+
+  completionScoreService.recalculate(profile);
 
  }
 

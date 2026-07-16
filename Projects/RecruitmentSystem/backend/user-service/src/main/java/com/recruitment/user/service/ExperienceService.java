@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -61,13 +62,17 @@ public class ExperienceService {
 
   Profile profile = profileService.getByUserId(userId);
 
+  validate(request.getStartDate(),
+          request.getEndDate(),
+          request.getCurrent());
+
   boolean exists =
-          Boolean.TRUE.equals(request.getCurrent()) &&
-                  repository.existsByProfileIdAndEmployerNameAndJobTitleAndCurrentTrueAndDeletedAtIsNull(
-                          profile.getId(),
-                          request.getEmployerName(),
-                          request.getJobTitle()
-                  );
+          Boolean.TRUE.equals(request.getCurrent())
+                  && repository.existsByProfileIdAndEmployerNameAndJobTitleAndCurrentTrueAndDeletedAtIsNull(
+                  profile.getId(),
+                  request.getEmployerName(),
+                  request.getJobTitle()
+          );
 
   if (exists) {
    throw new IllegalArgumentException(
@@ -75,11 +80,11 @@ public class ExperienceService {
    );
   }
 
-  Experience experience = mapper.toEntity(request);
+  Experience entity = mapper.toEntity(request);
 
-  experience.setProfile(profile);
+  entity.setProfile(profile);
 
-  Experience saved = repository.save(experience);
+  Experience saved = repository.save(entity);
 
   completionScoreService.recalculate(saved.getProfile());
 
@@ -92,15 +97,18 @@ public class ExperienceService {
          UpdateExperienceRequest request
  ) {
 
-  Experience experience = repository
+  Experience entity = repository
           .findByIdAndDeletedAtIsNull(experienceId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Experience not found"));
 
-  mapper.updateEntity(request, experience);
+  validate(request.getStartDate(),
+          request.getEndDate(),
+          request.getCurrent());
 
+  mapper.updateEntity(request, entity);
 
-  Experience saved = repository.save(experience);
+  Experience saved = repository.save(entity);
 
   completionScoreService.recalculate(saved.getProfile());
 
@@ -110,16 +118,36 @@ public class ExperienceService {
 
  public void delete(UUID experienceId) {
 
-  Experience experience = repository
+  Experience entity = repository
           .findByIdAndDeletedAtIsNull(experienceId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Experience not found"));
 
-  experience.setDeletedAt(LocalDateTime.now());
+  entity.setDeletedAt(LocalDateTime.now());
 
-  repository.save(experience);
+  repository.save(entity);
 
-  completionScoreService.recalculate(experience.getProfile());
+  completionScoreService.recalculate(entity.getProfile());
+
+ }
+
+ private void validate(
+         LocalDate startDate,
+         LocalDate endDate,
+         Boolean current
+ ) {
+
+  if (endDate != null && endDate.isBefore(startDate)) {
+   throw new IllegalArgumentException(
+           "End date must be after or equal to start date."
+   );
+  }
+
+  if (Boolean.TRUE.equals(current) && endDate != null) {
+   throw new IllegalArgumentException(
+           "Current job must not have an end date."
+   );
+  }
 
  }
 

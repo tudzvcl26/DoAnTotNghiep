@@ -61,6 +61,9 @@ public class EducationService {
 
   Profile profile = profileService.getByUserId(userId);
 
+  // Business Validation
+  validateDate(request.getStartDate(), request.getEndDate());
+
   boolean exists = repository
           .existsByProfileIdAndInstitutionNameAndQualificationAndStartDateAndDeletedAtIsNull(
                   profile.getId(),
@@ -97,6 +100,9 @@ public class EducationService {
           .orElseThrow(() ->
                   new ResourceNotFoundException("Education not found"));
 
+  // Business Validation
+  validateDate(request.getStartDate(), request.getEndDate());
+
   mapper.updateEntity(request, education);
 
   Education saved = repository.save(education);
@@ -119,6 +125,23 @@ public class EducationService {
   repository.save(education);
 
   completionScoreService.recalculate(education.getProfile());
+
+ }
+
+ /**
+  * Business validation:
+  * End date must not be before start date.
+  */
+ private void validateDate(
+         java.time.LocalDate startDate,
+         java.time.LocalDate endDate
+ ) {
+
+  if (endDate != null && endDate.isBefore(startDate)) {
+   throw new IllegalArgumentException(
+           "End date must be after or equal to start date."
+   );
+  }
 
  }
 

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -23,6 +24,7 @@ public class CandidatePreferenceService {
     private final CandidatePreferenceRepository repository;
     private final CandidatePreferenceMapper mapper;
     private final ProfileService profileService;
+    private final CompletionScoreService completionScoreService;
 
     @Transactional(readOnly = true)
     public CandidatePreferenceResponse get(
@@ -49,6 +51,11 @@ public class CandidatePreferenceService {
 
         Profile profile = profileService.getByUserId(userId);
 
+        validateSalary(
+                request.getSalaryMinimum(),
+                request.getSalaryMaximum()
+        );
+
         if (repository.findByProfileIdAndDeletedAtIsNull(profile.getId()).isPresent()) {
 
             throw new IllegalArgumentException(
@@ -63,9 +70,12 @@ public class CandidatePreferenceService {
 
         CandidatePreference saved = repository.save(entity);
 
+        completionScoreService.recalculate(profile);
+
         return mapper.toResponse(saved);
 
     }
+
     public CandidatePreferenceResponse update(
             UUID userId,
             UpdateCandidatePreferenceRequest request
@@ -80,12 +90,19 @@ public class CandidatePreferenceService {
                                 "Candidate preference not found"
                         ));
 
+        validateSalary(
+                request.getSalaryMinimum(),
+                request.getSalaryMaximum()
+        );
+
         mapper.updateEntity(
                 request,
                 entity
         );
 
         CandidatePreference saved = repository.save(entity);
+
+        completionScoreService.recalculate(profile);
 
         return mapper.toResponse(saved);
 
@@ -107,6 +124,25 @@ public class CandidatePreferenceService {
         entity.setDeletedAt(LocalDateTime.now());
 
         repository.save(entity);
+
+        completionScoreService.recalculate(profile);
+
+    }
+
+    private void validateSalary(
+            BigDecimal salaryMinimum,
+            BigDecimal salaryMaximum
+    ) {
+
+        if (salaryMinimum != null
+                && salaryMaximum != null
+                && salaryMinimum.compareTo(salaryMaximum) > 0) {
+
+            throw new IllegalArgumentException(
+                    "Minimum salary cannot be greater than maximum salary."
+            );
+
+        }
 
     }
 

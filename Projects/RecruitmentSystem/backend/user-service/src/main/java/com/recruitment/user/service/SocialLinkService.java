@@ -25,6 +25,7 @@ public class SocialLinkService {
     private final SocialLinkRepository repository;
     private final SocialLinkMapper mapper;
     private final ProfileService profileService;
+    private final CompletionScoreService completionScoreService;
 
     @Transactional(readOnly = true)
     public Page<SocialLinkResponse> getAll(
@@ -83,9 +84,12 @@ public class SocialLinkService {
 
         SocialLink saved = repository.save(entity);
 
+        completionScoreService.recalculate(profile);
+
         return mapper.toResponse(saved);
 
     }
+
     public SocialLinkResponse update(
             UUID socialLinkId,
             UpdateSocialLinkRequest request
@@ -114,12 +118,11 @@ public class SocialLinkService {
 
         }
 
-        mapper.updateEntity(
-                request,
-                entity
-        );
+        mapper.updateEntity(request, entity);
 
         SocialLink saved = repository.save(entity);
+
+        completionScoreService.recalculate(saved.getProfile());
 
         return mapper.toResponse(saved);
 
@@ -139,6 +142,8 @@ public class SocialLinkService {
         entity.setDeletedAt(LocalDateTime.now());
 
         repository.save(entity);
+
+        completionScoreService.recalculate(entity.getProfile());
 
     }
 

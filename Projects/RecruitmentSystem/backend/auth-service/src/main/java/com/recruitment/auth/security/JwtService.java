@@ -1,5 +1,6 @@
 package com.recruitment.auth.security;
 
+import com.recruitment.auth.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -72,10 +74,32 @@ public class JwtService {
 
         Date expiry = new Date(now.getTime() + expiration);
 
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+
+        claims.put(
+                "roles",
+                extractRoles(userDetails.getAuthorities())
+        );
+
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+
+            User user = customUserDetails.getUser();
+
+            claims.put(
+                    "userId",
+                    user.getId().toString()
+            );
+
+            claims.put(
+                    "email",
+                    user.getEmail()
+            );
+
+        }
+
         return Jwts.builder()
-                .claims(extraClaims)
+                .claims(claims)
                 .subject(userDetails.getUsername())
-                .claim("roles", extractRoles(userDetails.getAuthorities()))
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(getSigningKey())
@@ -127,6 +151,24 @@ public class JwtService {
         }
 
         return List.of();
+
+    }
+
+    public String extractEmail(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("email", String.class)
+        );
+
+    }
+
+    public String extractUserId(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("userId", String.class)
+        );
 
     }
 

@@ -1,25 +1,24 @@
 package com.recruitment.user.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JwtService jwtService;
 
     @Override
     protected void doFilterInternal(
@@ -35,36 +34,49 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
             return;
-
         }
 
         String token = header.substring(SecurityConstants.TOKEN_PREFIX.length());
 
         try {
 
-            /*
-             * TODO
-             * Sprint sau sẽ gọi Auth Service để validate JWT.
-             */
+            if (!jwtService.validateToken(token)) {
 
-            Map<String, Object> claims = objectMapper.readValue(
-                    java.util.Base64.getDecoder().decode(token),
-                    Map.class
-            );
+                filterChain.doFilter(request, response);
+                return;
+
+            }
 
             CurrentUser currentUser = CurrentUser.builder()
-                    .userId(UUID.fromString((String) claims.get("userId")))
-                    .email((String) claims.get("email"))
-                    .roles(Set.copyOf((List<String>) claims.get("roles")))
+                    .userId(
+                            UUID.fromString(
+                                    jwtService.extractUserId(token)
+                            )
+                    )
+                    .email(
+                            jwtService.extractEmail(token)
+                    )
+                    .roles(
+                            Set.copyOf(
+                                    jwtService.extractRoles(token)
+                            )
+                    )
                     .build();
 
             JwtAuthenticationToken authentication =
-                    new JwtAuthenticationToken(currentUser, token);
+                    new JwtAuthenticationToken(
+                            currentUser,
+                            token
+                    );
 
-            SecurityContextHolder.getContext()
+            SecurityContextHolder
+                    .getContext()
                     .setAuthentication(authentication);
 
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+
+            SecurityContextHolder.clearContext();
+
         }
 
         filterChain.doFilter(request, response);

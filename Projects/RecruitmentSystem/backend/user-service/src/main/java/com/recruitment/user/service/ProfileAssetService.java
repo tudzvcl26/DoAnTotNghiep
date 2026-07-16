@@ -28,6 +28,7 @@ public class ProfileAssetService {
  private final ProfileAssetMapper mapper;
  private final ProfileService profileService;
  private final StorageService storageService;
+ private final CompletionScoreService completionScoreService;
 
  @Transactional(readOnly = true)
  public Page<ProfileAssetResponse> getAll(
@@ -70,6 +71,38 @@ public class ProfileAssetService {
 
   Profile profile = profileService.getByUserId(userId);
 
+  if (file == null || file.isEmpty()) {
+   throw new IllegalArgumentException("File is required.");
+  }
+
+  if (file.getSize() > 10 * 1024 * 1024) {
+   throw new IllegalArgumentException("Maximum file size is 10MB.");
+  }
+
+  if (file.getContentType() == null || file.getContentType().isBlank()) {
+   throw new IllegalArgumentException("Content type is required.");
+  }
+
+  /*
+   * Mỗi profile chỉ có 1 avatar ACTIVE
+   */
+  if (kind == ProfileAssetKind.AVATAR) {
+
+   repository.findByProfileIdAndAssetKindAndAssetStatusAndDeletedAtIsNull(
+           profile.getId(),
+           ProfileAssetKind.AVATAR,
+           ProfileAssetStatus.ACTIVE
+   ).ifPresent(oldAvatar -> {
+
+    oldAvatar.setAssetStatus(ProfileAssetStatus.DELETED);
+    oldAvatar.setDeletedAt(LocalDateTime.now());
+
+    repository.save(oldAvatar);
+
+   });
+
+  }
+
   String objectName =
           userId +
                   "/" +
@@ -106,9 +139,12 @@ public class ProfileAssetService {
 
   ProfileAsset saved = repository.save(asset);
 
+  completionScoreService.recalculate(profile);
+
   return mapper.toResponse(saved);
 
  }
+
  @Transactional(readOnly = true)
  public byte[] download(
          UUID assetId
@@ -171,6 +207,10 @@ public class ProfileAssetService {
   );
 
   repository.save(entity);
+
+  completionScoreService.recalculate(
+          entity.getProfile()
+  );
 
  }
 
