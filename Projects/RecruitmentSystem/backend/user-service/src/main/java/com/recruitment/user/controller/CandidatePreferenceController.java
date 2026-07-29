@@ -8,6 +8,7 @@ import com.recruitment.user.service.CandidatePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -34,6 +35,7 @@ public class CandidatePreferenceController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<CandidatePreferenceResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateCandidatePreferenceRequest body,
@@ -49,6 +51,7 @@ public class CandidatePreferenceController {
     }
 
     @PutMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<CandidatePreferenceResponse> update(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateCandidatePreferenceRequest body,
@@ -64,6 +67,7 @@ public class CandidatePreferenceController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID userId,
             HttpServletRequest request

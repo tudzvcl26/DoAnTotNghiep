@@ -60,6 +60,8 @@ public class ExperienceService {
          CreateExperienceRequest request
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   validate(request.getStartDate(),
@@ -102,6 +104,8 @@ public class ExperienceService {
           .orElseThrow(() ->
                   new ResourceNotFoundException("Experience not found"));
 
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
+
   validate(request.getStartDate(),
           request.getEndDate(),
           request.getCurrent());
@@ -122,6 +126,8 @@ public class ExperienceService {
           .findByIdAndDeletedAtIsNull(experienceId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Experience not found"));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   entity.setDeletedAt(LocalDateTime.now());
 

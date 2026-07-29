@@ -8,9 +8,12 @@ import com.recruitment.user.entity.ProfileVisibility;
 import com.recruitment.user.exception.ResourceNotFoundException;
 import com.recruitment.user.mapper.ProfileMapper;
 import com.recruitment.user.repository.ProfileRepository;
+import com.recruitment.user.security.CurrentUser;
+import com.recruitment.user.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -141,6 +144,36 @@ public class ProfileService {
   profile.setProfileStatus(ProfileStatus.DELETED);
 
   repository.save(profile);
+
+ }
+
+ /**
+  * Asserts that the currently authenticated user owns the profile identified by userId.
+  * <p>
+  * ADMIN role bypasses the check.
+  * Any other authenticated user must have currentUser.userId == userId.
+  * </p>
+  *
+  * @param userId the profile owner's userId from the URL path variable
+  * @throws AccessDeniedException if the current user is not the owner and is not ADMIN
+  */
+ public void assertProfileOwner(UUID userId) {
+
+  CurrentUser currentUser = SecurityUtils.getCurrentUser();
+
+  if (currentUser == null || currentUser.getUserId() == null) {
+   throw new AccessDeniedException("User is not authenticated.");
+  }
+
+  if (currentUser.isAdmin()) {
+   return;
+  }
+
+  if (!currentUser.getUserId().equals(userId)) {
+   throw new AccessDeniedException(
+           "You do not have permission to access this profile."
+   );
+  }
 
  }
 

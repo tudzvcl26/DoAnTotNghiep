@@ -65,6 +65,8 @@ public class SocialLinkService {
             CreateSocialLinkRequest request
     ) {
 
+        profileService.assertProfileOwner(userId);
+
         Profile profile = profileService.getByUserId(userId);
 
         if (repository.existsByProfileIdAndLinkTypeAndDeletedAtIsNull(
@@ -102,6 +104,8 @@ public class SocialLinkService {
                                 "Social link not found"
                         ));
 
+        profileService.assertProfileOwner(entity.getProfile().getUserId());
+
         if (request.getLinkType() != null &&
                 !request.getLinkType().equals(entity.getLinkType())) {
 
@@ -138,6 +142,8 @@ public class SocialLinkService {
                         new ResourceNotFoundException(
                                 "Social link not found"
                         ));
+
+        profileService.assertProfileOwner(entity.getProfile().getUserId());
 
         entity.setDeletedAt(LocalDateTime.now());
 

@@ -25,6 +25,7 @@
         <module>auth-service</module>
         <module>user-service</module>
         <module>company-service</module>
+        <module>recruitment-service</module>
     </modules>
 
     <properties>

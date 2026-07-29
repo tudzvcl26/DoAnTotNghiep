@@ -25,7 +25,11 @@ public class CustomUserDetails implements UserDetails {
 
         return user.getRoles()
                 .stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName()))
+                .map(role -> {
+                    String name = role.getName();
+                    String authority = name.startsWith("ROLE_") ? name : "ROLE_" + name;
+                    return new SimpleGrantedAuthority(authority);
+                })
                 .toList();
 
     }

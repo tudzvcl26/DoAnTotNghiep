@@ -89,6 +89,8 @@ public class UserSkillService {
          CreateSkillRequest request
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   String normalizedKey = normalize(
@@ -143,6 +145,8 @@ public class UserSkillService {
                           "Skill not found"
                   ));
 
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
+
   if (request.getSkillName() != null &&
           !request.getSkillName().isBlank()) {
 
@@ -189,6 +193,8 @@ public class UserSkillService {
                   new ResourceNotFoundException(
                           "Skill not found"
                   ));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   entity.setDeletedAt(LocalDateTime.now());
 

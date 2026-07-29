@@ -10,7 +10,9 @@ import com.recruitment.company.exception.CompanyAlreadyExistsException;
 import com.recruitment.company.exception.CompanyNotFoundException;
 import com.recruitment.company.mapper.CompanyMapper;
 import com.recruitment.company.repository.CompanyRepository;
+import com.recruitment.company.security.CurrentUser;
 import com.recruitment.company.security.CurrentUserId;
+import com.recruitment.company.security.SecurityUtils;
 import com.recruitment.company.service.CompanyService;
 import com.recruitment.company.specification.CompanySpecification;
 import com.recruitment.company.util.SlugUtils;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +71,8 @@ public class CompanyServiceImpl implements CompanyService {
                                 "Company not found."
                         )
                 );
+
+        assertCompanyOwner(company);
 
         String oldName = company.getName();
 
@@ -190,6 +195,8 @@ public class CompanyServiceImpl implements CompanyService {
                         )
                 );
 
+        assertCompanyOwner(company);
+
         company.setStatus(
                 CompanyStatus.INACTIVE
         );
@@ -197,6 +204,33 @@ public class CompanyServiceImpl implements CompanyService {
         companyRepository.save(company);
 
     }
+
+    private void assertCompanyOwner(Company company) {
+
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+
+        if (currentUser == null || currentUser.getUserId() == null) {
+
+            throw new AccessDeniedException(
+                    "User is not authenticated."
+            );
+
+        }
+
+        if (currentUser.isAdmin()) {
+            return;
+        }
+
+        if (!company.getOwnerId().equals(currentUser.getUserId())) {
+
+            throw new AccessDeniedException(
+                    "You do not have permission to modify this company."
+            );
+
+        }
+
+    }
+
     private void validateDuplicate(
             CreateCompanyRequest request
     ) {

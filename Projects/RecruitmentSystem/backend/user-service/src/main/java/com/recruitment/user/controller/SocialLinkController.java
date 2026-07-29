@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class SocialLinkController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<SocialLinkResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateSocialLinkRequest body,
@@ -66,6 +68,7 @@ public class SocialLinkController {
     }
 
     @PutMapping("/{socialLinkId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<SocialLinkResponse> update(
             @PathVariable UUID socialLinkId,
             @Valid @RequestBody UpdateSocialLinkRequest body,
@@ -81,6 +84,7 @@ public class SocialLinkController {
     }
 
     @DeleteMapping("/{socialLinkId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID socialLinkId,
             HttpServletRequest request

@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class JobController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(summary = "Create new job")
     public ApiResponse<JobResponse> create(
 
@@ -43,6 +45,7 @@ public class JobController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(summary = "Update job")
     public ApiResponse<JobResponse> update(
 
@@ -59,8 +62,10 @@ public class JobController {
                 jobService.update(id, request)
         );
     }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(summary = "Delete job")
     public ApiResponse<Void> delete(
 
@@ -100,6 +105,7 @@ public class JobController {
                 jobService.getAll(pageable)
         );
     }
+
     @GetMapping("/search")
     @Operation(summary = "Search jobs by keyword")
     public ApiResponse<PageResponse<JobSummaryResponse>> search(

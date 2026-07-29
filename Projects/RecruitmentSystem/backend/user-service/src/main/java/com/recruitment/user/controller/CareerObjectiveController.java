@@ -7,6 +7,7 @@ import com.recruitment.user.service.CareerObjectiveService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class CareerObjectiveController {
     }
 
     @PutMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<CareerObjectiveResponse> upsert(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateCareerObjectiveRequest body,
@@ -48,6 +50,7 @@ public class CareerObjectiveController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID userId,
             HttpServletRequest request

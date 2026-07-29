@@ -69,6 +69,8 @@ public class ProfileAssetService {
          ProfileAssetKind kind
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   if (file == null || file.isEmpty()) {
@@ -195,6 +197,8 @@ public class ProfileAssetService {
                   new ResourceNotFoundException(
                           "Asset not found"
                   ));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   storageService.delete(
           entity.getStorageKey()

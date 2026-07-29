@@ -46,6 +46,7 @@ public class SecurityConfig {
 
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/companies/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(
                         jwtAuthenticationFilter,

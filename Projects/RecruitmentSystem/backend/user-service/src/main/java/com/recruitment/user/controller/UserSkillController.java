@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class UserSkillController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<SkillResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateSkillRequest body,
@@ -66,6 +68,7 @@ public class UserSkillController {
     }
 
     @PutMapping("/{userSkillId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<SkillResponse> update(
             @PathVariable UUID userSkillId,
             @Valid @RequestBody UpdateSkillRequest body,
@@ -81,6 +84,7 @@ public class UserSkillController {
     }
 
     @DeleteMapping("/{userSkillId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID userSkillId,
             HttpServletRequest request

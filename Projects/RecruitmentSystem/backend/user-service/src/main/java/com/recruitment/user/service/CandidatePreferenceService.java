@@ -49,6 +49,8 @@ public class CandidatePreferenceService {
             CreateCandidatePreferenceRequest request
     ) {
 
+        profileService.assertProfileOwner(userId);
+
         Profile profile = profileService.getByUserId(userId);
 
         validateSalary(
@@ -81,6 +83,8 @@ public class CandidatePreferenceService {
             UpdateCandidatePreferenceRequest request
     ) {
 
+        profileService.assertProfileOwner(userId);
+
         Profile profile = profileService.getByUserId(userId);
 
         CandidatePreference entity = repository
@@ -111,6 +115,8 @@ public class CandidatePreferenceService {
     public void delete(
             UUID userId
     ) {
+
+        profileService.assertProfileOwner(userId);
 
         Profile profile = profileService.getByUserId(userId);
 

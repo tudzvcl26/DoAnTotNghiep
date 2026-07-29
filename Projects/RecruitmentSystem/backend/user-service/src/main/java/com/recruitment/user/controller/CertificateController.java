@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class CertificateController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<CertificateResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateCertificateRequest body,
@@ -66,6 +68,7 @@ public class CertificateController {
     }
 
     @PutMapping("/{certificateId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<CertificateResponse> update(
             @PathVariable UUID certificateId,
             @Valid @RequestBody UpdateCertificateRequest body,
@@ -81,6 +84,7 @@ public class CertificateController {
     }
 
     @DeleteMapping("/{certificateId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID certificateId,
             HttpServletRequest request

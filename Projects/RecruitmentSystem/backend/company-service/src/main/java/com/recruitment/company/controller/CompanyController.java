@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +31,7 @@ public class CompanyController {
     private final CompanyService companyService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(
             summary = "Create company",
             description = "Create a new company."
@@ -52,6 +54,7 @@ public class CompanyController {
     }
 
     @PutMapping("/{companyId}")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(
             summary = "Update company",
             description = "Update company information."
@@ -162,6 +165,7 @@ public class CompanyController {
     }
 
     @DeleteMapping("/{companyId}")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(
             summary = "Delete company",
             description = "Soft delete a company."

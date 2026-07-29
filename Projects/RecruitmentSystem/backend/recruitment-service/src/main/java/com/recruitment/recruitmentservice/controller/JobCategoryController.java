@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -43,6 +44,7 @@ public class JobCategoryController {
 
     @Operation(summary = "Create a new job category")
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<JobCategoryResponse> create(
             @Valid @RequestBody CreateJobCategoryRequest request
     ) {
@@ -55,6 +57,7 @@ public class JobCategoryController {
 
     @Operation(summary = "Update a job category")
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<JobCategoryResponse> update(
             @Parameter(description = "Job Category ID")
             @PathVariable UUID id,
@@ -69,6 +72,7 @@ public class JobCategoryController {
 
     @Operation(summary = "Delete a job category")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Void> delete(
             @Parameter(description = "Job Category ID")
             @PathVariable UUID id

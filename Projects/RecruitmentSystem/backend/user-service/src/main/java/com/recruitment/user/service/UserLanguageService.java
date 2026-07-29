@@ -82,6 +82,8 @@ public class UserLanguageService {
          CreateLanguageRequest request
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   String languageCode = normalizeCode(
@@ -134,6 +136,8 @@ public class UserLanguageService {
                           "Language not found"
                   ));
 
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
+
   if (request.getLanguageCode() != null &&
           !request.getLanguageCode().isBlank()) {
 
@@ -175,6 +179,8 @@ public class UserLanguageService {
                   new ResourceNotFoundException(
                           "Language not found"
                   ));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   entity.setDeletedAt(LocalDateTime.now());
 

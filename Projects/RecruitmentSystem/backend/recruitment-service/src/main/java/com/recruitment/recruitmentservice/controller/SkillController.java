@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,6 +33,7 @@ public class SkillController {
     private final SkillService skillService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new skill")
     public ApiResponse<SkillResponse> create(
 
@@ -48,6 +50,7 @@ public class SkillController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update a skill")
     public ApiResponse<SkillResponse> update(
 
@@ -67,6 +70,7 @@ public class SkillController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a skill")
     public ApiResponse<Void> delete(
 
@@ -82,6 +86,7 @@ public class SkillController {
                 null
         );
     }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get skill by id")
     public ApiResponse<SkillResponse> getById(
@@ -169,6 +174,7 @@ public class SkillController {
                 )
         );
     }
+
     private Pageable buildPageable(
             int page,
             int size,

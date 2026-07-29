@@ -65,6 +65,7 @@ public class CertificateService {
             UUID userId,
             CreateCertificateRequest request
     ) {
+        profileService.assertProfileOwner(userId);
 
         Profile profile = profileService.getByUserId(userId);
 
@@ -110,6 +111,8 @@ public class CertificateService {
                                 "Certificate not found"
                         ));
 
+        profileService.assertProfileOwner(entity.getProfile().getUserId());
+
         validateDate(
                 request.getIssueDate(),
                 request.getExpiryDate()
@@ -138,6 +141,8 @@ public class CertificateService {
                         new ResourceNotFoundException(
                                 "Certificate not found"
                         ));
+
+        profileService.assertProfileOwner(entity.getProfile().getUserId());
 
         entity.setDeletedAt(LocalDateTime.now());
 

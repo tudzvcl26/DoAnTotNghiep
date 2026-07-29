@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class ExperienceController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ExperienceResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateExperienceRequest body,
@@ -66,6 +68,7 @@ public class ExperienceController {
     }
 
     @PutMapping("/{experienceId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ExperienceResponse> update(
             @PathVariable UUID experienceId,
             @Valid @RequestBody UpdateExperienceRequest body,
@@ -81,6 +84,7 @@ public class ExperienceController {
     }
 
     @DeleteMapping("/{experienceId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID experienceId,
             HttpServletRequest request

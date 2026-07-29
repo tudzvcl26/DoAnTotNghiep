@@ -59,6 +59,8 @@ public class EducationService {
          CreateEducationRequest request
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   // Business Validation
@@ -100,6 +102,8 @@ public class EducationService {
           .orElseThrow(() ->
                   new ResourceNotFoundException("Education not found"));
 
+  profileService.assertProfileOwner(education.getProfile().getUserId());
+
   // Business Validation
   validateDate(request.getStartDate(), request.getEndDate());
 
@@ -119,6 +123,8 @@ public class EducationService {
           .findByIdAndDeletedAtIsNull(educationId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Education not found"));
+
+  profileService.assertProfileOwner(education.getProfile().getUserId());
 
   education.setDeletedAt(LocalDateTime.now());
 

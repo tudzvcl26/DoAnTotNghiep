@@ -46,6 +46,12 @@ public class SecurityConfig {
 
                                 "/actuator/health/**"
                         ).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/v1/jobs/**",
+                                "/api/v1/job-categories/**",
+                                "/api/v1/skills/**",
+                                "/api/v1/benefits/**"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(
                         jwtAuthenticationFilter,

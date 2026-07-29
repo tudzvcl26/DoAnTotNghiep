@@ -12,6 +12,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +29,7 @@ public class ProfileAssetController {
             value = "/upload",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ProfileAssetResponse> upload(
             @PathVariable UUID userId,
             @RequestParam("file") MultipartFile file,
@@ -114,6 +116,7 @@ public class ProfileAssetController {
     }
 
     @DeleteMapping("/{assetId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID assetId,
             HttpServletRequest request

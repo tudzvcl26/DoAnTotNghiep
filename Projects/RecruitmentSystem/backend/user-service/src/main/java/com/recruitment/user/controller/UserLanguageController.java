@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class UserLanguageController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<LanguageResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateLanguageRequest body,
@@ -66,6 +68,7 @@ public class UserLanguageController {
     }
 
     @PutMapping("/{userLanguageId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<LanguageResponse> update(
             @PathVariable UUID userLanguageId,
             @Valid @RequestBody UpdateLanguageRequest body,
@@ -81,6 +84,7 @@ public class UserLanguageController {
     }
 
     @DeleteMapping("/{userLanguageId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID userLanguageId,
             HttpServletRequest request

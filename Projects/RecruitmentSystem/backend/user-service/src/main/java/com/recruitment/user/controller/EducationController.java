@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -49,6 +50,7 @@ public class EducationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<EducationResponse> create(
             @PathVariable UUID userId,
             @Valid @RequestBody CreateEducationRequest body,
@@ -63,6 +65,7 @@ public class EducationController {
     }
 
     @PutMapping("/{educationId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<EducationResponse> update(
             @PathVariable UUID educationId,
             @Valid @RequestBody UpdateEducationRequest body,
@@ -77,6 +80,7 @@ public class EducationController {
     }
 
     @DeleteMapping("/{educationId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> delete(
             @PathVariable UUID educationId,
             HttpServletRequest request

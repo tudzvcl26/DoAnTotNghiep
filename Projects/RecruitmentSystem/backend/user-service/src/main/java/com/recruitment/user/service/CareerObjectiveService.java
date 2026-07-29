@@ -29,6 +29,8 @@ public class CareerObjectiveService {
          UpdateCareerObjectiveRequest request
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   CareerObjective entity = repository
@@ -70,6 +72,8 @@ public class CareerObjectiveService {
  public void delete(
          UUID userId
  ) {
+
+  profileService.assertProfileOwner(userId);
 
   Profile profile = profileService.getByUserId(userId);
 

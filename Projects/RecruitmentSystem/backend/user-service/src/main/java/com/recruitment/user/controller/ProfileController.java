@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -57,6 +58,7 @@ public class ProfileController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     public ApiResponse<Page<ProfileResponse>> searchProfiles(
             Pageable pageable,
             HttpServletRequest request
@@ -71,6 +73,7 @@ public class ProfileController {
     }
 
     @PutMapping("/me")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ProfileResponse> updateProfile(
             @Valid @RequestBody UpdateProfileRequest body,
             HttpServletRequest request
@@ -88,6 +91,7 @@ public class ProfileController {
     }
 
     @DeleteMapping("/me")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Void> deleteProfile(
             HttpServletRequest request
     ) {
