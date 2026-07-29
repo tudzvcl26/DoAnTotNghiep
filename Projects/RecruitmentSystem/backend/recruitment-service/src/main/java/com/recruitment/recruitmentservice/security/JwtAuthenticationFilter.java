@@ -5,8 +5,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -16,9 +19,12 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
     protected void doFilterInternal(
@@ -42,7 +48,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (!jwtService.validateToken(token)) {
 
-                filterChain.doFilter(request, response);
+                SecurityContextHolder.clearContext();
+                authenticationEntryPoint.commence(
+                        request,
+                        response,
+                        new InsufficientAuthenticationException("Invalid JWT")
+                );
                 return;
 
             }
@@ -66,7 +77,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             JwtAuthenticationToken authentication =
                     new JwtAuthenticationToken(
                             currentUser,
-                            token
+                            token,
+                            currentUser.getRoles().stream()
+                                    .map(this::toGrantedAuthority)
+                                    .toList()
                     );
 
             SecurityContextHolder
@@ -75,12 +89,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception ex) {
 
+            log.warn(
+                    "JWT authentication failed: {}",
+                    ex.getClass().getSimpleName()
+            );
+
             SecurityContextHolder.clearContext();
+
+            authenticationEntryPoint.commence(
+                    request,
+                    response,
+                    new InsufficientAuthenticationException("Invalid JWT", ex)
+            );
+
+            return;
 
         }
 
         filterChain.doFilter(request, response);
 
+    }
+
+    private SimpleGrantedAuthority toGrantedAuthority(String role) {
+
+        String authority = role.startsWith("ROLE_")
+                ? role
+                : "ROLE_" + role;
+
+        return new SimpleGrantedAuthority(authority);
     }
 
 }

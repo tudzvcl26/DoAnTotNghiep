@@ -1,0 +1,21 @@
+spring:
+
+  datasource:
+    url: jdbc:h2:mem:recruitment_service;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  flyway:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+    properties:
+      hibernate:
+        default_schema: PUBLIC
+
+jwt:
+  secret: dGVzdC1qd3Qtc2VjcmV0LWZvci1yZWNydWl0bWVudC1zZXJ2aWNlLTIwMjY=

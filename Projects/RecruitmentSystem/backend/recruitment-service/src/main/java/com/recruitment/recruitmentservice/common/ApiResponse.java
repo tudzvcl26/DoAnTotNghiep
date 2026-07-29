@@ -39,6 +39,17 @@ public class ApiResponse<T> {
 
     }
 
+    public static ApiResponse<Void> success() {
+
+        return ApiResponse.<Void>builder()
+                .success(true)
+                .code("SUCCESS")
+                .message("Request successful.")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+    }
+
     public static <T> ApiResponse<T> success(
             String message,
             T data

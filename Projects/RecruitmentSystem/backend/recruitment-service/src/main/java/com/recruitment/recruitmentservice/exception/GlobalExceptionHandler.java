@@ -1,9 +1,11 @@
 package com.recruitment.recruitmentservice.exception;
 
+import com.recruitment.recruitmentservice.common.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -34,19 +36,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessException(
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(
             BusinessException ex,
             HttpServletRequest request
     ) {
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.builder()
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .timestamp(LocalDateTime.now())
-                        .build());
+        ErrorCode errorCode = ex.getErrorCode();
+
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ApiResponse.error(
+                        errorCode.getCode(),
+                        errorCode.getMessage(),
+                        request.getRequestURI()
+                ));
 
     }
 
@@ -109,19 +111,34 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(
+    public ResponseEntity<ApiResponse<Void>> handleException(
             Exception ex,
             HttpServletRequest request
     ) {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.builder()
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                        .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .timestamp(LocalDateTime.now())
-                        .build());
+                .body(ApiResponse.error(
+                        ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+                        ErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
+                        request.getRequestURI()
+                ));
+
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+
+        return ResponseEntity.status(
+                        ErrorCode.DATA_INTEGRITY_VIOLATION.getStatus()
+                )
+                .body(ApiResponse.error(
+                        ErrorCode.DATA_INTEGRITY_VIOLATION.getCode(),
+                        ErrorCode.DATA_INTEGRITY_VIOLATION.getMessage(),
+                        request.getRequestURI()
+                ));
 
     }
 

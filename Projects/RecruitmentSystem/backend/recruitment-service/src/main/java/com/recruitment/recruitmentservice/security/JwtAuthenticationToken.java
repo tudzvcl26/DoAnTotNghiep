@@ -1,6 +1,9 @@
 package com.recruitment.recruitmentservice.security;
 
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+
+import java.util.Collection;
 
 public class JwtAuthenticationToken extends AbstractAuthenticationToken {
 
@@ -10,10 +13,11 @@ public class JwtAuthenticationToken extends AbstractAuthenticationToken {
 
     public JwtAuthenticationToken(
             CurrentUser principal,
-            String token
+            String token,
+            Collection<? extends GrantedAuthority> authorities
     ) {
 
-        super(null);
+        super(authorities);
 
         this.principal = principal;
         this.token = token;
