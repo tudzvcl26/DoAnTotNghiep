@@ -15,6 +15,10 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    private static final String TOKEN_TYPE_CLAIM = "token_type";
+
+    private static final String ACCESS_TOKEN_TYPE = "access";
+
     private final JwtProperties jwtProperties;
 
     public JwtService(JwtProperties jwtProperties) {
@@ -99,9 +103,11 @@ public class JwtService {
 
         try {
 
-            extractAllClaims(token);
+            Claims claims = extractAllClaims(token);
 
-            return true;
+            return ACCESS_TOKEN_TYPE.equals(
+                    claims.get(TOKEN_TYPE_CLAIM, String.class)
+            );
 
         } catch (JwtException | IllegalArgumentException ex) {
 

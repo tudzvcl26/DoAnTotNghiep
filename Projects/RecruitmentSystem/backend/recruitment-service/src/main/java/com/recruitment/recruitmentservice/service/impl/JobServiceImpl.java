@@ -9,6 +9,7 @@ import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.Job;
 import com.recruitment.recruitmentservice.entity.JobCategory;
+import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.exception.BusinessException;
 import com.recruitment.recruitmentservice.exception.ErrorCode;
 import com.recruitment.recruitmentservice.mapper.JobMapper;
@@ -23,6 +24,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -81,6 +84,10 @@ public class JobServiceImpl implements JobService {
 
         assertJobOwner(job);
 
+        if (!Objects.equals(job.getCompanyId(), request.getCompanyId())) {
+            assertCompanyOwner(request.getCompanyId());
+        }
+
         if (jobRepository.existsByJobCodeAndIdNot(
                 request.getJobCode(),
                 id
@@ -108,6 +115,47 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    public JobResponse publish(UUID id) {
+
+        Job job = findActiveJob(id);
+
+        assertJobOwner(job);
+
+        if (job.getStatus() == JobStatus.PUBLISHED) {
+            throw new BusinessException(ErrorCode.JOB_ALREADY_PUBLISHED);
+        }
+
+        if (job.getStatus() != JobStatus.DRAFT) {
+            throw new BusinessException(ErrorCode.INVALID_JOB_STATUS);
+        }
+
+        job.setStatus(JobStatus.PUBLISHED);
+        job.setPublishedAt(LocalDateTime.now());
+
+        return jobMapper.toResponse(jobRepository.save(job));
+    }
+
+    @Override
+    public JobResponse close(UUID id) {
+
+        Job job = findActiveJob(id);
+
+        assertJobOwner(job);
+
+        if (job.getStatus() == JobStatus.CLOSED) {
+            throw new BusinessException(ErrorCode.JOB_ALREADY_CLOSED);
+        }
+
+        if (job.getStatus() != JobStatus.PUBLISHED) {
+            throw new BusinessException(ErrorCode.INVALID_JOB_STATUS);
+        }
+
+        job.setStatus(JobStatus.CLOSED);
+
+        return jobMapper.toResponse(jobRepository.save(job));
+    }
+
+    @Override
     public void delete(UUID id) {
 
         Job job = jobRepository.findByIdAndActiveTrue(id)
@@ -129,7 +177,9 @@ public class JobServiceImpl implements JobService {
     @Transactional(readOnly = true)
     public JobResponse getById(UUID id) {
 
-        Job job = jobRepository.findByIdAndActiveTrue(id)
+        Job job = (isCurrentUserAdmin()
+                ? jobRepository.findByIdAndActiveTrue(id)
+                : jobRepository.findByIdAndActiveTrueAndStatus(id, JobStatus.PUBLISHED))
                 .orElseThrow(() ->
                         new BusinessException(
                                 ErrorCode.JOB_NOT_FOUND
@@ -146,7 +196,9 @@ public class JobServiceImpl implements JobService {
     ) {
 
         return PageResponse.from(
-                jobRepository.findByActiveTrue(pageable),
+                isCurrentUserAdmin()
+                        ? jobRepository.findByActiveTrue(pageable)
+                        : jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
                 jobMapper::toSummaryResponse
         );
     }
@@ -160,18 +212,43 @@ public class JobServiceImpl implements JobService {
 
         if (keyword == null || keyword.isBlank()) {
             return PageResponse.from(
-                    jobRepository.findByActiveTrue(pageable),
+                    isCurrentUserAdmin()
+                            ? jobRepository.findByActiveTrue(pageable)
+                            : jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
                     jobMapper::toSummaryResponse
             );
         }
 
         return PageResponse.from(
-                jobRepository.findByActiveTrueAndTitleContainingIgnoreCase(
-                        keyword.trim(),
-                        pageable
-                ),
+                isCurrentUserAdmin()
+                        ? jobRepository.findByActiveTrueAndTitleContainingIgnoreCase(
+                                keyword.trim(),
+                                pageable
+                        )
+                        : jobRepository.findByActiveTrueAndStatusAndTitleContainingIgnoreCase(
+                                JobStatus.PUBLISHED,
+                                keyword.trim(),
+                                pageable
+                        ),
                 jobMapper::toSummaryResponse
         );
+    }
+
+    private Job findActiveJob(UUID id) {
+
+        return jobRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.JOB_NOT_FOUND
+                        )
+                );
+    }
+
+    private boolean isCurrentUserAdmin() {
+
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+
+        return currentUser != null && currentUser.isAdmin();
     }
 
     private void assertCompanyOwner(UUID companyId) {

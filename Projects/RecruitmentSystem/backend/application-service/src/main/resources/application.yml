@@ -1,0 +1,81 @@
+spring:
+
+  application:
+    name: application-service
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/recruitment_db}
+    username: ${DB_USERNAME:recruitment_app}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    show-sql: true
+
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        default_schema: application_service
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    create-schemas: true
+    schemas: application_service
+    default-schema: application_service
+    table: application_service_flyway_schema_history
+    locations: classpath:db/migration
+
+server:
+  port: 8085
+
+services:
+  user-service:
+    url: ${USER_SERVICE_URL:http://localhost:8082}
+  company-service:
+    url: ${COMPANY_SERVICE_URL:http://localhost:8083}
+  recruitment-service:
+    url: ${RECRUITMENT_SERVICE_URL:http://localhost:8084}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 3600000
+  refresh-token-expiration: 604800000
+
+springdoc:
+
+  api-docs:
+    path: /v3/api-docs
+
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+logging:
+
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+management:
+
+  endpoints:
+
+    web:
+
+      exposure:
+        include: health
+
+  endpoint:
+    health:
+      show-details: never

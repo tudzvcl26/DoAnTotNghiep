@@ -16,10 +16,17 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
+
+    private static final String TOKEN_TYPE_CLAIM = "token_type";
+
+    private static final String ACCESS_TOKEN_TYPE = "access";
+
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
 
     private final JwtProperties jwtProperties;
 
@@ -46,8 +53,12 @@ public class JwtService {
             UserDetails userDetails
     ) {
 
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+
+        claims.put(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE);
+
         return buildToken(
-                extraClaims,
+                claims,
                 userDetails,
                 jwtProperties.getAccessTokenExpiration()
         );
@@ -57,7 +68,10 @@ public class JwtService {
     public String generateRefreshToken(UserDetails userDetails) {
 
         return buildToken(
-                Map.of(),
+                Map.of(
+                        "jti", UUID.randomUUID().toString(),
+                        TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE
+                ),
                 userDetails,
                 jwtProperties.getRefreshTokenExpiration()
         );
@@ -216,9 +230,11 @@ public class JwtService {
 
         try {
 
-            extractAllClaims(token);
+            Claims claims = extractAllClaims(token);
 
-            return true;
+            return ACCESS_TOKEN_TYPE.equals(
+                    claims.get(TOKEN_TYPE_CLAIM, String.class)
+            );
 
         } catch (JwtException | IllegalArgumentException ex) {
 

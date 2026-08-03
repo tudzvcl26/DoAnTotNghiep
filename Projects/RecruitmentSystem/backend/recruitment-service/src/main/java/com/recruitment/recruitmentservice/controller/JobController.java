@@ -63,6 +63,36 @@ public class JobController {
         );
     }
 
+    @PatchMapping("/{id}/publish")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Publish job")
+    public ApiResponse<JobResponse> publish(
+
+            @Parameter(description = "Job ID")
+            @PathVariable
+            UUID id
+    ) {
+
+        return ApiResponse.success(
+                jobService.publish(id)
+        );
+    }
+
+    @PatchMapping("/{id}/close")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Close job")
+    public ApiResponse<JobResponse> close(
+
+            @Parameter(description = "Job ID")
+            @PathVariable
+            UUID id
+    ) {
+
+        return ApiResponse.success(
+                jobService.close(id)
+        );
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")

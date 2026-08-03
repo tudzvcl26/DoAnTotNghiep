@@ -18,6 +18,10 @@ public interface JobService {
             UpdateJobRequest request
     );
 
+    JobResponse publish(UUID id);
+
+    JobResponse close(UUID id);
+
     void delete(UUID id);
 
     JobResponse getById(UUID id);

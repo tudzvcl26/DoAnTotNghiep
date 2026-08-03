@@ -62,6 +62,7 @@ public class JobAuthorizationIntegrationTest {
                 .claim("userId", userId.toString())
                 .claim("email", email)
                 .claim("roles", roles)
+                .claim("token_type", "access")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 3600000))
                 .signWith(key)
@@ -178,6 +179,15 @@ public class JobAuthorizationIntegrationTest {
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk());
 
+        // The current owner cannot reassign a job to a company owned by another employer.
+        updateReq.setCompanyId(company2Id);
+        mockMvc.perform(put("/api/v1/jobs/" + createdJobId)
+                        .header("Authorization", "Bearer " + employer1Token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateReq)))
+                .andExpect(status().isForbidden());
+        updateReq.setCompanyId(company1Id);
+
         // 7. EMPLOYER 2 attempts to update EMPLOYER 1's job -> 403 Forbidden (Cross-Service IDOR Protection)
         mockMvc.perform(put("/api/v1/jobs/" + createdJobId)
                         .header("Authorization", "Bearer " + employer2Token)
@@ -207,5 +217,95 @@ public class JobAuthorizationIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-}
+    @Test
+    @DisplayName("Job lifecycle enforces ownership, legal transitions, and published-only public visibility")
+    void testJobLifecycle() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID otherEmployerId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        UUID companyId = UUID.randomUUID();
 
+        given(companyClient.getCompanyById(companyId))
+                .willReturn(Optional.of(new CompanyClientDto(companyId, ownerId)));
+
+        String ownerToken = generateToken(ownerId, "lifecycle-owner@test.com", List.of("EMPLOYER"));
+        String otherEmployerToken = generateToken(otherEmployerId, "lifecycle-other@test.com", List.of("EMPLOYER"));
+        String adminToken = generateToken(adminId, "lifecycle-admin@test.com", List.of("ADMIN"));
+        String candidateToken = generateToken(candidateId, "lifecycle-candidate@test.com", List.of("CANDIDATE"));
+
+        CreateJobRequest request = new CreateJobRequest();
+        request.setTitle("Lifecycle Java Developer");
+        request.setJobCode("LIFECYCLE_" + System.currentTimeMillis());
+        request.setEmploymentType(EmploymentType.FULL_TIME);
+        request.setExperienceLevel(ExperienceLevel.JUNIOR);
+        request.setCompanyId(companyId);
+        request.setCategoryId(testCategory.getId());
+
+        String createdJobJson = mockMvc.perform(post("/api/v1/jobs")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andReturn().getResponse().getContentAsString();
+
+        UUID jobId = UUID.fromString(
+                objectMapper.readTree(createdJobJson).get("data").get("id").asText()
+        );
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DRAFT"));
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/publish")
+                        .header("Authorization", "Bearer " + otherEmployerToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/publish")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.publishedAt").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/publish")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("JOB_003"));
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/close")
+                        .header("Authorization", "Bearer " + otherEmployerToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/close")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+
+        mockMvc.perform(patch("/api/v1/jobs/" + jobId + "/close")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("JOB_004"));
+    }
+
+}

@@ -1,0 +1,183 @@
+spring:
+  application:
+    name: ai-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/recruitment_db}
+    username: ${DB_USERNAME:recruitment_app}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    show-sql: ${JPA_SHOW_SQL:false}
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: ai_service
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    create-schemas: true
+    schemas: ai_service
+    default-schema: ai_service
+    table: ai_service_flyway_schema_history
+    locations: classpath:db/migration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:recruitment_app}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:recruitment}
+    connection-timeout: ${RABBITMQ_CONNECTION_TIMEOUT:5s}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_TIMEOUT:2s}
+      repositories:
+        enabled: false
+  servlet:
+    multipart:
+      max-file-size: ${AI_RESUME_MAX_FILE_SIZE:10MB}
+      max-request-size: ${AI_RESUME_MAX_REQUEST_SIZE:11MB}
+
+server:
+  port: ${AI_SERVICE_PORT:8087}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
+
+ai:
+  clients:
+    recruitment-service-url: ${RECRUITMENT_SERVICE_URL:http://localhost:8084}
+    company-service-url: ${COMPANY_SERVICE_URL:http://localhost:8083}
+    connect-timeout: ${AI_CLIENT_CONNECT_TIMEOUT:3s}
+    read-timeout: ${AI_CLIENT_READ_TIMEOUT:10s}
+  matching:
+    rule-version: ${AI_MATCHING_RULE_VERSION:rules-v1}
+    weights-version: ${AI_MATCHING_WEIGHTS_VERSION:weights-v1}
+    weights:
+      technical-skills: ${AI_MATCHING_WEIGHT_TECHNICAL_SKILLS:40}
+      experience: ${AI_MATCHING_WEIGHT_EXPERIENCE:20}
+      education: ${AI_MATCHING_WEIGHT_EDUCATION:10}
+      projects: ${AI_MATCHING_WEIGHT_PROJECTS:10}
+      certificates: ${AI_MATCHING_WEIGHT_CERTIFICATES:5}
+      languages: ${AI_MATCHING_WEIGHT_LANGUAGES:5}
+      soft-skills: ${AI_MATCHING_WEIGHT_SOFT_SKILLS:5}
+      keywords: ${AI_MATCHING_WEIGHT_KEYWORDS:5}
+    technical-skill-catalog:
+      - Java
+      - Spring Boot
+      - Spring Security
+      - Hibernate
+      - JPA
+      - PostgreSQL
+      - MySQL
+      - MongoDB
+      - Redis
+      - RabbitMQ
+      - Kafka
+      - Docker
+      - Kubernetes
+      - AWS
+      - Azure
+      - Git
+      - Maven
+      - Gradle
+      - Microservices
+      - REST
+      - GraphQL
+      - JavaScript
+      - TypeScript
+      - React
+      - Angular
+      - Vue
+      - Node.js
+      - Python
+      - C#
+      - .NET
+      - Go
+    soft-skill-catalog:
+      - Communication
+      - Teamwork
+      - Leadership
+      - Problem solving
+      - Time management
+      - Adaptability
+      - Critical thinking
+    language-catalog:
+      - English
+      - Vietnamese
+      - French
+      - German
+      - Japanese
+      - Korean
+      - Chinese
+  resume:
+    max-file-size: ${AI_RESUME_MAX_FILE_SIZE:10MB}
+    max-extracted-characters: ${AI_RESUME_MAX_EXTRACTED_CHARACTERS:200000}
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:recruitment-admin}
+    secret-key: ${MINIO_SECRET_KEY:RecruitmentDev_Minio_2026!}
+    bucket: ${AI_MINIO_BUCKET:recruitment-ai}
+    auto-create-bucket: ${AI_MINIO_AUTO_CREATE_BUCKET:true}
+    initialize-on-startup: ${AI_MINIO_INITIALIZE_ON_STARTUP:true}
+  messaging:
+    initialize-topology: ${AI_AMQP_INITIALIZE_TOPOLOGY:true}
+    inbound-exchange: ${AI_AMQP_INBOUND_EXCHANGE:recruitment.events}
+    outbound-exchange: ${AI_AMQP_OUTBOUND_EXCHANGE:ai.events}
+    queue: ${AI_AMQP_QUEUE:ai-service.events}
+    dead-letter-exchange: ${AI_AMQP_DLX:ai.dlx}
+    dead-letter-queue: ${AI_AMQP_DLQ:ai-service.events.dlq}
+  providers:
+    openai:
+      enabled: ${OPENAI_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      api-key-required: ${OPENAI_API_KEY_REQUIRED:true}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      structured-model: ${OPENAI_STRUCTURED_MODEL:}
+      embedding-model: ${OPENAI_EMBEDDING_MODEL:}
+      connect-timeout: ${OPENAI_CONNECT_TIMEOUT:5s}
+      read-timeout: ${OPENAI_READ_TIMEOUT:60s}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: AI Service
+    description: RecruitmentSystem resume analysis, deterministic recommendation, explanation, interview preparation, and structured assistant service
+    phase: complete
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+  level:
+    root: INFO
+    com.recruitment.ai: INFO

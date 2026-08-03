@@ -1,0 +1,14 @@
+package com.recruitment.notification.entity.enums;
+
+public enum NotificationEventType {
+    APPLICATION_SUBMITTED,
+    APPLICATION_WITHDRAWN,
+    APPLICATION_STATUS_CHANGED,
+    JOB_APPROVED,
+    JOB_REJECTED,
+    COMPANY_VERIFIED,
+    COMPANY_REJECTED,
+    PASSWORD_CHANGED,
+    WELCOME,
+    SYSTEM_ANNOUNCEMENT
+}

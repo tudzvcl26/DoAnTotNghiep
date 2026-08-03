@@ -1,0 +1,37 @@
+package com.recruitment.application.dto.response;
+
+import com.recruitment.application.entity.enums.ApplicationStatus;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Getter
+@Setter
+public class ApplicationSummaryResponse {
+
+    private UUID id;
+
+    private UUID candidateId;
+
+    private UUID companyId;
+
+    private UUID jobId;
+
+    private ApplicationStatus status;
+
+    private BigDecimal matchingScore;
+
+    private String matchingVersion;
+
+    private LocalDateTime appliedAt;
+
+    private Boolean active;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+}

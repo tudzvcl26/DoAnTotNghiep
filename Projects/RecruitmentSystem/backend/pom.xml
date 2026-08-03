@@ -26,6 +26,9 @@
         <module>user-service</module>
         <module>company-service</module>
         <module>recruitment-service</module>
+        <module>application-service</module>
+        <module>notification-service</module>
+        <module>ai-service</module>
     </modules>
 
     <properties>
