@@ -5,6 +5,8 @@ import com.recruitment.ai.entity.enums.ResumeFileType;
 import com.recruitment.ai.exception.BusinessException;
 import com.recruitment.ai.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,9 +20,12 @@ import java.util.zip.ZipInputStream;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class ResumeFileValidator {
 
     private static final long ABSOLUTE_MAX_BYTES = 10L * 1024 * 1024;
+    private static final int PDF_HEADER_SEARCH_LIMIT = 1_024;
+    private static final String OCTET_STREAM = "application/octet-stream";
 
     private final ResumePipelineProperties properties;
 
@@ -40,6 +45,10 @@ public class ResumeFileValidator {
                 throw new BusinessException(ErrorCode.RESUME_FILE_TOO_LARGE);
             }
             String filename = safeFilename(file.getOriginalFilename());
+            String extension = extension(filename);
+            log.info("Resume upload received fieldName={} originalFilename={} contentType={} size={} extension={}",
+                    safeLogValue(file.getName()), safeLogValue(file.getOriginalFilename()),
+                    safeLogValue(file.getContentType()), file.getSize(), extension);
             ResumeFileType type = detect(filename, file.getContentType(), bytes);
             return new ValidatedResumeFile(
                     filename,
@@ -61,10 +70,10 @@ public class ResumeFileValidator {
 
     private ResumeFileType detect(String filename, String suppliedContentType, byte[] bytes) {
         String lowerName = filename.toLowerCase(Locale.ROOT);
-        String normalizedType = suppliedContentType == null ? "" : suppliedContentType.toLowerCase(Locale.ROOT);
+        String normalizedType = normalizeContentType(suppliedContentType);
         for (ResumeFileType type : ResumeFileType.values()) {
             if (lowerName.endsWith(type.extension())
-                    && (normalizedType.isBlank() || normalizedType.equals(type.contentType()))
+                    && contentTypeMatches(type, normalizedType)
                     && signatureMatches(type, bytes)) {
                 return type;
             }
@@ -74,11 +83,49 @@ public class ResumeFileValidator {
 
     private boolean signatureMatches(ResumeFileType type, byte[] bytes) {
         return switch (type) {
-            case PDF -> bytes.length >= 5
-                    && new String(bytes, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-");
+            case PDF -> isPdf(bytes);
             case DOCX -> isDocxPackage(bytes);
             case TXT -> isText(bytes);
         };
+    }
+
+    private boolean contentTypeMatches(ResumeFileType type, String suppliedContentType) {
+        return suppliedContentType.isBlank()
+                || suppliedContentType.equals(type.contentType())
+                || suppliedContentType.equals(OCTET_STREAM);
+    }
+
+    private String normalizeContentType(String suppliedContentType) {
+        if (suppliedContentType == null) {
+            return "";
+        }
+        String normalized = suppliedContentType.strip().toLowerCase(Locale.ROOT);
+        int parameters = normalized.indexOf(';');
+        return parameters < 0 ? normalized : normalized.substring(0, parameters).strip();
+    }
+
+    private boolean isPdf(byte[] bytes) {
+        byte[] signature = "%PDF-".getBytes(StandardCharsets.US_ASCII);
+        int lastStart = Math.min(bytes.length - signature.length, PDF_HEADER_SEARCH_LIMIT);
+        boolean headerFound = false;
+        for (int offset = 0; offset <= lastStart && !headerFound; offset++) {
+            boolean matches = true;
+            for (int index = 0; index < signature.length; index++) {
+                if (bytes[offset + index] != signature[index]) {
+                    matches = false;
+                    break;
+                }
+            }
+            headerFound = matches;
+        }
+        if (!headerFound) {
+            return false;
+        }
+        try (var ignored = Loader.loadPDF(bytes)) {
+            return true;
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     private boolean isDocxPackage(byte[] bytes) {
@@ -129,5 +176,14 @@ public class ResumeFileValidator {
         }
         basename = basename.replaceAll("[\\p{Cntrl}]", "_");
         return basename.length() <= 255 ? basename : basename.substring(basename.length() - 255);
+    }
+
+    private String extension(String filename) {
+        int separator = filename.lastIndexOf('.');
+        return separator < 0 ? "" : filename.substring(separator).toLowerCase(Locale.ROOT);
+    }
+
+    private String safeLogValue(String value) {
+        return value == null ? "" : value.replaceAll("[\\p{Cntrl}]", "_");
     }
 }

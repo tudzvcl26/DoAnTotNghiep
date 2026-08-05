@@ -266,10 +266,24 @@ class MatchingIntegrationTest {
                         .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/ai/recommendations/candidates/{id}", candidateRecommendationId)
                         .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ai/recommendations/jobs")
+                        .param("resumeId", resumeId.toString())
+                        .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ai/recommendations/candidates")
+                        .param("jobId", jobId.toString())
+                        .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/ai/assistant/candidate")
+                        .contentType("application/json")
+                        .content("{\"task\":\"RESUME_IMPROVEMENT\",\"resumeId\":\"" + resumeId + "\"}")
+                        .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/ai/assistant/recruiter")
+                        .contentType("application/json")
+                        .content("{\"task\":\"SUMMARIZE_JOB\",\"jobId\":\"" + jobId + "\"}")
+                        .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
         assertThat(jobRecommendationRepository.count()).isEqualTo(1);
         assertThat(candidateRecommendationRepository.count()).isEqualTo(1);
-        assertThat(assistantSessionRepository.count()).isEqualTo(2);
-        assertThat(assistantResponseRepository.count()).isEqualTo(2);
+        assertThat(assistantSessionRepository.count()).isEqualTo(4);
+        assertThat(assistantResponseRepository.count()).isEqualTo(4);
     }
 
     @Test
@@ -376,6 +390,12 @@ class MatchingIntegrationTest {
                         .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/ai/matching/{id}/interview", matchId)
                         .header("Authorization", "Bearer " + admin)).andExpect(status().isOk());
+
+        String adminWithBusinessRoles = token(UUID.randomUUID(), "multi-role-admin@example.com",
+                List.of("ADMIN", "CANDIDATE", "EMPLOYER"));
+        mockMvc.perform(post("/api/v1/ai/matching/jobs/{jobId}/resumes/{resumeId}", jobId, resumeId)
+                        .header("Authorization", "Bearer " + adminWithBusinessRoles))
+                .andExpect(status().isOk());
     }
 
     @Test

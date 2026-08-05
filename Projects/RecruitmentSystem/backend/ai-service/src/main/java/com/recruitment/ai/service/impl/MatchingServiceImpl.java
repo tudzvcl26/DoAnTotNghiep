@@ -68,7 +68,8 @@ public class MatchingServiceImpl implements MatchingService {
         ResumeAnalysisResult analysis = analysisRepository.findByResumeDocumentId(resumeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MATCH_RESUME_NOT_ANALYZED));
         ResumeDocument document = analysis.getResumeDocument();
-        if (user.hasRole("CANDIDATE") && !document.getOwnerUserId().equals(user.getUserId())) {
+        if (!user.isAdmin() && user.hasRole("CANDIDATE")
+                && !document.getOwnerUserId().equals(user.getUserId())) {
             throw new BusinessException(ErrorCode.RESUME_NOT_FOUND);
         }
 
@@ -76,7 +77,8 @@ public class MatchingServiceImpl implements MatchingService {
         if (!job.active() || !"PUBLISHED".equalsIgnoreCase(job.status())) {
             throw new BusinessException(ErrorCode.MATCH_JOB_NOT_PUBLISHED);
         }
-        if (user.hasRole("EMPLOYER") && !job.companyOwnerId().equals(user.getUserId())) {
+        if (!user.isAdmin() && user.hasRole("EMPLOYER")
+                && !job.companyOwnerId().equals(user.getUserId())) {
             throw new AccessDeniedException("You do not own this job.");
         }
 

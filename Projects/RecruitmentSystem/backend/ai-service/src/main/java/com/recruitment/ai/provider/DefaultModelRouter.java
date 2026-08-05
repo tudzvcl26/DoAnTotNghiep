@@ -1,5 +1,6 @@
 package com.recruitment.ai.provider;
 
+import com.recruitment.ai.config.AiProviderProperties;
 import com.recruitment.ai.provider.embedding.EmbeddingProvider;
 import com.recruitment.ai.provider.llm.StructuredGenerationProvider;
 import lombok.RequiredArgsConstructor;
@@ -10,13 +11,17 @@ import org.springframework.stereotype.Component;
 public class DefaultModelRouter implements ModelRouter {
 
     private final NoOpAiProvider noOpAiProvider;
+    private final AiProviderProperties providerProperties;
     private final OpenAiStructuredGenerationProvider openAiStructuredGenerationProvider;
+    private final OllamaStructuredGenerationProvider ollamaStructuredGenerationProvider;
 
     @Override
     public StructuredGenerationProvider structuredGenerationProvider() {
-        return openAiStructuredGenerationProvider.descriptor().available()
-                ? openAiStructuredGenerationProvider
-                : noOpAiProvider;
+        StructuredGenerationProvider selected = switch (providerProperties.getType()) {
+            case OPENAI -> openAiStructuredGenerationProvider;
+            case OLLAMA -> ollamaStructuredGenerationProvider;
+        };
+        return selected.descriptor().available() ? selected : noOpAiProvider;
     }
 
     @Override

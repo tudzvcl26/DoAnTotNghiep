@@ -1,17 +1,23 @@
 spring:
 
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:../../.env[.properties]
+
   application:
     name: company-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/recruitment_db}
-    username: ${DB_USERNAME:recruitment_app}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     open-in-view: false
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL}
 
     hibernate:
       ddl-auto: validate
@@ -21,7 +27,7 @@ spring:
         default_schema: company_service
         format_sql: true
         jdbc:
-          time_zone: Asia/Ho_Chi_Minh
+          time_zone: ${JPA_TIME_ZONE}
 
   flyway:
     enabled: true
@@ -33,12 +39,12 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8083
+  port: ${COMPANY_SERVICE_PORT}
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-expiration: 3600000
-  refresh-token-expiration: 604800000
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
 
 springdoc:
 

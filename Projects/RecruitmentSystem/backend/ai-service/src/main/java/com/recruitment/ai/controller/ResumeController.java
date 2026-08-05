@@ -33,7 +33,7 @@ public class ResumeController {
     private final ResumeService resumeService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('CANDIDATE')")
+    @PreAuthorize("hasAnyRole('ADMIN','CANDIDATE')")
     @Operation(summary = "Upload and extract a candidate resume")
     public ApiResponse<ResumeDocumentResponse> upload(
             @Parameter(description = "PDF, DOCX, or UTF-8 TXT resume; maximum 10 MB")

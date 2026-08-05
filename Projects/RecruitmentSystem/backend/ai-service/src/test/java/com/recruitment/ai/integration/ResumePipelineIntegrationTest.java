@@ -212,6 +212,9 @@ class ResumePipelineIntegrationTest {
         String employer = token(UUID.randomUUID(), "employer@example.com", List.of("EMPLOYER"));
         String admin = token(UUID.randomUUID(), "admin@example.com", List.of("ADMIN"));
 
+        mockMvc.perform(multipart("/api/v1/ai/resumes/upload").file(textResume()))
+                .andExpect(status().isUnauthorized());
+
         mockMvc.perform(get("/api/v1/ai/resumes/{id}", resumeId)
                         .header("Authorization", "Bearer " + otherCandidate))
                 .andExpect(status().isNotFound())
@@ -225,6 +228,14 @@ class ResumePipelineIntegrationTest {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ownerUserId").value(ownerId.toString()));
+
+        UUID adminResumeId = upload(admin);
+        mockMvc.perform(post("/api/v1/ai/resumes/{id}/analyze", adminResumeId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/ai/resumes/{id}", adminResumeId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
 
         MockMultipartFile employerFile = textResume();
         mockMvc.perform(multipart("/api/v1/ai/resumes/upload").file(employerFile)

@@ -2,12 +2,14 @@ package com.recruitment.ai.observability;
 
 import com.recruitment.ai.storage.AiStorageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.stereotype.Component;
 
 @Component("aiMinio")
 @RequiredArgsConstructor
+@ConditionalOnEnabledHealthIndicator("ai-minio")
 public class MinioHealthIndicator implements HealthIndicator {
 
     private final AiStorageService storageService;

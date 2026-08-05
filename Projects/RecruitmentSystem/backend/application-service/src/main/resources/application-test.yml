@@ -18,6 +18,8 @@ spring:
       hibernate:
         default_schema: application_service
         format_sql: true
+        jdbc:
+          time_zone: UTC
 
   jackson:
     serialization:

@@ -1,14 +1,19 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:../../.env[.properties]
   application:
     name: ai-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/recruitment_db}
-    username: ${DB_USERNAME:recruitment_app}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
-    show-sql: ${JPA_SHOW_SQL:false}
+    show-sql: ${JPA_SHOW_SQL}
     hibernate:
       ddl-auto: validate
     properties:
@@ -16,7 +21,7 @@ spring:
         default_schema: ai_service
         format_sql: true
         jdbc:
-          time_zone: Asia/Ho_Chi_Minh
+          time_zone: ${JPA_TIME_ZONE}
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -26,53 +31,55 @@ spring:
     table: ai_service_flyway_schema_history
     locations: classpath:db/migration
   rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:recruitment_app}
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
-    virtual-host: ${RABBITMQ_VHOST:recruitment}
-    connection-timeout: ${RABBITMQ_CONNECTION_TIMEOUT:5s}
+    virtual-host: ${RABBITMQ_VHOST}
+    connection-timeout: ${RABBITMQ_CONNECTION_TIMEOUT}
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
-      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
-      timeout: ${REDIS_TIMEOUT:2s}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT}
+      timeout: ${REDIS_TIMEOUT}
       repositories:
         enabled: false
   servlet:
     multipart:
-      max-file-size: ${AI_RESUME_MAX_FILE_SIZE:10MB}
-      max-request-size: ${AI_RESUME_MAX_REQUEST_SIZE:11MB}
+      max-file-size: ${AI_RESUME_MAX_FILE_SIZE}
+      max-request-size: ${AI_RESUME_MAX_REQUEST_SIZE}
 
 server:
-  port: ${AI_SERVICE_PORT:8087}
+  port: ${AI_SERVICE_PORT}
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
-  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
 
 ai:
+  provider:
+    type: ${AI_PROVIDER_TYPE}
   clients:
-    recruitment-service-url: ${RECRUITMENT_SERVICE_URL:http://localhost:8084}
-    company-service-url: ${COMPANY_SERVICE_URL:http://localhost:8083}
-    connect-timeout: ${AI_CLIENT_CONNECT_TIMEOUT:3s}
-    read-timeout: ${AI_CLIENT_READ_TIMEOUT:10s}
+    recruitment-service-url: ${RECRUITMENT_SERVICE_URL}
+    company-service-url: ${COMPANY_SERVICE_URL}
+    connect-timeout: ${AI_CLIENT_CONNECT_TIMEOUT}
+    read-timeout: ${AI_CLIENT_READ_TIMEOUT}
   matching:
-    rule-version: ${AI_MATCHING_RULE_VERSION:rules-v1}
-    weights-version: ${AI_MATCHING_WEIGHTS_VERSION:weights-v1}
+    rule-version: ${AI_MATCHING_RULE_VERSION}
+    weights-version: ${AI_MATCHING_WEIGHTS_VERSION}
     weights:
-      technical-skills: ${AI_MATCHING_WEIGHT_TECHNICAL_SKILLS:40}
-      experience: ${AI_MATCHING_WEIGHT_EXPERIENCE:20}
-      education: ${AI_MATCHING_WEIGHT_EDUCATION:10}
-      projects: ${AI_MATCHING_WEIGHT_PROJECTS:10}
-      certificates: ${AI_MATCHING_WEIGHT_CERTIFICATES:5}
-      languages: ${AI_MATCHING_WEIGHT_LANGUAGES:5}
-      soft-skills: ${AI_MATCHING_WEIGHT_SOFT_SKILLS:5}
-      keywords: ${AI_MATCHING_WEIGHT_KEYWORDS:5}
+      technical-skills: ${AI_MATCHING_WEIGHT_TECHNICAL_SKILLS}
+      experience: ${AI_MATCHING_WEIGHT_EXPERIENCE}
+      education: ${AI_MATCHING_WEIGHT_EDUCATION}
+      projects: ${AI_MATCHING_WEIGHT_PROJECTS}
+      certificates: ${AI_MATCHING_WEIGHT_CERTIFICATES}
+      languages: ${AI_MATCHING_WEIGHT_LANGUAGES}
+      soft-skills: ${AI_MATCHING_WEIGHT_SOFT_SKILLS}
+      keywords: ${AI_MATCHING_WEIGHT_KEYWORDS}
     technical-skill-catalog:
       - Java
       - Spring Boot
@@ -122,32 +129,39 @@ ai:
       - Korean
       - Chinese
   resume:
-    max-file-size: ${AI_RESUME_MAX_FILE_SIZE:10MB}
-    max-extracted-characters: ${AI_RESUME_MAX_EXTRACTED_CHARACTERS:200000}
+    max-file-size: ${AI_RESUME_MAX_FILE_SIZE}
+    max-extracted-characters: ${AI_RESUME_MAX_EXTRACTED_CHARACTERS}
   storage:
-    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ACCESS_KEY:recruitment-admin}
-    secret-key: ${MINIO_SECRET_KEY:RecruitmentDev_Minio_2026!}
-    bucket: ${AI_MINIO_BUCKET:recruitment-ai}
-    auto-create-bucket: ${AI_MINIO_AUTO_CREATE_BUCKET:true}
-    initialize-on-startup: ${AI_MINIO_INITIALIZE_ON_STARTUP:true}
+    endpoint: ${MINIO_ENDPOINT}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${AI_MINIO_BUCKET}
+    auto-create-bucket: ${AI_MINIO_AUTO_CREATE_BUCKET}
+    initialize-on-startup: ${AI_MINIO_INITIALIZE_ON_STARTUP}
   messaging:
-    initialize-topology: ${AI_AMQP_INITIALIZE_TOPOLOGY:true}
-    inbound-exchange: ${AI_AMQP_INBOUND_EXCHANGE:recruitment.events}
-    outbound-exchange: ${AI_AMQP_OUTBOUND_EXCHANGE:ai.events}
-    queue: ${AI_AMQP_QUEUE:ai-service.events}
-    dead-letter-exchange: ${AI_AMQP_DLX:ai.dlx}
-    dead-letter-queue: ${AI_AMQP_DLQ:ai-service.events.dlq}
+    initialize-topology: ${AI_AMQP_INITIALIZE_TOPOLOGY}
+    inbound-exchange: ${AI_AMQP_INBOUND_EXCHANGE}
+    outbound-exchange: ${AI_AMQP_OUTBOUND_EXCHANGE}
+    queue: ${AI_AMQP_QUEUE}
+    dead-letter-exchange: ${AI_AMQP_DLX}
+    dead-letter-queue: ${AI_AMQP_DLQ}
   providers:
+    ollama:
+      enabled: ${OLLAMA_ENABLED}
+      base-url: ${OLLAMA_BASE_URL}
+      model: ${OLLAMA_MODEL}
+      temperature: ${OLLAMA_TEMPERATURE}
+      top-p: ${OLLAMA_TOP_P}
+      timeout: ${OLLAMA_TIMEOUT}
     openai:
-      enabled: ${OPENAI_ENABLED:false}
-      api-key: ${OPENAI_API_KEY:}
-      api-key-required: ${OPENAI_API_KEY_REQUIRED:true}
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
-      structured-model: ${OPENAI_STRUCTURED_MODEL:}
-      embedding-model: ${OPENAI_EMBEDDING_MODEL:}
-      connect-timeout: ${OPENAI_CONNECT_TIMEOUT:5s}
-      read-timeout: ${OPENAI_READ_TIMEOUT:60s}
+      enabled: ${OPENAI_ENABLED}
+      api-key: ${OPENAI_API_KEY}
+      api-key-required: ${OPENAI_API_KEY_REQUIRED}
+      base-url: ${OPENAI_BASE_URL}
+      structured-model: ${OPENAI_STRUCTURED_MODEL}
+      embedding-model: ${OPENAI_EMBEDDING_MODEL}
+      connect-timeout: ${OPENAI_CONNECT_TIMEOUT}
+      read-timeout: ${OPENAI_READ_TIMEOUT}
 
 springdoc:
   api-docs:

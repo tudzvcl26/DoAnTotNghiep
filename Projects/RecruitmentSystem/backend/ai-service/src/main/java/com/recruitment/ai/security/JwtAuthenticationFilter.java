@@ -26,6 +26,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.equals("/")
+                || path.equals("/error")
+                || path.equals("/favicon.ico")
+                || path.equals("/api/v1/health")
+                || path.equals("/actuator/info")
+                || path.equals("/actuator/health")
+                || path.startsWith("/actuator/health/")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.equals("/v3/api-docs")
+                || path.startsWith("/v3/api-docs/");
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

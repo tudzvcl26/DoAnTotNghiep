@@ -1,17 +1,23 @@
 spring:
 
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:../../.env[.properties]
+
   application:
     name: application-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/recruitment_db}
-    username: ${DB_USERNAME:recruitment_app}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     open-in-view: false
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL}
 
     hibernate:
       ddl-auto: validate
@@ -21,7 +27,7 @@ spring:
         default_schema: application_service
         format_sql: true
         jdbc:
-          time_zone: Asia/Ho_Chi_Minh
+          time_zone: ${JPA_TIME_ZONE}
 
   flyway:
     enabled: true
@@ -33,20 +39,20 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8085
+  port: ${APPLICATION_SERVICE_PORT}
 
 services:
   user-service:
-    url: ${USER_SERVICE_URL:http://localhost:8082}
+    url: ${USER_SERVICE_URL}
   company-service:
-    url: ${COMPANY_SERVICE_URL:http://localhost:8083}
+    url: ${COMPANY_SERVICE_URL}
   recruitment-service:
-    url: ${RECRUITMENT_SERVICE_URL:http://localhost:8084}
+    url: ${RECRUITMENT_SERVICE_URL}
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-expiration: 3600000
-  refresh-token-expiration: 604800000
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
 
 springdoc:
 

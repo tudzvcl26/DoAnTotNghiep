@@ -50,6 +50,11 @@ class AiFoundationAuthorizationIntegrationTest {
                 .andExpect(jsonPath("$.data.phase").value("COMPLETE"))
                 .andExpect(jsonPath("$.data.aiProviderAvailable").value(false));
 
+        mockMvc.perform(get("/api/v1/health")
+                        .header("Authorization", "Bearer stale-or-invalid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("UP"));
+
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.info.title").value("AI Service API"));
@@ -64,6 +69,7 @@ class AiFoundationAuthorizationIntegrationTest {
         String ownerToken = token(ownerId, "owner@test.com", List.of("CANDIDATE"), "access");
         String otherToken = token(otherUserId, "other@test.com", List.of("CANDIDATE"), "access");
         String adminToken = token(adminId, "admin@test.com", List.of("ADMIN"), "access");
+        String employerToken = token(UUID.randomUUID(), "employer@test.com", List.of("EMPLOYER"), "access");
         String refreshToken = token(ownerId, "owner@test.com", List.of("CANDIDATE"), "refresh");
 
         AiTask task = new AiTask();
@@ -100,9 +106,17 @@ class AiFoundationAuthorizationIntegrationTest {
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/ai/providers")
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/ai/providers"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/ai/providers")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.phase").value("COMPLETE"))
+                .andExpect(jsonPath("$.data.provider").value("OPENAI"))
                 .andExpect(jsonPath("$.data.openAiConfigured").value(false))
                 .andExpect(jsonPath("$.data.structuredGeneration.implementation").value("NO_OP"));
     }
