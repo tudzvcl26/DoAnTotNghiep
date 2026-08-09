@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: api-gateway
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:../../.env[.properties]
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:3000}
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT_MS:120000}ms
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+
+gateway:
+  services:
+    auth: ${AUTH_SERVICE_URL:http://localhost:8081}
+    user: ${USER_SERVICE_URL:http://localhost:8082}
+    company: ${COMPANY_SERVICE_URL:http://localhost:8083}
+    recruitment: ${RECRUITMENT_SERVICE_URL:http://localhost:8084}
+    application: ${APPLICATION_SERVICE_URL:http://localhost:8085}
+    notification: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+    ai: ${AI_SERVICE_URL:http://localhost:8087}
+  jwt:
+    secret: ${JWT_SECRET}
+  cors:
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.recruitment.gateway: INFO
