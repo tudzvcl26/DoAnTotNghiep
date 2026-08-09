@@ -144,8 +144,8 @@ public class ResumeServiceImpl implements ResumeService {
         CurrentUser user = authenticatedUser();
         return PageResponse.from(
                 user.isAdmin()
-                        ? documentRepository.findAll(pageable)
-                        : documentRepository.findByOwnerUserId(user.getUserId(), pageable),
+                        ? documentRepository.findAllByDeletedAtIsNull(pageable)
+                        : documentRepository.findByOwnerUserIdAndDeletedAtIsNull(user.getUserId(), pageable),
                 this::toDocumentResponse
         );
     }
@@ -216,8 +216,10 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     public void delete(UUID resumeId) {
         ResumeDocument document = ownedDocument(resumeId);
-        storageService.delete(document.getObjectKey());
-        transaction().executeWithoutResult(status -> documentRepository.deleteById(document.getId()));
+        transaction().executeWithoutResult(status -> {
+            document.setDeletedAt(LocalDateTime.now());
+            documentRepository.save(document);
+        });
         log.info("Resume deleted resumeId={} owner={} correlationId={}",
                 document.getId(), document.getOwnerUserId(), correlationId());
     }
@@ -367,9 +369,9 @@ public class ResumeServiceImpl implements ResumeService {
     private ResumeDocument ownedDocument(UUID resumeId) {
         CurrentUser user = authenticatedUser();
         return user.isAdmin()
-                ? documentRepository.findById(resumeId)
+                ? documentRepository.findByIdAndDeletedAtIsNull(resumeId)
                         .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND))
-                : documentRepository.findByIdAndOwnerUserId(resumeId, user.getUserId())
+                : documentRepository.findByIdAndOwnerUserIdAndDeletedAtIsNull(resumeId, user.getUserId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
     }
 

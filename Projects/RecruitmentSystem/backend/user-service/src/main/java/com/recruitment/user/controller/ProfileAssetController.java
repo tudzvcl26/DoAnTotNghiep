@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/v1/users/{userId}/assets")
@@ -100,17 +101,19 @@ public class ProfileAssetController {
             @PathVariable UUID assetId
     ) {
 
+        ProfileAssetResponse asset = profileAssetService.getById(assetId);
         byte[] data = profileAssetService.download(assetId);
 
         return ResponseEntity.ok()
+                .header("X-Content-Type-Options", "nosniff")
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()
-                                .filename(assetId.toString())
+                                .filename(asset.getOriginalFilename(), StandardCharsets.UTF_8)
                                 .build()
                                 .toString()
                 )
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentType(MediaType.parseMediaType(asset.getContentType()))
                 .body(data);
 
     }

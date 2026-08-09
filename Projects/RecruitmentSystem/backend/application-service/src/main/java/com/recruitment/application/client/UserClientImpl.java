@@ -2,7 +2,6 @@ package com.recruitment.application.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -10,7 +9,6 @@ import org.springframework.web.client.RestClient;
 import java.util.Optional;
 import java.util.UUID;
 
-@Slf4j
 @Component
 public class UserClientImpl implements UserClient {
 
@@ -19,17 +17,17 @@ public class UserClientImpl implements UserClient {
 
     public UserClientImpl(
             @Value("${services.user-service.url:http://localhost:8082}") String userServiceUrl,
+            @Value("${services.user-service.connect-timeout-ms}") int connectTimeoutMs,
+            @Value("${services.user-service.read-timeout-ms}") int readTimeoutMs,
             ObjectMapper objectMapper
     ) {
-        this.restClient = RestClient.builder()
-                .baseUrl(userServiceUrl)
-                .build();
+        this.restClient = RestClientFactory.create(userServiceUrl, connectTimeoutMs, readTimeoutMs);
         this.objectMapper = objectMapper;
     }
 
     @Override
     public Optional<UserClientDto> getCandidateProfile(UUID candidateId, String bearerToken) {
-        try {
+        return DownstreamClientSupport.execute(() -> {
             RestClient.RequestHeadersSpec<?> spec = restClient.get().uri("/api/v1/profiles/me");
 
             if (bearerToken != null && !bearerToken.isBlank()) {
@@ -39,14 +37,14 @@ public class UserClientImpl implements UserClient {
             String responseStr = spec.retrieve().body(String.class);
 
             if (responseStr == null || responseStr.isBlank()) {
-                return Optional.empty();
+                return null;
             }
 
             JsonNode root = objectMapper.readTree(responseStr);
             JsonNode data = root.has("data") ? root.get("data") : root;
 
             if (data == null || data.isNull()) {
-                return Optional.empty();
+                return null;
             }
 
             UserClientDto dto = UserClientDto.builder()
@@ -60,11 +58,50 @@ public class UserClientImpl implements UserClient {
                     .rawJsonData(data.toString())
                     .build();
 
-            return Optional.of(dto);
-        } catch (Exception e) {
-            log.error("Failed to retrieve candidate profile for candidateId {}: {}", candidateId, e.getMessage());
-            return Optional.empty();
-        }
+            return dto;
+        });
+    }
+
+    @Override
+    public Optional<ResumeClientDto> getCurrentResume(UUID candidateId, String bearerToken) {
+        return DownstreamClientSupport.execute(() -> {
+            RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                    .uri("/api/v1/users/{candidateId}/resumes/current", candidateId);
+
+            if (bearerToken != null && !bearerToken.isBlank()) {
+                spec.header("Authorization", bearerToken.startsWith("Bearer ") ? bearerToken : "Bearer " + bearerToken);
+            }
+
+            String responseStr = spec.retrieve().body(String.class);
+            if (responseStr == null || responseStr.isBlank()) {
+                return null;
+            }
+
+            JsonNode root = objectMapper.readTree(responseStr);
+            JsonNode data = root.has("data") ? root.get("data") : root;
+            if (data == null || data.isNull()) {
+                return null;
+            }
+
+            return ResumeClientDto.builder()
+                    .id(uuid(data, "id"))
+                    .storageKey(text(data, "storageKey"))
+                    .originalFilename(text(data, "originalFilename"))
+                    .contentType(text(data, "contentType"))
+                    .sizeBytes(data.hasNonNull("sizeBytes") ? data.get("sizeBytes").asLong() : null)
+                    .checksum(text(data, "checksum"))
+                    .assetVersion(data.hasNonNull("assetVersion") ? data.get("assetVersion").asLong() : null)
+                    .rawJsonData(data.toString())
+                    .build();
+        });
+    }
+
+    private UUID uuid(JsonNode node, String field) {
+        return node.hasNonNull(field) ? UUID.fromString(node.get(field).asText()) : null;
+    }
+
+    private String text(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.get(field).asText() : null;
     }
 
 }

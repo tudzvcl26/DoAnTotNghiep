@@ -57,6 +57,8 @@ public class UserSkillService {
          Pageable pageable
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   return userSkillRepository
@@ -79,6 +81,8 @@ public class UserSkillService {
                   new ResourceNotFoundException(
                           "Skill not found"
                   ));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   return mapper.toResponse(entity);
 

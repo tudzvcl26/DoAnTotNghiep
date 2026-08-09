@@ -14,6 +14,7 @@ import java.util.UUID;
 public class NotificationEventEnvelope {
 
     private UUID eventId;
+    private Integer eventVersion;
     private NotificationEventType eventType;
     private String sourceService;
     private LocalDateTime occurredAt;

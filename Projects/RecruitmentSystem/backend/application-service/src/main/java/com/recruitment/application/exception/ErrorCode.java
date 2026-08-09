@@ -108,6 +108,48 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST,
             "APP_009",
             "Application cannot be withdrawn in its current status."
+    ),
+
+    CURRENT_RESUME_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "APP_010",
+            "An active current resume is required before applying."
+    ),
+
+    DOWNSTREAM_BAD_REQUEST(
+            HttpStatus.BAD_REQUEST,
+            "DEP_400",
+            "A downstream service rejected the request."
+    ),
+
+    DOWNSTREAM_UNAUTHORIZED(
+            HttpStatus.UNAUTHORIZED,
+            "DEP_401",
+            "Downstream authentication failed."
+    ),
+
+    DOWNSTREAM_FORBIDDEN(
+            HttpStatus.FORBIDDEN,
+            "DEP_403",
+            "Downstream access was denied."
+    ),
+
+    DOWNSTREAM_INVALID_RESPONSE(
+            HttpStatus.BAD_GATEWAY,
+            "DEP_502",
+            "A downstream service returned an invalid response."
+    ),
+
+    DOWNSTREAM_UNAVAILABLE(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "DEP_503",
+            "A required downstream service is unavailable."
+    ),
+
+    DOWNSTREAM_TIMEOUT(
+            HttpStatus.GATEWAY_TIMEOUT,
+            "DEP_504",
+            "A downstream service timed out."
     );
 
     private final HttpStatus status;

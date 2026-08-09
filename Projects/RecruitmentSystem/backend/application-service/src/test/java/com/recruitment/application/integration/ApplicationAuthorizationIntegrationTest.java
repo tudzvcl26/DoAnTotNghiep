@@ -7,6 +7,7 @@ import com.recruitment.application.client.JobClient;
 import com.recruitment.application.client.JobClientDto;
 import com.recruitment.application.client.UserClient;
 import com.recruitment.application.client.UserClientDto;
+import com.recruitment.application.client.ResumeClientDto;
 import com.recruitment.application.dto.request.ApplyJobRequest;
 import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.entity.enums.ApplicationStatus;
@@ -36,6 +37,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @SpringBootTest(properties = "spring.flyway.enabled=false")
 @AutoConfigureMockMvc
@@ -111,6 +113,17 @@ public class ApplicationAuthorizationIntegrationTest {
                 .rawJsonData("{\"userId\":\"" + candidateUserId + "\",\"displayName\":\"John Candidate\"}")
                 .build();
         given(userClient.getCandidateProfile(eq(candidateUserId), any())).willReturn(Optional.of(userDto));
+        ResumeClientDto resumeDto = ResumeClientDto.builder()
+                .id(UUID.randomUUID())
+                .storageKey(candidateUserId + "/resume/current.pdf")
+                .originalFilename("resume.pdf")
+                .contentType("application/pdf")
+                .sizeBytes(1024L)
+                .checksum("sha256-test")
+                .assetVersion(1L)
+                .rawJsonData("{\"id\":\"resume-v1\",\"assetVersion\":1,\"storageKey\":\"immutable-v1.pdf\"}")
+                .build();
+        given(userClient.getCurrentResume(eq(candidateUserId), any())).willReturn(Optional.of(resumeDto));
 
         // Mock CompanyClient
         given(companyClient.getCompanyById(company1Id))
@@ -134,6 +147,7 @@ public class ApplicationAuthorizationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(applyReq)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.resumeSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("immutable-v1.pdf")))
                 .andReturn().getResponse().getContentAsString();
 
         com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseContent);
@@ -172,11 +186,19 @@ public class ApplicationAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + employer2Token))
                 .andExpect(status().isForbidden());
 
-        // 9. Employer 1 updates status to INTERVIEW -> 200 OK
+        // 9. Employer 1 advances through the explicit APPLIED -> SCREENING -> INTERVIEW path
         UpdateApplicationStatusRequest updateStatusReq = new UpdateApplicationStatusRequest();
+        updateStatusReq.setStatus(ApplicationStatus.SCREENING);
+        updateStatusReq.setReasonCode("SCREENING_STARTED");
+
+        mockMvc.perform(patch("/api/v1/applications/" + applicationId + "/status")
+                        .header("Authorization", "Bearer " + employerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateStatusReq)))
+                .andExpect(status().isOk());
+
         updateStatusReq.setStatus(ApplicationStatus.INTERVIEW);
         updateStatusReq.setReasonCode("INTERVIEW_SCHEDULED");
-
         mockMvc.perform(patch("/api/v1/applications/" + applicationId + "/status")
                         .header("Authorization", "Bearer " + employerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -195,6 +217,31 @@ public class ApplicationAuthorizationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateStatusReq)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Applying without a current resume fails with a stable 4xx code")
+    void applyingWithoutCurrentResumeFails() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        UUID companyId = UUID.randomUUID();
+        String token = generateToken(candidateId, "no-resume@test.com", List.of("CANDIDATE"));
+        given(jobClient.getJobById(jobId)).willReturn(Optional.of(JobClientDto.builder()
+                .id(jobId).companyId(companyId).status("PUBLISHED").rawJsonData("{}").build()));
+        given(companyClient.getCompanyById(companyId)).willReturn(Optional.of(
+                CompanyClientDto.builder().id(companyId).ownerId(UUID.randomUUID()).build()));
+        given(userClient.getCandidateProfile(eq(candidateId), any())).willReturn(Optional.of(
+                UserClientDto.builder().userId(candidateId).rawJsonData("{}").build()));
+        given(userClient.getCurrentResume(eq(candidateId), any())).willReturn(Optional.empty());
+        ApplyJobRequest request = new ApplyJobRequest();
+        request.setJobId(jobId);
+
+        mockMvc.perform(post("/api/v1/applications")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("APP_010"));
     }
 
 }

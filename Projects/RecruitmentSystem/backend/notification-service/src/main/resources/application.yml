@@ -13,7 +13,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
-    show-sql: ${JPA_SHOW_SQL}
+    show-sql: ${JPA_SHOW_SQL:false}
     hibernate:
       ddl-auto: validate
     properties:
@@ -37,6 +37,12 @@ spring:
     password: ${RABBITMQ_PASSWORD}
     virtual-host: ${RABBITMQ_VHOST}
 
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}
+    max-age-seconds: ${APP_CORS_MAX_AGE_SECONDS:3600}
+
 server:
   port: ${NOTIFICATION_SERVICE_PORT}
 
@@ -47,16 +53,18 @@ jwt:
 
 notification:
   amqp:
-    consumer-enabled: ${NOTIFICATION_AMQP_CONSUMER_ENABLED}
-    exchange: ${NOTIFICATION_AMQP_EXCHANGE}
-    queue: ${NOTIFICATION_AMQP_QUEUE}
-    dead-letter-exchange: ${NOTIFICATION_AMQP_DLX}
-    dead-letter-queue: ${NOTIFICATION_AMQP_DLQ}
+    consumer-enabled: ${NOTIFICATION_AMQP_CONSUMER_ENABLED:true}
+    exchange: ${NOTIFICATION_AMQP_EXCHANGE:recruitment.events}
+    queue: ${NOTIFICATION_AMQP_QUEUE:notification-service.events}
+    dead-letter-exchange: ${NOTIFICATION_AMQP_DLX:recruitment.dlx}
+    dead-letter-queue: ${NOTIFICATION_AMQP_DLQ:notification-service.events.dlq}
 
 springdoc:
   api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
@@ -68,4 +76,4 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: always
+      show-details: never

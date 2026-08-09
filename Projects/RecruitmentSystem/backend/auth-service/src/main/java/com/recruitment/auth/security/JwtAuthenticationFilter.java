@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -21,13 +22,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     private final CustomUserDetailsService userDetailsService;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            CustomUserDetailsService userDetailsService
+            CustomUserDetailsService userDetailsService,
+            JwtAuthenticationEntryPoint authenticationEntryPoint
     ) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.authenticationEntryPoint = authenticationEntryPoint;
     }
 
     @Override
@@ -47,15 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+        try {
+            if (!jwtService.validateToken(token)) {
+                reject(request, response, null);
+                return;
+            }
 
-        if (!jwtService.validateToken(token)) {
-
-            filterChain.doFilter(request, response);
-
-            return;
-        }
-
-        String username = jwtService.extractUsername(token);
+            String username = jwtService.extractUsername(token);
 
         if (username != null
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -85,8 +87,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+        } catch (Exception exception) {
+            reject(request, response, exception);
+        }
 
+    }
+
+    private void reject(HttpServletRequest request, HttpServletResponse response, Exception cause) throws IOException {
+        SecurityContextHolder.clearContext();
+        authenticationEntryPoint.commence(request, response,
+                cause == null
+                        ? new InsufficientAuthenticationException("Invalid JWT")
+                        : new InsufficientAuthenticationException("Invalid JWT", cause));
     }
 
 }

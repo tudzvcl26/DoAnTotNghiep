@@ -25,6 +25,9 @@ public class NotificationEventReceipt extends BaseEntity {
     @Column(name = "event_id", nullable = false, unique = true)
     private UUID eventId;
 
+    @Column(name = "event_version", nullable = false)
+    private Integer eventVersion;
+
     @Column(name = "source_service", nullable = false, length = 100)
     private String sourceService;
 

@@ -33,6 +33,8 @@ public class EducationService {
          Pageable pageable
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   return repository.findByProfileIdAndDeletedAtIsNull(
@@ -49,6 +51,8 @@ public class EducationService {
           .findByIdAndDeletedAtIsNull(educationId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Education not found"));
+
+  profileService.assertProfileOwner(education.getProfile().getUserId());
 
   return mapper.toResponse(education);
 

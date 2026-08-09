@@ -12,10 +12,16 @@ import org.springframework.stereotype.Component;
 public class NotificationEventConsumer {
 
     private final NotificationEventHandler notificationEventHandler;
+    private final NotificationFailureRecorder failureRecorder;
 
     @RabbitListener(queues = "${notification.amqp.queue}")
     public void consume(NotificationEventEnvelope event) {
-        notificationEventHandler.handle(event);
+        try {
+            notificationEventHandler.handle(event);
+        } catch (RuntimeException failure) {
+            failureRecorder.record(event, failure);
+            throw failure;
+        }
     }
 
 }

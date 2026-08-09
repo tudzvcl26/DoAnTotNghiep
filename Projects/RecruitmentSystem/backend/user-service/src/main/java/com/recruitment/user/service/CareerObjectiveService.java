@@ -56,6 +56,8 @@ public class CareerObjectiveService {
          UUID userId
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   CareerObjective entity = repository

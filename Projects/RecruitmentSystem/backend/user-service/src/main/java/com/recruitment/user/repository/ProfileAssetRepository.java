@@ -29,4 +29,21 @@ public interface ProfileAssetRepository extends JpaRepository<ProfileAsset, UUID
             ProfileAssetStatus assetStatus
     );
 
+    Page<ProfileAsset> findByProfileIdAndAssetKindAndDeletedAtIsNull(
+            UUID profileId,
+            ProfileAssetKind assetKind,
+            Pageable pageable
+    );
+
+    Optional<ProfileAsset> findByProfileIdAndAssetKindAndCurrentTrueAndAssetStatusAndDeletedAtIsNull(
+            UUID profileId,
+            ProfileAssetKind assetKind,
+            ProfileAssetStatus assetStatus
+    );
+
+    Optional<ProfileAsset> findFirstByProfileIdAndAssetKindOrderByAssetVersionDesc(
+            UUID profileId,
+            ProfileAssetKind assetKind
+    );
+
 }

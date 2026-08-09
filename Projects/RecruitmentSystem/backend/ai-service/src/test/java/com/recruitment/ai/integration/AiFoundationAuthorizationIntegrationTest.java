@@ -46,14 +46,16 @@ class AiFoundationAuthorizationIntegrationTest {
     void publicFoundationEndpointsAreAvailable() throws Exception {
         mockMvc.perform(get("/api/v1/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("UP"))
-                .andExpect(jsonPath("$.data.phase").value("COMPLETE"))
-                .andExpect(jsonPath("$.data.aiProviderAvailable").value(false));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.phase").value("COMPLETE"))
+                .andExpect(jsonPath("$.aiProviderAvailable").value(false));
 
         mockMvc.perform(get("/api/v1/health")
                         .header("Authorization", "Bearer stale-or-invalid-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("UP"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.service").value("ai-service"))
+                .andExpect(jsonPath("$.version").exists());
 
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())

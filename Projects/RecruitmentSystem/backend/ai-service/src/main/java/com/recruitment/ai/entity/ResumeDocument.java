@@ -68,6 +68,9 @@ public class ResumeDocument {
     @Column(name = "upload_time", nullable = false)
     private LocalDateTime uploadTime;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @OneToOne(mappedBy = "resumeDocument", cascade = CascadeType.ALL, orphanRemoval = true)
     private ResumeAnalysisResult analysisResult;
 

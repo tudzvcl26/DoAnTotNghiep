@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -137,9 +138,9 @@ public class GlobalExceptionHandler {
 
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
-            IllegalArgumentException ex,
+            Exception ex,
             HttpServletRequest request
     ) {
 
@@ -147,7 +148,7 @@ public class GlobalExceptionHandler {
                 .body(
                         ApiResponse.error(
                                 "BAD_REQUEST",
-                                ex.getMessage(),
+                                "Malformed or invalid request.",
                                 request.getRequestURI()
                         )
                 );

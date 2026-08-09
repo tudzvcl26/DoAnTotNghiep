@@ -2,7 +2,6 @@ package com.recruitment.application.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -12,7 +11,6 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
-@Slf4j
 @Component
 public class JobClientImpl implements JobClient {
 
@@ -21,31 +19,31 @@ public class JobClientImpl implements JobClient {
 
     public JobClientImpl(
             @Value("${services.recruitment-service.url:http://localhost:8084}") String recruitmentServiceUrl,
+            @Value("${services.recruitment-service.connect-timeout-ms}") int connectTimeoutMs,
+            @Value("${services.recruitment-service.read-timeout-ms}") int readTimeoutMs,
             ObjectMapper objectMapper
     ) {
-        this.restClient = RestClient.builder()
-                .baseUrl(recruitmentServiceUrl)
-                .build();
+        this.restClient = RestClientFactory.create(recruitmentServiceUrl, connectTimeoutMs, readTimeoutMs);
         this.objectMapper = objectMapper;
     }
 
     @Override
     public Optional<JobClientDto> getJobById(UUID jobId) {
-        try {
+        return DownstreamClientSupport.execute(() -> {
             String responseStr = restClient.get()
                     .uri("/api/v1/jobs/{jobId}", jobId)
                     .retrieve()
                     .body(String.class);
 
             if (responseStr == null || responseStr.isBlank()) {
-                return Optional.empty();
+                return null;
             }
 
             JsonNode root = objectMapper.readTree(responseStr);
             JsonNode data = root.has("data") ? root.get("data") : root;
 
             if (data == null || data.isNull()) {
-                return Optional.empty();
+                return null;
             }
 
             JobClientDto dto = JobClientDto.builder()
@@ -66,11 +64,8 @@ public class JobClientImpl implements JobClient {
                     .rawJsonData(data.toString())
                     .build();
 
-            return Optional.of(dto);
-        } catch (Exception e) {
-            log.error("Failed to retrieve job details for jobId {}: {}", jobId, e.getMessage());
-            return Optional.empty();
-        }
+            return dto;
+        });
     }
 
 }

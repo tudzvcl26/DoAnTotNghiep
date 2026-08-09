@@ -31,6 +31,8 @@ public class CandidatePreferenceService {
             UUID userId
     ) {
 
+        profileService.assertProfileOwner(userId);
+
         Profile profile = profileService.getByUserId(userId);
 
         CandidatePreference entity = repository

@@ -6,6 +6,7 @@ import com.recruitment.application.client.JobClient;
 import com.recruitment.application.client.JobClientDto;
 import com.recruitment.application.client.UserClient;
 import com.recruitment.application.client.UserClientDto;
+import com.recruitment.application.client.ResumeClientDto;
 import com.recruitment.application.common.PageResponse;
 import com.recruitment.application.dto.request.ApplyJobRequest;
 import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
@@ -31,6 +32,8 @@ import com.recruitment.application.repository.ResumeSnapshotRepository;
 import com.recruitment.application.security.CurrentUser;
 import com.recruitment.application.security.SecurityUtils;
 import com.recruitment.application.service.ApplicationService;
+import com.recruitment.application.service.ApplicationStatusTransitionPolicy;
+import com.recruitment.application.outbox.ApplicationEventOutboxService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -60,6 +63,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final JobClient jobClient;
     private final UserClient userClient;
     private final CompanyClient companyClient;
+    private final ApplicationStatusTransitionPolicy transitionPolicy;
+    private final ApplicationEventOutboxService outboxService;
 
     @Override
     public ApplicationResponse apply(ApplyJobRequest request) {
@@ -81,9 +86,13 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new BusinessException(ErrorCode.DUPLICATE_APPLICATION);
         }
 
+        UUID employerUserId = requireCompanyOwnerId(job.getCompanyId());
+
         String bearerToken = SecurityUtils.getBearerToken();
         UserClientDto userProfile = userClient.getCandidateProfile(candidateId, bearerToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_PROFILE_NOT_FOUND));
+        ResumeClientDto currentResume = userClient.getCurrentResume(candidateId, bearerToken)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CURRENT_RESUME_REQUIRED));
 
         Application application = new Application();
         application.setCandidateId(candidateId);
@@ -99,8 +108,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         ResumeSnapshot resumeSnapshot = new ResumeSnapshot();
         resumeSnapshot.setApplicationId(savedApplication.getId());
         resumeSnapshot.setCandidateId(candidateId);
-        resumeSnapshot.setSnapshotData(userProfile.getRawJsonData() != null ? userProfile.getRawJsonData() : "{}");
-        resumeSnapshot.setResumeVersion("v1.0");
+        resumeSnapshot.setSnapshotData(currentResume.getRawJsonData());
+        resumeSnapshot.setResumeVersion("v" + currentResume.getAssetVersion());
         ResumeSnapshot savedResumeSnapshot = resumeSnapshotRepository.save(resumeSnapshot);
 
         JobSnapshot jobSnapshot = new JobSnapshot();
@@ -121,6 +130,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setChangedBy(candidateId);
         history.setChangedAt(savedApplication.getAppliedAt());
         statusHistoryRepository.save(history);
+
+        outboxService.applicationSubmitted(savedApplication, employerUserId);
 
         return buildApplicationResponse(savedApplication);
     }
@@ -159,8 +170,10 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         assertCandidateOwner(application, currentUser);
 
-        if (isTerminalStatus(application.getStatus())) {
-            throw new BusinessException(ErrorCode.APPLICATION_ALREADY_TERMINAL);
+        UUID employerUserId = requireCompanyOwnerId(application.getCompanyId());
+
+        if (!transitionPolicy.canCandidateWithdraw(application.getStatus())) {
+            throw new BusinessException(ErrorCode.CANNOT_WITHDRAW_APPLICATION);
         }
 
         ApplicationStatus oldStatus = application.getStatus();
@@ -176,6 +189,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setChangedBy(currentUser.getUserId());
         history.setChangedAt(LocalDateTime.now());
         statusHistoryRepository.save(history);
+
+        outboxService.applicationWithdrawn(updatedApplication, employerUserId);
 
         return buildApplicationResponse(updatedApplication);
     }
@@ -212,12 +227,8 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         assertCompanyOwner(application.getCompanyId(), currentUser);
 
-        if (request.getStatus() == ApplicationStatus.WITHDRAWN) {
+        if (!transitionPolicy.canEmployerTransition(application.getStatus(), request.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_APPLICATION_STATUS_TRANSITION);
-        }
-
-        if (isTerminalStatus(application.getStatus())) {
-            throw new BusinessException(ErrorCode.APPLICATION_ALREADY_TERMINAL);
         }
 
         ApplicationStatus oldStatus = application.getStatus();
@@ -233,6 +244,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setChangedBy(currentUser.getUserId());
         history.setChangedAt(LocalDateTime.now());
         statusHistoryRepository.save(history);
+
+        outboxService.applicationStatusChanged(updatedApplication, oldStatus);
 
         return buildApplicationResponse(updatedApplication);
     }
@@ -273,6 +286,15 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
     }
 
+    private UUID requireCompanyOwnerId(UUID companyId) {
+        CompanyClientDto company = companyClient.getCompanyById(companyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.JOB_NOT_FOUND));
+        if (company.getOwnerId() == null) {
+            throw new BusinessException(ErrorCode.JOB_NOT_FOUND);
+        }
+        return company.getOwnerId();
+    }
+
     private void assertCanViewApplication(
             Application application,
             CurrentUser currentUser
@@ -291,12 +313,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         throw new AccessDeniedException("You do not have permission to view this application.");
-    }
-
-    private boolean isTerminalStatus(ApplicationStatus status) {
-        return status == ApplicationStatus.HIRED
-                || status == ApplicationStatus.REJECTED
-                || status == ApplicationStatus.WITHDRAWN;
     }
 
     private ApplicationResponse buildApplicationResponse(Application application) {

@@ -7,4 +7,6 @@ public interface UserClient {
 
     Optional<UserClientDto> getCandidateProfile(UUID candidateId, String bearerToken);
 
+    Optional<ResumeClientDto> getCurrentResume(UUID candidateId, String bearerToken);
+
 }

@@ -17,8 +17,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,7 +81,7 @@ public class AuthIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -124,14 +126,35 @@ public class AuthIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_008"));
     }
 
     @Test
-    @DisplayName("Task 1: Access secured endpoint without JWT -> 403 Forbidden")
+    @DisplayName("Access secured endpoint without JWT returns 401")
     void testSecuredEndpointWithoutJwt() throws Exception {
         mockMvc.perform(get("/api/v1/auth/me"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Malformed or tampered JWT returns 401")
+    void malformedJwtReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer malformed.jwt.value"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_401"));
+    }
+
+    @Test
+    @DisplayName("Configured development origin passes CORS preflight")
+    void corsPreflightPasses() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/login")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getHeader("Access-Control-Allow-Origin"))
+                        .isEqualTo("http://localhost:5173"));
     }
 
     @Test
@@ -175,4 +198,3 @@ public class AuthIntegrationTest {
     }
 
 }
-

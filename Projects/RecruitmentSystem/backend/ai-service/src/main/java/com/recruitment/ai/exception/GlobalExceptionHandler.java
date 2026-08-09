@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -51,12 +52,13 @@ public class GlobalExceptionHandler {
         return response(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.getMessage(), details, request);
     }
 
-    @ExceptionHandler({ConstraintViolationException.class, IllegalArgumentException.class})
+    @ExceptionHandler({ConstraintViolationException.class, IllegalArgumentException.class,
+            HttpMessageNotReadableException.class})
     public ResponseEntity<AiErrorResponse> handleBadRequest(
             Exception exception,
             HttpServletRequest request
     ) {
-        return response(ErrorCode.BAD_REQUEST, exception.getMessage(), null, request);
+        return response(ErrorCode.BAD_REQUEST, ErrorCode.BAD_REQUEST.getMessage(), null, request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

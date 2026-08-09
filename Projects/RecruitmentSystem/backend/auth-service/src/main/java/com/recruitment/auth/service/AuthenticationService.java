@@ -14,6 +14,7 @@ import com.recruitment.auth.repository.UserRepository;
 import com.recruitment.auth.security.CustomUserDetails;
 import com.recruitment.auth.security.JwtProperties;
 import com.recruitment.auth.security.JwtService;
+import com.recruitment.auth.security.RefreshTokenHasher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -40,6 +41,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final RefreshTokenHasher refreshTokenHasher;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -95,7 +97,7 @@ public class AuthenticationService {
     }
     public AuthResponse refreshToken(String refreshToken) {
 
-        RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshToken))
                 .orElseThrow(() ->
                         new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND)
                 );
@@ -118,7 +120,7 @@ public class AuthenticationService {
 
     public void logout(String refreshToken) {
 
-        RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(refreshTokenHasher.hash(refreshToken))
                 .orElseThrow(() ->
                         new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND)
                 );
@@ -171,7 +173,7 @@ public class AuthenticationService {
 
         RefreshToken token = RefreshToken.builder()
                 .user(user)
-                .token(refreshToken)
+                .tokenHash(refreshTokenHasher.hash(refreshToken))
                 .expiresAt(
                         LocalDateTime.now().plusSeconds(
                                 jwtProperties.getRefreshTokenExpiration() / 1000

@@ -43,7 +43,6 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -129,8 +128,8 @@ class ResumePipelineIntegrationTest {
         keywordRepository.deleteAll();
         skillRepository.deleteAll();
         analysisRepository.deleteAll();
-        taskRepository.deleteAll();
         documentRepository.deleteAll();
+        taskRepository.deleteAll();
         promptRepository.deleteAll();
         modelRepository.deleteAll();
 
@@ -200,9 +199,16 @@ class ResumePipelineIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk());
 
-        verify(storageService).delete(any());
-        org.assertj.core.api.Assertions.assertThat(documentRepository.findById(resumeId)).isEmpty();
-        org.assertj.core.api.Assertions.assertThat(analysisRepository.findByResumeDocumentId(resumeId)).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(documentRepository.findById(resumeId))
+                .get()
+                .extracting("deletedAt")
+                .isNotNull();
+        org.assertj.core.api.Assertions.assertThat(analysisRepository.count()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(analysisRepository.findByResumeDocumentId(resumeId)).isPresent();
+
+        mockMvc.perform(get("/api/v1/ai/resumes/{id}", resumeId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNotFound());
     }
 
     @Test

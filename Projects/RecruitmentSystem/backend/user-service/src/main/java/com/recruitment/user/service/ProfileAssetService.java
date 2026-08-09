@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,12 +31,15 @@ public class ProfileAssetService {
  private final ProfileService profileService;
  private final StorageService storageService;
  private final CompletionScoreService completionScoreService;
+ private final ProfileAssetFileValidator fileValidator;
 
  @Transactional(readOnly = true)
  public Page<ProfileAssetResponse> getAll(
          UUID userId,
          Pageable pageable
  ) {
+
+  profileService.assertProfileOwner(userId);
 
   Profile profile = profileService.getByUserId(userId);
 
@@ -59,6 +64,8 @@ public class ProfileAssetService {
                           "Asset not found"
                   ));
 
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
+
   return mapper.toResponse(entity);
 
  }
@@ -73,17 +80,7 @@ public class ProfileAssetService {
 
   Profile profile = profileService.getByUserId(userId);
 
-  if (file == null || file.isEmpty()) {
-   throw new IllegalArgumentException("File is required.");
-  }
-
-  if (file.getSize() > 10 * 1024 * 1024) {
-   throw new IllegalArgumentException("Maximum file size is 10MB.");
-  }
-
-  if (file.getContentType() == null || file.getContentType().isBlank()) {
-   throw new IllegalArgumentException("Content type is required.");
-  }
+  ValidatedProfileAssetFile validatedFile = fileValidator.validate(file, kind);
 
   /*
    * Mỗi profile chỉ có 1 avatar ACTIVE
@@ -105,18 +102,33 @@ public class ProfileAssetService {
 
   }
 
+  Long assetVersion = null;
+  if (kind == ProfileAssetKind.RESUME) {
+   repository.findByProfileIdAndAssetKindAndCurrentTrueAndAssetStatusAndDeletedAtIsNull(
+           profile.getId(), ProfileAssetKind.RESUME, ProfileAssetStatus.ACTIVE
+   ).ifPresent(previous -> {
+    previous.setCurrent(false);
+    repository.save(previous);
+   });
+   assetVersion = repository.findFirstByProfileIdAndAssetKindOrderByAssetVersionDesc(
+                   profile.getId(), ProfileAssetKind.RESUME
+           ).map(previous -> previous.getAssetVersion() + 1L)
+           .orElse(1L);
+  }
+
   String objectName =
           userId +
                   "/" +
                   kind.name().toLowerCase() +
                   "/" +
                   UUID.randomUUID() +
-                  "-" +
-                  file.getOriginalFilename();
+                  "." +
+                  validatedFile.extension();
 
   storageService.upload(
-          file,
-          objectName
+          validatedFile.content(),
+          objectName,
+          validatedFile.contentType()
   );
 
   ProfileAsset asset = new ProfileAsset();
@@ -127,13 +139,19 @@ public class ProfileAssetService {
 
   asset.setStorageKey(objectName);
 
-  asset.setOriginalFilename(file.getOriginalFilename());
+  asset.setOriginalFilename(validatedFile.originalFilename());
 
-  asset.setContentType(file.getContentType());
+  asset.setContentType(validatedFile.contentType());
 
-  asset.setSizeBytes(file.getSize());
+  asset.setSizeBytes((long) validatedFile.content().length);
 
   asset.setAssetStatus(ProfileAssetStatus.ACTIVE);
+
+  asset.setAssetVersion(assetVersion);
+
+  asset.setCurrent(kind == ProfileAssetKind.RESUME);
+
+  asset.setChecksum(DigestUtils.sha256Hex(validatedFile.content()));
 
   asset.setPublicUrl(
           storageService.getPresignedUrl(objectName)
@@ -148,6 +166,67 @@ public class ProfileAssetService {
  }
 
  @Transactional(readOnly = true)
+ public Page<ProfileAssetResponse> getResumes(UUID userId, Pageable pageable) {
+  profileService.assertProfileOwner(userId);
+  Profile profile = profileService.getByUserId(userId);
+  return repository.findByProfileIdAndAssetKindAndDeletedAtIsNull(
+          profile.getId(), ProfileAssetKind.RESUME, pageable
+  ).map(mapper::toResponse);
+ }
+
+ @Transactional(readOnly = true)
+ public ProfileAssetResponse getCurrentResume(UUID userId) {
+  profileService.assertProfileOwner(userId);
+  Profile profile = profileService.getByUserId(userId);
+  return mapper.toResponse(repository
+          .findByProfileIdAndAssetKindAndCurrentTrueAndAssetStatusAndDeletedAtIsNull(
+                  profile.getId(), ProfileAssetKind.RESUME, ProfileAssetStatus.ACTIVE
+          ).orElseThrow(() -> new ResourceNotFoundException("Current resume not found")));
+ }
+
+ @Transactional(readOnly = true)
+ public ProfileAssetResponse getResumeById(UUID userId, UUID assetId) {
+  profileService.assertProfileOwner(userId);
+  ProfileAsset entity = requireResume(assetId);
+  if (!entity.getProfile().getUserId().equals(userId)) {
+   throw new ResourceNotFoundException("Resume not found");
+  }
+  return mapper.toResponse(entity);
+ }
+
+ @Transactional(readOnly = true)
+ public byte[] downloadResume(UUID userId, UUID assetId) {
+  profileService.assertProfileOwner(userId);
+  ProfileAsset entity = requireResume(assetId);
+  if (!entity.getProfile().getUserId().equals(userId)) {
+   throw new ResourceNotFoundException("Resume not found");
+  }
+  return storageService.download(entity.getStorageKey());
+ }
+
+ public void deleteResume(UUID userId, UUID assetId) {
+  profileService.assertProfileOwner(userId);
+  ProfileAsset entity = requireResume(assetId);
+  if (!entity.getProfile().getUserId().equals(userId)) {
+   throw new ResourceNotFoundException("Resume not found");
+  }
+  entity.setCurrent(false);
+  entity.setDeletedAt(LocalDateTime.now());
+  entity.setAssetStatus(ProfileAssetStatus.DELETED);
+  repository.save(entity);
+  completionScoreService.recalculate(entity.getProfile());
+ }
+
+ private ProfileAsset requireResume(UUID assetId) {
+  ProfileAsset entity = repository.findByIdAndDeletedAtIsNull(assetId)
+          .orElseThrow(() -> new ResourceNotFoundException("Resume not found"));
+  if (entity.getAssetKind() != ProfileAssetKind.RESUME) {
+   throw new ResourceNotFoundException("Resume not found");
+  }
+  return entity;
+ }
+
+ @Transactional(readOnly = true)
  public byte[] download(
          UUID assetId
  ) {
@@ -159,6 +238,8 @@ public class ProfileAssetService {
                           "Asset not found"
                   ));
 
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
+
   return storageService.download(
           entity.getStorageKey()
   );
@@ -169,6 +250,8 @@ public class ProfileAssetService {
  public ProfileAssetResponse getAvatar(
          UUID userId
  ) {
+
+  profileService.assertProfileOwner(userId);
 
   Profile profile = profileService.getByUserId(userId);
 
@@ -200,9 +283,11 @@ public class ProfileAssetService {
 
   profileService.assertProfileOwner(entity.getProfile().getUserId());
 
-  storageService.delete(
-          entity.getStorageKey()
-  );
+  if (entity.getAssetKind() != ProfileAssetKind.RESUME) {
+   storageService.delete(entity.getStorageKey());
+  }
+
+  entity.setCurrent(false);
 
   entity.setDeletedAt(LocalDateTime.now());
 

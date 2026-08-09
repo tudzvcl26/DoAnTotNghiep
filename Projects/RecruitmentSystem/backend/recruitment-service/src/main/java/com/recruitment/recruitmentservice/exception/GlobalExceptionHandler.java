@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -109,9 +110,9 @@ public class GlobalExceptionHandler {
 
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
-            IllegalArgumentException ex,
+            Exception ex,
             HttpServletRequest request
     ) {
 
@@ -119,7 +120,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
                         .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                        .message(ex.getMessage())
+                        .message("Malformed or invalid request.")
                         .path(request.getRequestURI())
                         .timestamp(LocalDateTime.now())
                         .build());

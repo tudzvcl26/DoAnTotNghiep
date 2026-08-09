@@ -262,6 +262,11 @@ public class JobAuthorizationIntegrationTest {
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(get("/api/v1/jobs/" + jobId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DRAFT"));
+
+        mockMvc.perform(get("/api/v1/jobs/" + jobId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DRAFT"));

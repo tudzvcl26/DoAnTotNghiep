@@ -73,4 +73,10 @@ public class ProfileAsset extends BaseEntity {
     @Column(name = "asset_status", nullable = false, length = 30)
     private ProfileAssetStatus assetStatus;
 
+    @Column(name = "asset_version")
+    private Long assetVersion;
+
+    @Column(name = "is_current", nullable = false)
+    private boolean current;
+
 }

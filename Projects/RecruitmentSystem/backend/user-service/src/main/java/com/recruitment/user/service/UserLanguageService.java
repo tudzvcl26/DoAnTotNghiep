@@ -50,6 +50,8 @@ public class UserLanguageService {
          Pageable pageable
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   return userLanguageRepository
@@ -72,6 +74,8 @@ public class UserLanguageService {
                   new ResourceNotFoundException(
                           "Language not found"
                   ));
+
+  profileService.assertProfileOwner(entity.getProfile().getUserId());
 
   return mapper.toResponse(entity);
 

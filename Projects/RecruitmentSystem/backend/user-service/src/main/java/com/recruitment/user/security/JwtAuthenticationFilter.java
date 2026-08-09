@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
     protected void doFilterInternal(
@@ -42,8 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
 
             if (!jwtService.validateToken(token)) {
-
-                filterChain.doFilter(request, response);
+                reject(request, response, null);
                 return;
 
             }
@@ -78,13 +79,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .setAuthentication(authentication);
 
         } catch (Exception ex) {
-
-            SecurityContextHolder.clearContext();
-
+            reject(request, response, ex);
+            return;
         }
 
         filterChain.doFilter(request, response);
 
+    }
+
+    private void reject(HttpServletRequest request, HttpServletResponse response, Exception cause)
+            throws IOException, ServletException {
+        SecurityContextHolder.clearContext();
+        authenticationEntryPoint.commence(request, response,
+                cause == null
+                        ? new InsufficientAuthenticationException("Invalid JWT")
+                        : new InsufficientAuthenticationException("Invalid JWT", cause));
     }
 
     private SimpleGrantedAuthority toGrantedAuthority(String role) {
@@ -96,4 +105,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return new SimpleGrantedAuthority(authority);
     }
 
-}
+}

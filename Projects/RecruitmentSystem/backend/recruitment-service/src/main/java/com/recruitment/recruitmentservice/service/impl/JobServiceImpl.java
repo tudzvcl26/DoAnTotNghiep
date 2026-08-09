@@ -177,14 +177,18 @@ public class JobServiceImpl implements JobService {
     @Transactional(readOnly = true)
     public JobResponse getById(UUID id) {
 
-        Job job = (isCurrentUserAdmin()
-                ? jobRepository.findByIdAndActiveTrue(id)
-                : jobRepository.findByIdAndActiveTrueAndStatus(id, JobStatus.PUBLISHED))
+        Job job = jobRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() ->
                         new BusinessException(
                                 ErrorCode.JOB_NOT_FOUND
                         )
                 );
+
+        if (job.getStatus() != JobStatus.PUBLISHED
+                && !isCurrentUserAdmin()
+                && !isCurrentUserCompanyOwner(job.getCompanyId())) {
+            throw new BusinessException(ErrorCode.JOB_NOT_FOUND);
+        }
 
         return jobMapper.toResponse(job);
     }
@@ -249,6 +253,16 @@ public class JobServiceImpl implements JobService {
         CurrentUser currentUser = SecurityUtils.getCurrentUser();
 
         return currentUser != null && currentUser.isAdmin();
+    }
+
+    private boolean isCurrentUserCompanyOwner(UUID companyId) {
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null || currentUser.getUserId() == null || companyId == null) {
+            return false;
+        }
+        return companyClient.getCompanyById(companyId)
+                .map(company -> currentUser.getUserId().equals(company.getOwnerId()))
+                .orElse(false);
     }
 
     private void assertCompanyOwner(UUID companyId) {

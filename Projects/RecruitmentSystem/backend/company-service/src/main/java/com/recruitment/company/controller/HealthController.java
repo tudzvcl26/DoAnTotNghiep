@@ -1,28 +1,20 @@
 package com.recruitment.company.controller;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
 public class HealthController {
 
+    @Value("${spring.application.name}") private String serviceName;
+    @Value("${spring.application.version:1.0.0}") private String version;
+
     @GetMapping("/api/v1/health")
-    public ResponseEntity<Map<String, Object>> health() {
-
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        response.put("status", "UP");
-        response.put("service", "company-service");
-        response.put("version", "1.0.0");
-        response.put("timestamp", LocalDateTime.now());
-
-        return ResponseEntity.ok(response);
-
+    public Map<String, String> health() {
+        return Map.of("status", "UP", "service", serviceName, "version", version);
     }
 
 }

@@ -31,7 +31,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/", "/error", "/favicon.ico",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
-                                "/api/v1/health", "/actuator/**"
+                                "/api/v1/health", "/actuator/health", "/actuator/health/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

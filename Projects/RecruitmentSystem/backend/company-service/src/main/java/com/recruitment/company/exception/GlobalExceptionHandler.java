@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -27,7 +28,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.FORBIDDEN.value())
                         .error(HttpStatus.FORBIDDEN.getReasonPhrase())
-                        .message(ex.getMessage())
+                        .message("Access denied.")
                         .path(request.getRequestURI())
                         .timestamp(LocalDateTime.now())
                         .build());
@@ -109,9 +110,9 @@ public class GlobalExceptionHandler {
 
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
-            IllegalArgumentException ex,
+            Exception ex,
             HttpServletRequest request
     ) {
 
@@ -119,7 +120,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
                         .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                        .message(ex.getMessage())
+                        .message("Malformed or invalid request.")
                         .path(request.getRequestURI())
                         .timestamp(LocalDateTime.now())
                         .build());
@@ -136,7 +137,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                        .message(ex.getMessage())
+                        .message("Internal server error.")
                         .path(request.getRequestURI())
                         .timestamp(LocalDateTime.now())
                         .build());

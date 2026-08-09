@@ -34,6 +34,8 @@ public class ExperienceService {
          Pageable pageable
  ) {
 
+  profileService.assertProfileOwner(userId);
+
   Profile profile = profileService.getByUserId(userId);
 
   return repository.findByProfileIdAndDeletedAtIsNull(
@@ -50,6 +52,8 @@ public class ExperienceService {
           .findByIdAndDeletedAtIsNull(experienceId)
           .orElseThrow(() ->
                   new ResourceNotFoundException("Experience not found"));
+
+  profileService.assertProfileOwner(experience.getProfile().getUserId());
 
   return mapper.toResponse(experience);
 

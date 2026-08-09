@@ -6,11 +6,13 @@ import com.recruitment.user.dto.request.CreateCertificateRequest;
 import com.recruitment.user.dto.request.CreateEducationRequest;
 import com.recruitment.user.dto.request.CreateExperienceRequest;
 import com.recruitment.user.dto.request.CreateSkillRequest;
+import com.recruitment.user.dto.request.UpdateCareerObjectiveRequest;
 import com.recruitment.user.entity.AvailabilityStatus;
 import com.recruitment.user.entity.EmploymentType;
 import com.recruitment.user.entity.SkillLevel;
 import com.recruitment.user.entity.WorkArrangement;
 import com.recruitment.user.service.ProfileService;
+import com.recruitment.user.service.storage.StorageService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -19,9 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.crypto.SecretKey;
 import java.math.BigDecimal;
@@ -32,6 +36,8 @@ import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 
 @SpringBootTest(properties = "spring.flyway.enabled=false")
 @AutoConfigureMockMvc
@@ -48,6 +54,9 @@ public class ProfileAuthorizationIntegrationTest {
 
     @Autowired
     private ProfileService profileService;
+
+    @MockBean
+    private StorageService storageService;
 
     private String generateToken(UUID userId, String email, List<String> roles) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
@@ -220,6 +229,107 @@ public class ProfileAuthorizationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(skillReq)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Resume v1/v2 current selection, ownership, admin bypass and inactive behavior")
+    void testResumeOwnershipAndVersioning() throws Exception {
+        UUID candidate1 = UUID.randomUUID();
+        UUID candidate2 = UUID.randomUUID();
+        UUID employer = UUID.randomUUID();
+        UUID admin = UUID.randomUUID();
+        profileService.initialize(candidate1, "Resume Candidate");
+        profileService.initialize(candidate2, "Other Candidate");
+        String candidate1Token = generateToken(candidate1, "resume1@test.com", List.of("CANDIDATE"));
+        String candidate2Token = generateToken(candidate2, "resume2@test.com", List.of("CANDIDATE"));
+        String employerToken = generateToken(employer, "resume-employer@test.com", List.of("EMPLOYER"));
+        String adminToken = generateToken(admin, "resume-admin@test.com", List.of("ADMIN"));
+        given(storageService.getPresignedUrl(anyString())).willReturn("https://storage.invalid/immutable");
+
+        MockMultipartFile v1 = new MockMultipartFile("file", "resume-v1.pdf", "application/pdf", "%PDF-1.7 resume-v1".getBytes());
+        mockMvc.perform(multipart("/api/v1/users/" + candidate1 + "/resumes")
+                        .file(v1).header("Authorization", "Bearer " + candidate1Token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assetVersion").value(1))
+                .andExpect(jsonPath("$.data.current").value(true));
+
+        MockMultipartFile v2 = new MockMultipartFile("file", "resume-v2.pdf", "application/pdf", "%PDF-1.7 resume-v2".getBytes());
+        String v2Body = mockMvc.perform(multipart("/api/v1/users/" + candidate1 + "/resumes")
+                        .file(v2).header("Authorization", "Bearer " + candidate1Token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assetVersion").value(2))
+                .andReturn().getResponse().getContentAsString();
+        UUID v2Id = UUID.fromString(objectMapper.readTree(v2Body).path("data").path("id").asText());
+
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
+                        .header("Authorization", "Bearer " + candidate1Token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(v2Id.toString()))
+                .andExpect(jsonPath("$.data.assetVersion").value(2));
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
+                        .header("Authorization", "Bearer " + candidate2Token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/users/" + candidate1 + "/resumes/" + v2Id)
+                        .header("Authorization", "Bearer " + candidate1Token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
+                        .header("Authorization", "Bearer " + candidate1Token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Full nested-profile authorization matrix: owner, other candidate, employer, admin")
+    void nestedResourceReadAuthorizationMatrix() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID otherCandidate = UUID.randomUUID();
+        UUID employer = UUID.randomUUID();
+        UUID admin = UUID.randomUUID();
+        profileService.initialize(owner, "Matrix Owner");
+        profileService.initialize(otherCandidate, "Matrix Other");
+        String ownerToken = generateToken(owner, "matrix-owner@test.com", List.of("CANDIDATE"));
+        String otherToken = generateToken(otherCandidate, "matrix-other@test.com", List.of("CANDIDATE"));
+        String employerToken = generateToken(employer, "matrix-employer@test.com", List.of("EMPLOYER"));
+        String adminToken = generateToken(admin, "matrix-admin@test.com", List.of("ADMIN"));
+
+        UpdateCareerObjectiveRequest objective = new UpdateCareerObjectiveRequest();
+        objective.setObjectiveText("Build secure recruitment systems");
+        mockMvc.perform(put("/api/v1/users/" + owner + "/career-objective")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(objective)))
+                .andExpect(status().isOk());
+
+        CreateCandidatePreferenceRequest preference = new CreateCandidatePreferenceRequest();
+        preference.setAvailabilityStatus(AvailabilityStatus.ACTIVELY_LOOKING);
+        preference.setRecommendationConsent(false);
+        mockMvc.perform(post("/api/v1/users/" + owner + "/candidate-preference")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(preference)))
+                .andExpect(status().isOk());
+
+        List<String> nestedPaths = List.of(
+                "/educations", "/experiences", "/skills", "/languages", "/certificates",
+                "/social-links", "/career-objective", "/candidate-preference", "/assets"
+        );
+        for (String suffix : nestedPaths) {
+            String path = "/api/v1/users/" + owner + suffix;
+            mockMvc.perform(get(path).header("Authorization", "Bearer " + ownerToken))
+                    .andExpect(status().isOk());
+            mockMvc.perform(get(path).header("Authorization", "Bearer " + otherToken))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get(path).header("Authorization", "Bearer " + employerToken))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get(path).header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isOk());
+        }
     }
 
 }

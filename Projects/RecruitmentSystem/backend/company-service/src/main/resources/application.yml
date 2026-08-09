@@ -17,7 +17,7 @@ spring:
 
   jpa:
     open-in-view: false
-    show-sql: ${JPA_SHOW_SQL}
+    show-sql: ${JPA_SHOW_SQL:false}
 
     hibernate:
       ddl-auto: validate
@@ -38,6 +38,12 @@ spring:
     table: company_service_flyway_schema_history
     locations: classpath:db/migration
 
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}
+    max-age-seconds: ${APP_CORS_MAX_AGE_SECONDS:3600}
+
 server:
   port: ${COMPANY_SERVICE_PORT}
 
@@ -49,9 +55,11 @@ jwt:
 springdoc:
 
   api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
     path: /v3/api-docs
 
   swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
@@ -62,8 +70,8 @@ logging:
     root: INFO
     org.springframework: INFO
     org.springframework.security: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.SQL: ${HIBERNATE_SQL_LOG_LEVEL:WARN}
+    org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:OFF}
 
 management:
 
@@ -76,4 +84,4 @@ management:
 
   endpoint:
     health:
-      show-details: always
+      show-details: never

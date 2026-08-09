@@ -161,7 +161,7 @@ public class MatchingServiceImpl implements MatchingService {
         } else if (user.hasRole("EMPLOYER")) {
             page = matchRepository.findByResumeDocumentIdAndJobOwnerUserId(resumeId, user.getUserId(), pageable);
         } else {
-            ResumeDocument document = documentRepository.findByIdAndOwnerUserId(resumeId, user.getUserId())
+            ResumeDocument document = documentRepository.findByIdAndOwnerUserIdAndDeletedAtIsNull(resumeId, user.getUserId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
             page = matchRepository.findByResumeDocumentId(document.getId(), pageable);
         }

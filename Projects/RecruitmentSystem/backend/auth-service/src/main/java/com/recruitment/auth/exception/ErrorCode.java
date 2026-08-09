@@ -95,7 +95,7 @@ public enum ErrorCode {
     ),
 
     REFRESH_TOKEN_NOT_FOUND(
-            HttpStatus.NOT_FOUND,
+            HttpStatus.UNAUTHORIZED,
             "AUTH_008",
             "Refresh token not found"
     ),

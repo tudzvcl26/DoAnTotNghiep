@@ -13,8 +13,7 @@ import io.minio.http.Method;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
@@ -63,11 +62,12 @@ public class MinioStorageService implements StorageService {
 
     @Override
     public String upload(
-            MultipartFile file,
-            String objectName
+            byte[] content,
+            String objectName,
+            String contentType
     ) {
 
-        try (InputStream inputStream = file.getInputStream()) {
+        try (InputStream inputStream = new ByteArrayInputStream(content)) {
 
             minioClient.putObject(
                     PutObjectArgs.builder()
@@ -75,10 +75,10 @@ public class MinioStorageService implements StorageService {
                             .object(objectName)
                             .stream(
                                     inputStream,
-                                    file.getSize(),
+                                    content.length,
                                     -1
                             )
-                            .contentType(file.getContentType())
+                            .contentType(contentType)
                             .build()
             );
 

@@ -1,32 +1,20 @@
 package com.recruitment.auth.controller;
 
-import com.recruitment.auth.common.ApiResponse;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
 public class HealthController {
 
+    @Value("${spring.application.name}") private String serviceName;
+    @Value("${spring.application.version:1.0.0}") private String version;
+
     @GetMapping("/api/v1/health")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> health() {
-
-        Map<String, Object> data = new LinkedHashMap<>();
-
-        data.put("status", "UP");
-        data.put("service", "auth-service");
-        data.put("version", "1.0.0");
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Authentication Service is running",
-                        data,
-                        "/api/v1/health"
-                )
-        );
+    public Map<String, String> health() {
+        return Map.of("status", "UP", "service", serviceName, "version", version);
     }
 
 }

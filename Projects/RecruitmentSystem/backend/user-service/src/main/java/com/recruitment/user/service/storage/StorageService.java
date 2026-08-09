@@ -1,12 +1,11 @@
 package com.recruitment.user.service.storage;
 
-import org.springframework.web.multipart.MultipartFile;
-
 public interface StorageService {
 
     String upload(
-            MultipartFile file,
-            String objectName
+            byte[] content,
+            String objectName,
+            String contentType
     );
 
     byte[] download(

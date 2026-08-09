@@ -12,5 +12,13 @@ public interface ResumeDocumentRepository extends JpaRepository<ResumeDocument, 
 
     Page<ResumeDocument> findByOwnerUserId(UUID ownerUserId, Pageable pageable);
 
+    Page<ResumeDocument> findAllByDeletedAtIsNull(Pageable pageable);
+
+    Page<ResumeDocument> findByOwnerUserIdAndDeletedAtIsNull(UUID ownerUserId, Pageable pageable);
+
     Optional<ResumeDocument> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);
+
+    Optional<ResumeDocument> findByIdAndDeletedAtIsNull(UUID id);
+
+    Optional<ResumeDocument> findByIdAndOwnerUserIdAndDeletedAtIsNull(UUID id, UUID ownerUserId);
 }

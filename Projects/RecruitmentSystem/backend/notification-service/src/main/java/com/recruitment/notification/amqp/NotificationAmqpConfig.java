@@ -33,7 +33,7 @@ public class NotificationAmqpConfig {
                 java.util.Map.of("x-dead-letter-exchange", properties.getDeadLetterExchange()));
         Queue deadLetterQueue = new Queue(properties.getDeadLetterQueue(), true);
         Binding mainBinding = BindingBuilder.bind(queue).to(exchange).with("#");
-        Binding deadLetterBinding = BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange).with(properties.getQueue());
+        Binding deadLetterBinding = BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange).with("#");
         return new Declarables(exchange, deadLetterExchange, queue, deadLetterQueue, mainBinding, deadLetterBinding);
     }
 

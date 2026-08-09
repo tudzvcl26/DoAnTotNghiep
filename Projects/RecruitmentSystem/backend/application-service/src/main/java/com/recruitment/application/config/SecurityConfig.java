@@ -43,7 +43,7 @@ public class SecurityConfig {
 
                                 "/api/v1/health",
 
-                                "/actuator/**"
+                                "/actuator/health", "/actuator/health/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(

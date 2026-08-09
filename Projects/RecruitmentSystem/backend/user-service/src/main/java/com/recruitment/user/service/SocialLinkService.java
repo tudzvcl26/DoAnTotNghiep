@@ -33,6 +33,8 @@ public class SocialLinkService {
             Pageable pageable
     ) {
 
+        profileService.assertProfileOwner(userId);
+
         Profile profile = profileService.getByUserId(userId);
 
         return repository
@@ -55,6 +57,8 @@ public class SocialLinkService {
                         new ResourceNotFoundException(
                                 "Social link not found"
                         ));
+
+        profileService.assertProfileOwner(entity.getProfile().getUserId());
 
         return mapper.toResponse(entity);
 

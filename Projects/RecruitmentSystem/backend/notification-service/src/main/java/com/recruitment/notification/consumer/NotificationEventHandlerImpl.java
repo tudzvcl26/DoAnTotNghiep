@@ -27,16 +27,18 @@ public class NotificationEventHandlerImpl implements NotificationEventHandler {
     @Override
     public void handle(NotificationEventEnvelope event) {
         validate(event);
-        if (notificationEventReceiptRepository.existsByEventId(event.getEventId())) {
+        NotificationEventReceipt receipt = notificationEventReceiptRepository.findByEventId(event.getEventId())
+                .orElseGet(NotificationEventReceipt::new);
+        if (receipt.getStatus() == NotificationEventReceiptStatus.PROCESSED) {
             return;
         }
-
-        NotificationEventReceipt receipt = new NotificationEventReceipt();
         receipt.setEventId(event.getEventId());
+        receipt.setEventVersion(event.getEventVersion());
         receipt.setSourceService(event.getSourceService());
         receipt.setEventType(event.getEventType());
         receipt.setStatus(NotificationEventReceiptStatus.RECEIVED);
         receipt.setPayload(event.getPayload());
+        receipt.setErrorMessage(null);
         notificationEventReceiptRepository.save(receipt);
 
         Notification notification = new Notification();
@@ -61,7 +63,8 @@ public class NotificationEventHandlerImpl implements NotificationEventHandler {
     }
 
     private void validate(NotificationEventEnvelope event) {
-        if (event == null || event.getEventId() == null || event.getEventType() == null
+        if (event == null || event.getEventId() == null || event.getEventVersion() == null
+                || event.getEventVersion() != 1 || event.getEventType() == null
                 || event.getSourceService() == null || event.getSourceService().isBlank()
                 || event.getRecipientUserIds() == null || event.getRecipientUserIds().isEmpty()
                 || event.getTitle() == null || event.getTitle().isBlank()
