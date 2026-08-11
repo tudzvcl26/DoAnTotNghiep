@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, ArrowLeft, LoaderCircle, LockKeyhole, Sparkles, UserRound } from 'lucide-react'
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -8,14 +8,49 @@ import { useAuth } from '../auth-context'
 import { getErrorMessage } from '../../../lib/api/error-adapter'
 import { getRoleHome } from '../../../lib/auth/role-routing'
 import { loginSchema, type LoginFormValues } from '../../../lib/validation/auth.schemas'
-import { AuthShell } from './AuthShell'
+import './auth-pages.css'
+
+const MAX_PULL_DISTANCE = 58
+const PULL_TOGGLE_THRESHOLD = 34
 
 export function LoginPage() {
   const [submitError, setSubmitError] = useState('')
+  const [isLampOn, setIsLampOn] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
+  const pullStartY = useRef<number | null>(null)
+  const pullDistanceRef = useRef(0)
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) })
+
+  const handlePullStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return
+    pullStartY.current = event.clientY
+    pullDistanceRef.current = 0
+    setPullDistance(0)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handlePullMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (pullStartY.current === null) return
+    const distance = Math.min(MAX_PULL_DISTANCE, Math.max(0, event.clientY - pullStartY.current))
+    pullDistanceRef.current = distance
+    setPullDistance(distance)
+  }
+
+  const handlePullEnd = (event: ReactPointerEvent<HTMLButtonElement>, cancelled = false) => {
+    if (pullStartY.current === null) return
+    if (!cancelled && pullDistanceRef.current >= PULL_TOGGLE_THRESHOLD) {
+      setIsLampOn((current) => !current)
+    }
+    pullStartY.current = null
+    pullDistanceRef.current = 0
+    setPullDistance(0)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError('')
@@ -29,13 +64,106 @@ export function LoginPage() {
   })
 
   return (
-    <AuthShell title="Chào mừng trở lại" description="Đăng nhập để tiếp tục hành trình nghề nghiệp." footer={<>Chưa có tài khoản? <Link to="/register">Đăng ký miễn phí</Link></>}>
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {submitError && <div className="alert-error" role="alert">{submitError}</div>}
-        <div className="form-field"><label htmlFor="email">Email</label><div className="auth-input"><Mail size={18} /><input id="email" className="form-input" type="email" autoComplete="email" placeholder="ban@example.com" {...register('email')} /></div>{errors.email && <p className="form-error">{errors.email.message}</p>}</div>
-        <div className="form-field"><label htmlFor="password">Mật khẩu</label><div className="auth-input"><LockKeyhole size={18} /><input id="password" className="form-input" type="password" autoComplete="current-password" placeholder="Nhập mật khẩu" {...register('password')} /></div>{errors.password && <p className="form-error">{errors.password.message}</p>}</div>
-        <Button type="submit" size="lg" fullWidth disabled={isSubmitting}>{isSubmitting ? 'Đang đăng nhập...' : <>Đăng nhập <ArrowRight size={18} /></>}</Button>
-      </form>
-    </AuthShell>
+    <section className={`login-page${isLampOn ? ' login-page--lit' : ''}`}>
+      <div className="login-page__grain" aria-hidden="true" />
+
+      <header className="login-page__topbar">
+        <Link className="login-brand" to="/" aria-label="RecruitmentSystem - Trang chủ">
+          <span className="login-brand__mark"><Sparkles size={16} aria-hidden="true" /></span>
+          <span>Recruitment<span>System</span></span>
+        </Link>
+        <Link className="login-page__back" to="/"><ArrowLeft size={16} aria-hidden="true" /> Back to home</Link>
+      </header>
+
+      <div className="login-page__layout">
+        <div className="login-visual">
+          <div className="login-visual__halo" />
+          <div className="desk-lamp">
+            <div className="desk-lamp__light" aria-hidden="true" />
+            <div className="desk-lamp__shade" aria-hidden="true"><span /></div>
+            <div className="desk-lamp__stem" aria-hidden="true" />
+            <button
+              className={`desk-lamp__switch${pullDistance > 0 ? ' desk-lamp__switch--pulling' : ''}`}
+              type="button"
+              aria-label={isLampOn ? 'Kéo dây xuống để tắt đèn' : 'Kéo dây xuống để bật đèn'}
+              aria-pressed={isLampOn}
+              style={{ '--pull-distance': `${pullDistance}px` } as CSSProperties}
+              onPointerDown={handlePullStart}
+              onPointerMove={handlePullMove}
+              onPointerUp={(event) => handlePullEnd(event)}
+              onPointerCancel={(event) => handlePullEnd(event, true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setIsLampOn((current) => !current)
+                }
+              }}
+            >
+              <span />
+            </button>
+            <div className="desk-lamp__base" aria-hidden="true"><span /></div>
+          </div>
+        </div>
+
+        <div className="login-card-wrap">
+          <article className="login-card">
+            <div className="login-card__heading">
+              <span className="login-card__kicker">Member access</span>
+              <h1>Welcome</h1>
+              <p>Sign in to continue your career journey.</p>
+            </div>
+
+            <form className="login-form" onSubmit={onSubmit} noValidate>
+              {submitError && (
+                <div className="login-alert" role="alert" aria-live="polite">
+                  <AlertCircle size={17} aria-hidden="true" /><span>{submitError}</span>
+                </div>
+              )}
+
+              <div className="login-form__field login-form__field--username">
+                <label htmlFor="email">Username</label>
+                <div className="login-input">
+                  <UserRound size={18} aria-hidden="true" />
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="Enter name"
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'email-error' : undefined}
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email && <p id="email-error" className="login-form__error">{errors.email.message}</p>}
+              </div>
+
+              <div className="login-form__field login-form__field--password">
+                <label htmlFor="password">Password</label>
+                <div className="login-input">
+                  <LockKeyhole size={18} aria-hidden="true" />
+                  <input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="Enter Password"
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? 'password-error' : undefined}
+                    {...register('password')}
+                  />
+                </div>
+                {errors.password && <p id="password-error" className="login-form__error">{errors.password.message}</p>}
+              </div>
+
+              <Button className="login-submit" type="submit" size="lg" fullWidth disabled={isSubmitting}>
+                {isSubmitting ? <><LoaderCircle className="login-submit__spinner" size={18} aria-hidden="true" /> Signing in...</> : 'Sign In'}
+              </Button>
+            </form>
+
+            <div className="login-card__footer">New here? <Link to="/register">Create an account</Link></div>
+          </article>
+          <span className="login-card-wrap__note">Secure gateway · Private session</span>
+        </div>
+      </div>
+    </section>
   )
 }
