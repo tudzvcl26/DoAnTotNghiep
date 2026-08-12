@@ -167,6 +167,17 @@ class GatewayIntegrationTest {
 
     @Test
     @Order(8)
+    void corsActualResponseDeduplicatesUpstreamHeaders() {
+        webTestClient.get().uri("/api/v1/jobs/cors-actual")
+                .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().values(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        values -> assertThat(values).containsExactly("http://localhost:5173"));
+    }
+
+    @Test
+    @Order(9)
     void correlationIdIsGeneratedOrPreservedAndForwarded() {
         String generatedPath = "/api/v1/jobs/generated-correlation";
         webTestClient.get().uri(generatedPath).exchange()
@@ -184,7 +195,7 @@ class GatewayIntegrationTest {
     }
 
     @Test
-    @Order(9)
+    @Order(10)
     void backendStatusesAndBodiesArePreserved() {
         for (int status : List.of(400, 401, 403, 404, 409, 500)) {
             authorizedGet("/api/v1/users/status?status=" + status, validToken())
@@ -196,7 +207,7 @@ class GatewayIntegrationTest {
     }
 
     @Test
-    @Order(10)
+    @Order(11)
     void gatewayTimeoutReturnsStable504Envelope() {
         authorizedGet("/api/v1/users/slow?delay=600", validToken())
                 .exchange()
@@ -208,7 +219,7 @@ class GatewayIntegrationTest {
     }
 
     @Test
-    @Order(11)
+    @Order(12)
     void requestLogsNeverContainAuthorizationToken() {
         Logger logger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -228,7 +239,7 @@ class GatewayIntegrationTest {
     }
 
     @Test
-    @Order(12)
+    @Order(13)
     void unavailableBackendReturnsStable503Envelope() {
         DisposableServer ai = UPSTREAMS.get("ai");
         ai.disposeNow(Duration.ofSeconds(2));
@@ -257,6 +268,10 @@ class GatewayIntegrationTest {
                     int status = Integer.parseInt(query.getOrDefault("status", "200"));
                     long delay = Long.parseLong(query.getOrDefault("delay", "0"));
                     String body = "{\"service\":\"" + service + "\",\"upstreamStatus\":" + status + "}";
+                    String origin = request.requestHeaders().get(HttpHeaders.ORIGIN);
+                    if (origin != null) {
+                        response.header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+                    }
                     response.status(status)
                             .header(HttpHeaders.CONTENT_TYPE, "application/json")
                             .header(HttpHeaders.CONNECTION, "close");

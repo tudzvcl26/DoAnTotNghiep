@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, ArrowLeft, LoaderCircle, LockKeyhole, Sparkles, UserRound } from 'lucide-react'
-import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type AnimationEvent as ReactAnimationEvent, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -17,6 +17,8 @@ export function LoginPage() {
   const [submitError, setSubmitError] = useState('')
   const [isLampOn, setIsLampOn] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
+  const [isAutoPulling, setIsAutoPulling] = useState(false)
+  const hasAutoPulledRef = useRef(false)
   const pullStartY = useRef<number | null>(null)
   const pullDistanceRef = useRef(0)
   const { login } = useAuth()
@@ -24,8 +26,34 @@ export function LoginPage() {
   const location = useLocation()
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) })
 
+  useEffect(() => {
+    if (hasAutoPulledRef.current) return
+    hasAutoPulledRef.current = true
+    let autoPullStarted = false
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setIsLampOn(true)
+      return
+    }
+
+    const autoPullTimer = window.setTimeout(() => {
+      autoPullStarted = true
+      setIsAutoPulling(true)
+    }, 620)
+    return () => {
+      window.clearTimeout(autoPullTimer)
+      if (!autoPullStarted) hasAutoPulledRef.current = false
+    }
+  }, [])
+
+  const finishAutoPull = (event: ReactAnimationEvent<HTMLButtonElement>) => {
+    if (!isAutoPulling || event.animationName !== 'login-cord-auto-pull-knob') return
+    setIsAutoPulling(false)
+    setIsLampOn(true)
+  }
+
   const handlePullStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || isAutoPulling) return
     pullStartY.current = event.clientY
     pullDistanceRef.current = 0
     setPullDistance(0)
@@ -83,7 +111,7 @@ export function LoginPage() {
             <div className="desk-lamp__shade" aria-hidden="true"><span /></div>
             <div className="desk-lamp__stem" aria-hidden="true" />
             <button
-              className={`desk-lamp__switch${pullDistance > 0 ? ' desk-lamp__switch--pulling' : ''}`}
+              className={`desk-lamp__switch${pullDistance > 0 ? ' desk-lamp__switch--pulling' : ''}${isAutoPulling ? ' desk-lamp__switch--auto' : ''}`}
               type="button"
               aria-label={isLampOn ? 'Kéo dây xuống để tắt đèn' : 'Kéo dây xuống để bật đèn'}
               aria-pressed={isLampOn}
@@ -92,6 +120,7 @@ export function LoginPage() {
               onPointerMove={handlePullMove}
               onPointerUp={(event) => handlePullEnd(event)}
               onPointerCancel={(event) => handlePullEnd(event, true)}
+              onAnimationEnd={finishAutoPull}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault()

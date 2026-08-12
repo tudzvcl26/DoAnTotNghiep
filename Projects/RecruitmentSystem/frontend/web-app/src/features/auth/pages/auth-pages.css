@@ -1081,6 +1081,18 @@
   transition: none;
 }
 
+.desk-lamp__switch--auto {
+  pointer-events: none;
+}
+
+.desk-lamp__switch--auto::before {
+  animation: login-cord-auto-pull-line 720ms cubic-bezier(.24, .72, .22, 1) forwards;
+}
+
+.desk-lamp__switch--auto span {
+  animation: login-cord-auto-pull-knob 720ms cubic-bezier(.24, .72, .22, 1) forwards;
+}
+
 .desk-lamp__switch:hover span,
 .desk-lamp__switch:focus-visible span {
   background: var(--color-primary-300);
@@ -1165,6 +1177,20 @@
 
 @keyframes login-lamp-rise {
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes login-cord-auto-pull-line {
+  0% { height: 5.8rem; }
+  58% { height: calc(5.8rem + 52px); }
+  72% { height: calc(5.8rem + 52px); }
+  100% { height: 5.8rem; }
+}
+
+@keyframes login-cord-auto-pull-knob {
+  0% { transform: translate(-50%, 0); }
+  58% { transform: translate(-50%, 52px); }
+  72% { transform: translate(-50%, 52px); }
+  100% { transform: translate(-50%, 0); }
 }
 
 @media (max-width: 799px) {

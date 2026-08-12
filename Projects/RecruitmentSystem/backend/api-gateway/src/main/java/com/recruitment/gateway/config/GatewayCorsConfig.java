@@ -1,5 +1,7 @@
 package com.recruitment.gateway.config;
 
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.filter.factory.DedupeResponseHeaderGatewayFilterFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -25,5 +27,15 @@ public class GatewayCorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return new CorsWebFilter(source);
+    }
+
+    @Bean
+    GlobalFilter corsResponseHeaderDeduplicationFilter() {
+        DedupeResponseHeaderGatewayFilterFactory.Config config =
+                new DedupeResponseHeaderGatewayFilterFactory.Config();
+        config.setName("Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers");
+        config.setStrategy(DedupeResponseHeaderGatewayFilterFactory.Strategy.RETAIN_FIRST);
+
+        return new DedupeResponseHeaderGatewayFilterFactory().apply(config)::filter;
     }
 }
