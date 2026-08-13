@@ -2,10 +2,12 @@ import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse, SpringPage } from '../../types/api/common'
 import type { ApplicationSummary } from '../../types/models/application'
 import type { Company, CreateCompanyRequest, UpdateCompanyRequest } from '../../types/models/company'
-import type { JobSummary } from '../../types/models/job'
+import type { JobCategory, JobDetail, JobMutationRequest, JobSummary } from '../../types/models/job'
 
 const PAGE_SIZE = 100
 export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
+export const employerJobsKey = (companyIds: string[]) => ['employer-jobs', companyIds] as const
+export const employerJobKey = (jobId: string) => ['employer-job', jobId] as const
 
 export async function getEmployerCompanies(ownerId: string): Promise<Company[]> {
   const owned: Company[] = []
@@ -47,6 +49,56 @@ export async function getPublishedCompanyJobs(companyIds: string[]): Promise<Job
     page += 1
   } while (page < totalPages)
   return jobs
+}
+
+export async function searchEmployerPublishedJobs(companyIds: string[], keyword: string): Promise<JobSummary[]> {
+  if (companyIds.length === 0) return []
+  const owned = new Set(companyIds)
+  const jobs: JobSummary[] = []
+  let page = 0
+  let totalPages = 1
+  const search = keyword.trim()
+  do {
+    const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>(search ? '/api/v1/jobs/search' : '/api/v1/jobs', {
+      params: { ...(search ? { keyword: search } : {}), page, size: PAGE_SIZE, sort: 'publishedAt,desc' },
+    })
+    jobs.push(...response.data.data.content.filter((job) => owned.has(job.companyId)))
+    totalPages = response.data.data.totalPages
+    page += 1
+  } while (page < totalPages)
+  return jobs
+}
+
+export async function getEmployerJob(jobId: string): Promise<JobDetail> {
+  const response = await apiClient.get<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}`)
+  return response.data.data
+}
+
+export async function getJobCategories(): Promise<JobCategory[]> {
+  const response = await apiClient.get<ApiResponse<PageResponse<JobCategory>>>('/api/v1/job-categories', {
+    params: { page: 0, size: PAGE_SIZE, sortBy: 'displayOrder', direction: 'asc' },
+  })
+  return response.data.data.content.filter((category) => category.active)
+}
+
+export async function createEmployerJob(request: JobMutationRequest): Promise<JobDetail> {
+  const response = await apiClient.post<ApiResponse<JobDetail>>('/api/v1/jobs', request)
+  return response.data.data
+}
+
+export async function updateEmployerJob(jobId: string, request: JobMutationRequest): Promise<JobDetail> {
+  const response = await apiClient.put<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}`, request)
+  return response.data.data
+}
+
+export async function publishEmployerJob(jobId: string): Promise<JobDetail> {
+  const response = await apiClient.patch<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}/publish`)
+  return response.data.data
+}
+
+export async function closeEmployerJob(jobId: string): Promise<JobDetail> {
+  const response = await apiClient.patch<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}/close`)
+  return response.data.data
 }
 
 export type PublishedJobApplications = {

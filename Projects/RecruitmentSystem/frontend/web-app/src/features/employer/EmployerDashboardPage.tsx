@@ -74,12 +74,12 @@ export function EmployerDashboardPage() {
       </section>
 
       <section className="employer-card" aria-labelledby="employer-jobs-title">
-        <div className="employer-card__heading"><div><span>Recruitment snapshot</span><h2 id="employer-jobs-title">Tin tuyển dụng</h2></div></div>
+        <div className="employer-card__heading"><div><span>Recruitment snapshot</span><h2 id="employer-jobs-title">Tin tuyển dụng</h2></div><Link to="/employer/jobs">Quản lý <ArrowRight /></Link></div>
         {companies.isSuccess && companyIds.length === 0 && <div className="employer-unavailable"><BriefcaseBusiness /><p>Cần có công ty trước khi hệ thống xác định tin tuyển dụng thuộc sở hữu.</p></div>}
         {jobs.isPending && <Skeleton />}
         {jobs.isError && <SectionError error={jobs.error} retry={() => void jobs.refetch()} />}
         {jobs.isSuccess && companyIds.length > 0 && jobs.data.length === 0 && <div className="employer-empty employer-empty--compact"><span><BriefcaseBusiness /></span><div><h3>Chưa có tin đang hiển thị</h3><p>API hiện chỉ expose tin PUBLISHED cho Employer. Draft và Closed chưa có contract truy vấn theo chủ sở hữu.</p></div></div>}
-        {jobs.data && jobs.data.length > 0 && <div className="employer-job-list">{jobs.data.slice(0, 4).map((job) => <article key={job.id}><span><BriefcaseBusiness /></span><div><strong>{job.title}</strong><small>{job.jobCode} · Đăng {job.publishedAt ? formatDate(job.publishedAt) : 'chưa xác định'}</small></div><em>PUBLISHED</em></article>)}</div>}
+        {jobs.data && jobs.data.length > 0 && <div className="employer-job-list">{jobs.data.slice(0, 4).map((job) => <Link to={`/employer/jobs/${job.id}`} key={job.id}><span><BriefcaseBusiness /></span><div><strong>{job.title}</strong><small>{job.jobCode} · Đăng {job.publishedAt ? formatDate(job.publishedAt) : 'chưa xác định'}</small></div><em>PUBLISHED</em></Link>)}</div>}
         <p className="employer-contract-note"><ShieldCheck /> Số liệu chỉ phản ánh toàn bộ tin PUBLISHED được API hiện tại trả về, không bao gồm Draft/Closed.</p>
       </section>
     </div>
@@ -103,6 +103,6 @@ export function EmployerDashboardPage() {
       </section>
     </div>
 
-    <section className="employer-card employer-next-phase" aria-labelledby="next-phase-title"><div><span><Clock3 /></span><div><h2 id="next-phase-title">Các module tiếp theo</h2><p>Job Management và Application Management chưa thuộc Phase 5A. Dashboard hiện chỉ đọc contract backend sẵn có.</p></div></div><span>Không có dữ liệu giả</span></section>
+    <section className="employer-card employer-next-phase" aria-labelledby="next-phase-title"><div><span><Clock3 /></span><div><h2 id="next-phase-title">Phạm vi tiếp theo</h2><p>Job Management đã sẵn sàng. Applicant Management và trạng thái ứng tuyển chưa thuộc Phase 5C.</p></div></div><Link to="/employer/jobs">Tạo và quản lý việc làm</Link></section>
   </main>
 }

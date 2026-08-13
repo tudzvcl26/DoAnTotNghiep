@@ -1,3 +1,11 @@
+export const JOB_STATUSES = ['DRAFT', 'PUBLISHED', 'CLOSED', 'EXPIRED'] as const
+export const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'INTERNSHIP', 'FREELANCE', 'CONTRACT', 'TEMPORARY'] as const
+export const EXPERIENCE_LEVELS = ['NO_EXPERIENCE', 'FRESHER', 'JUNIOR', 'MIDDLE', 'SENIOR', 'LEADER', 'MANAGER'] as const
+
+export type JobStatus = (typeof JOB_STATUSES)[number]
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number]
+export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number]
+
 export type JobSummary = {
   id: string
   title: string
@@ -5,9 +13,9 @@ export type JobSummary = {
   salaryMin: number | null
   salaryMax: number | null
   currency: string | null
-  employmentType: string | null
-  experienceLevel: string | null
-  status: string
+  employmentType: EmploymentType | null
+  experienceLevel: ExperienceLevel | null
+  status: JobStatus
   remoteAllowed: boolean
   quantity: number | null
   companyId: string
@@ -24,6 +32,39 @@ export type JobDetail = JobSummary & {
   requirements: string | null
   responsibilities: string | null
   expiredAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type JobMutationRequest = {
+  title: string
+  jobCode: string
+  description?: string
+  requirements?: string
+  responsibilities?: string
+  salaryMin?: number
+  salaryMax?: number
+  currency?: string
+  employmentType: EmploymentType
+  experienceLevel: ExperienceLevel
+  quantity?: number
+  applicationDeadline?: string
+  remoteAllowed?: boolean
+  active?: boolean
+  companyId: string
+  categoryId: string
+}
+
+export type JobCategory = {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  icon: string | null
+  displayOrder: number
+  active: boolean
+  parentId: string | null
+  parentName: string | null
   createdAt: string
   updatedAt: string
 }
