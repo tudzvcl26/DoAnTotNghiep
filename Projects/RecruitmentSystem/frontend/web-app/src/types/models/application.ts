@@ -10,6 +10,14 @@ export type WithdrawApplicationRequest = {
 
 export type ApplicationStatus = 'APPLIED' | 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED' | 'WITHDRAWN'
 
+export const APPLICATION_STATUSES: ApplicationStatus[] = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN']
+
+export type UpdateApplicationStatusRequest = {
+  status: ApplicationStatus
+  reasonCode?: string
+  reasonDetail?: string
+}
+
 export type Application = {
   id: string
   candidateId: string

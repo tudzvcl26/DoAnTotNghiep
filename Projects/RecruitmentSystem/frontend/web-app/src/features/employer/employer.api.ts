@@ -1,6 +1,6 @@
 import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse, SpringPage } from '../../types/api/common'
-import type { ApplicationSummary } from '../../types/models/application'
+import type { Application, ApplicationStatus, ApplicationSummary, UpdateApplicationStatusRequest } from '../../types/models/application'
 import type { Company, CreateCompanyRequest, UpdateCompanyRequest } from '../../types/models/company'
 import type { JobCategory, JobDetail, JobMutationRequest, JobSummary } from '../../types/models/job'
 
@@ -8,6 +8,8 @@ const PAGE_SIZE = 100
 export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
 export const employerJobsKey = (companyIds: string[]) => ['employer-jobs', companyIds] as const
 export const employerJobKey = (jobId: string) => ['employer-job', jobId] as const
+export const employerApplicationsKey = (jobId: string) => ['employer-applications', jobId] as const
+export const employerApplicationKey = (applicationId: string) => ['employer-application', applicationId] as const
 
 export async function getEmployerCompanies(ownerId: string): Promise<Company[]> {
   const owned: Company[] = []
@@ -98,6 +100,25 @@ export async function publishEmployerJob(jobId: string): Promise<JobDetail> {
 
 export async function closeEmployerJob(jobId: string): Promise<JobDetail> {
   const response = await apiClient.patch<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}/close`)
+  return response.data.data
+}
+
+export type EmployerApplicationsParams = { page: number; size: number; status?: ApplicationStatus }
+
+export async function getEmployerJobApplications(jobId: string, params: EmployerApplicationsParams): Promise<PageResponse<ApplicationSummary>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<ApplicationSummary>>>(`/api/v1/jobs/${jobId}/applications`, {
+    params: { page: params.page, size: params.size, sort: 'appliedAt,desc', ...(params.status ? { status: params.status } : {}) },
+  })
+  return response.data.data
+}
+
+export async function getEmployerApplication(applicationId: string): Promise<Application> {
+  const response = await apiClient.get<ApiResponse<Application>>(`/api/v1/applications/${applicationId}`)
+  return response.data.data
+}
+
+export async function updateEmployerApplicationStatus(applicationId: string, request: UpdateApplicationStatusRequest): Promise<Application> {
+  const response = await apiClient.patch<ApiResponse<Application>>(`/api/v1/applications/${applicationId}/status`, request)
   return response.data.data
 }
 

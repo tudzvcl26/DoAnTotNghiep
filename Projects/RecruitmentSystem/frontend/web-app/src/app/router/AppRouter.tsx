@@ -9,6 +9,8 @@ import { EmployerCompanyPage } from '../../features/employer/EmployerCompanyPage
 import { EmployerJobDetailPage } from '../../features/employer/EmployerJobDetailPage'
 import { EmployerJobFormPage } from '../../features/employer/EmployerJobFormPage'
 import { EmployerJobsPage } from '../../features/employer/EmployerJobsPage'
+import { EmployerApplicationDetailPage } from '../../features/employer/EmployerApplicationDetailPage'
+import { EmployerApplicationsPage } from '../../features/employer/EmployerApplicationsPage'
 import { HomePage } from '../../features/home/HomePage'
 import { NotFoundPage } from '../../features/home/NotFoundPage'
 import { JobDetailsPage } from '../../features/jobs/JobDetailsPage'
@@ -57,6 +59,8 @@ export function AppRouter() {
           <Route path="employer/jobs/new" element={<EmployerJobFormPage />} />
           <Route path="employer/jobs/:jobId" element={<EmployerJobDetailPage />} />
           <Route path="employer/jobs/:jobId/edit" element={<EmployerJobFormPage />} />
+          <Route path="employer/applications" element={<EmployerApplicationsPage />} />
+          <Route path="employer/applications/:applicationId" element={<EmployerApplicationDetailPage />} />
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="admin" element={<AdminDashboardPage />} />

@@ -86,11 +86,11 @@ export function EmployerDashboardPage() {
 
     <div className="employer-dashboard__grid">
       <section className="employer-card" aria-labelledby="employer-applications-title">
-        <div className="employer-card__heading"><div><span>Ứng viên gần đây</span><h2 id="employer-applications-title">Ứng tuyển trên tin đang hiển thị</h2></div></div>
+        <div className="employer-card__heading"><div><span>Ứng viên gần đây</span><h2 id="employer-applications-title">Ứng tuyển trên tin đang hiển thị</h2></div><Link to="/employer/applications">Quản lý <ArrowRight /></Link></div>
         {applications.isPending && <Skeleton />}
         {applications.isError && <SectionError error={applications.error} retry={() => void applications.refetch()} />}
         {applications.data?.recent.length === 0 && <div className="employer-empty employer-empty--compact"><span><CircleUserRound /></span><div><h3>Chưa có ứng tuyển</h3><p>Không có application trên các tin PUBLISHED hiện tại.</p></div></div>}
-        {applications.data && applications.data.recent.length > 0 && <div className="employer-application-list">{applications.data.recent.map((application) => <article key={application.id}><span><CircleUserRound /></span><div><strong>Ứng viên {application.candidateId.slice(0, 8)}</strong><small>Nộp lúc {formatDate(application.appliedAt)}</small></div><em>{humanize(application.status)}</em></article>)}</div>}
+        {applications.data && applications.data.recent.length > 0 && <div className="employer-application-list">{applications.data.recent.map((application) => <Link to={`/employer/applications/${application.id}`} key={application.id}><span><CircleUserRound /></span><div><strong>Ứng viên {application.candidateId.slice(0, 8)}</strong><small>Nộp lúc {formatDate(application.appliedAt)}</small></div><em>{humanize(application.status)}</em></Link>)}</div>}
         <p className="employer-contract-note"><FileSearch /> Company-wide application endpoint chưa tồn tại; số liệu được tổng hợp từ từng tin PUBLISHED có ownership check.</p>
       </section>
 
@@ -103,6 +103,6 @@ export function EmployerDashboardPage() {
       </section>
     </div>
 
-    <section className="employer-card employer-next-phase" aria-labelledby="next-phase-title"><div><span><Clock3 /></span><div><h2 id="next-phase-title">Phạm vi tiếp theo</h2><p>Job Management đã sẵn sàng. Applicant Management và trạng thái ứng tuyển chưa thuộc Phase 5C.</p></div></div><Link to="/employer/jobs">Tạo và quản lý việc làm</Link></section>
+    <section className="employer-card employer-next-phase" aria-labelledby="next-phase-title"><div><span><Clock3 /></span><div><h2 id="next-phase-title">Quy trình tuyển dụng</h2><p>Job Management và Application Management đã kết nối bằng dữ liệu backend có ownership.</p></div></div><Link to="/employer/applications">Xem ứng viên</Link></section>
   </main>
 }
