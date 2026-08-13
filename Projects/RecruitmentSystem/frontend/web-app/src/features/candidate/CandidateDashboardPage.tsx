@@ -9,7 +9,8 @@ import { getMyApplications } from '../applications/applications.api'
 import { useAuth } from '../auth/auth-context'
 import { AppError, getErrorMessage } from '../../lib/api/error-adapter'
 import type { ApplicationStatus, ApplicationSummary } from '../../types/models/application'
-import { getCandidateProfile, getCurrentResume, getUnreadNotificationCount } from './candidate.api'
+import { getUnreadNotificationCount } from '../notifications/notifications.api'
+import { getCandidateProfile, getCurrentResume } from './candidate.api'
 
 const profileRoute = '/candidate/profile'
 const resumeRoute = '/candidate/resumes'
@@ -135,10 +136,11 @@ function ResumeCard({ userId }: { userId: string }) {
   )
 }
 
-function NotificationSummary() {
+function NotificationSummary({ userId }: { userId: string }) {
   const notificationQuery = useQuery({
-    queryKey: ['candidate-notification-unread'],
+    queryKey: ['candidate-notification-unread', userId],
     queryFn: getUnreadNotificationCount,
+    enabled: Boolean(userId),
   })
 
   return (
@@ -149,6 +151,7 @@ function NotificationSummary() {
         {notificationQuery.data && <p>{notificationQuery.data.unreadCount > 0 ? `Bạn có ${notificationQuery.data.unreadCount} thông báo chưa đọc.` : 'Bạn không có thông báo mới.'}</p>}
         {notificationQuery.isError && <p className="candidate-inline-error">Chưa thể tải thông báo. <button type="button" onClick={() => void notificationQuery.refetch()}>Thử lại</button></p>}
       </div>
+      <Link to="/candidate/notifications" aria-label="Xem tất cả thông báo"><ArrowRight size={17} /></Link>
     </article>
   )
 }
@@ -212,7 +215,7 @@ export function CandidateDashboardPage() {
     <div className="candidate-dashboard">
       <section className="candidate-greeting">
         <div><span className="candidate-greeting__eyebrow"><Sparkles size={15} /> Candidate Dashboard</span><h1>Xin chào, {currentUser?.fullName}</h1><p>Quản lý hồ sơ và hành trình tìm việc của bạn.</p></div>
-        <NotificationSummary />
+        <NotificationSummary userId={userId} />
       </section>
 
       <section className="candidate-primary-grid" aria-label="Trạng thái hồ sơ và CV">

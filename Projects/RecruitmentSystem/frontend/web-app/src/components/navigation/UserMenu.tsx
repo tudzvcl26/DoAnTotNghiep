@@ -1,7 +1,9 @@
 import { Bell, ChevronDown, LogOut, UserRound } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../features/auth/auth-context'
+import { getUnreadNotificationCount } from '../../features/notifications/notifications.api'
 import type { UserRole } from '../../types/enums/auth'
 import { Button, ButtonLink } from '../ui/Button'
 
@@ -9,7 +11,7 @@ const menus: Record<UserRole, { label: string; to: string }[]> = {
   CANDIDATE: [
     { label: 'Dashboard', to: '/candidate' }, { label: 'Hồ sơ', to: '/candidate' },
     { label: 'CV của tôi', to: '/candidate' }, { label: 'Đơn ứng tuyển', to: '/candidate' },
-    { label: 'Việc đã lưu', to: '/candidate' }, { label: 'Thông báo', to: '/candidate' },
+    { label: 'Việc đã lưu', to: '/candidate' }, { label: 'Thông báo', to: '/candidate/notifications' },
     { label: 'Cài đặt', to: '/candidate' },
   ],
   EMPLOYER: [
@@ -29,6 +31,20 @@ function resolveRole(roles: string[]): UserRole {
   if (roles.some((role) => role.replace('ROLE_', '') === 'ADMIN')) return 'ADMIN'
   if (roles.some((role) => role.replace('ROLE_', '') === 'EMPLOYER')) return 'EMPLOYER'
   return 'CANDIDATE'
+}
+
+function NotificationLink({ role, userId }: { role: UserRole; userId: string }) {
+  const notificationsPath = role === 'CANDIDATE' ? '/candidate/notifications' : `/${role.toLowerCase()}`
+  const unreadQuery = useQuery({
+    queryKey: ['candidate-notification-unread', userId],
+    queryFn: getUnreadNotificationCount,
+    enabled: role === 'CANDIDATE',
+  })
+  const unreadCount = unreadQuery.data?.unreadCount ?? 0
+
+  return <Link className="header__notification" to={notificationsPath} aria-label={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Thông báo'}>
+    <Bell size={20} />{unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}
+  </Link>
 }
 
 export function UserMenu() {
@@ -66,7 +82,7 @@ export function UserMenu() {
 
   return (
     <div className="user-menu" ref={wrapperRef}>
-      <Link className="header__notification" to={`/${role.toLowerCase()}`} aria-label="Thông báo"><Bell size={20} /></Link>
+      <NotificationLink role={role} userId={currentUser.id} />
       <button className="user-menu__trigger" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="user-menu__avatar">{initials || <UserRound size={18} />}</span>
         <span className="user-menu__identity"><strong>{currentUser.fullName}</strong><small>{role}</small></span>

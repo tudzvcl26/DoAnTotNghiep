@@ -14,6 +14,7 @@ import { ApplicationDetailPage } from '../../features/applications/ApplicationDe
 import { ApplicationListPage } from '../../features/applications/ApplicationListPage'
 import { ProfilePage } from '../../features/profile/ProfilePage'
 import { ResumePage } from '../../features/resumes/ResumePage'
+import { NotificationPage } from '../../features/notifications/NotificationPage'
 import { ProtectedRoute } from '../guards/ProtectedRoute'
 import { RoleGuard } from '../guards/RoleGuard'
 import { AdminLayout } from '../layouts/AdminLayout'
@@ -41,6 +42,7 @@ export function AppRouter() {
           <Route path="candidate/resumes" element={<ResumePage />} />
           <Route path="candidate/applications" element={<ApplicationListPage />} />
           <Route path="candidate/applications/:applicationId" element={<ApplicationDetailPage />} />
+          <Route path="candidate/notifications" element={<NotificationPage />} />
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER', 'ADMIN']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="employer" element={<EmployerDashboardPage />} />
