@@ -1,0 +1,248 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  AlertCircle, ArrowRight, BrainCircuit, BriefcaseBusiness, CheckCircle2, FileSearch,
+  FileText, GraduationCap, History, LoaderCircle, RefreshCw, ShieldCheck, Sparkles,
+  Target, Trash2, UploadCloud,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { normalizeApiError } from '../../lib/api/error-adapter'
+import { getJobs } from '../jobs/jobs.api'
+import {
+  analyzeAiResume, deleteAiResume, generateInterviewPreparation, generateMatchExplanation,
+  getAiResumeAnalysis, getAiResumes, getAiTasks, getResumeMatches, matchJob,
+  runCandidateAssistant, uploadAiResume,
+} from './ai-career.api'
+import {
+  candidateAssistantTasks, type AssistantResponse, type CandidateAssistantTask,
+  type InterviewPreparation, type JsonValue, type MatchExplanation, type MatchingResult,
+} from './ai-career.types'
+import './ai-career.css'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+const acceptedExtensions = new Set(['pdf', 'docx', 'txt'])
+
+const taskContent: Record<CandidateAssistantTask, { title: string; description: string }> = {
+  CAREER_ROADMAP: { title: 'Lộ trình sự nghiệp', description: 'Xây dựng các bước phát triển nghề nghiệp từ dữ liệu CV đã phân tích.' },
+  LEARNING_ROADMAP: { title: 'Lộ trình học tập', description: 'Sắp xếp ưu tiên học tập phù hợp với nền tảng hiện tại.' },
+  SKILL_ROADMAP: { title: 'Lộ trình kỹ năng', description: 'Nhận diện khoảng trống và thứ tự nâng cấp kỹ năng.' },
+  CERTIFICATE_RECOMMENDATION: { title: 'Gợi ý chứng chỉ', description: 'Đề xuất chứng chỉ phù hợp với hồ sơ và định hướng.' },
+  PORTFOLIO_RECOMMENDATION: { title: 'Nâng cấp portfolio', description: 'Gợi ý dự án và cách trình bày năng lực nổi bật hơn.' },
+  JOB_SEARCH_ADVICE: { title: 'Chiến lược tìm việc', description: 'Nhận lời khuyên tìm việc dựa trên nội dung CV.' },
+  RESUME_IMPROVEMENT: { title: 'Cải thiện CV', description: 'Xác định vấn đề, ưu tiên và hành động cải thiện CV.' },
+}
+
+const taskLabels: Record<string, string> = {
+  ...Object.fromEntries(candidateAssistantTasks.map((task) => [task, taskContent[task].title])),
+  RESUME_ANALYSIS: 'Phân tích CV', MATCHING: 'Đánh giá độ phù hợp',
+  MATCH_EXPLANATION: 'Giải thích độ phù hợp', INTERVIEW_PREPARATION: 'Chuẩn bị phỏng vấn',
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function formatSize(bytes: number) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function humanize(value: string) {
+  return value.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase())
+}
+
+function JsonResult({ value }: { value: JsonValue }) {
+  if (value == null) return <p className="ai-json__empty">Không có dữ liệu.</p>
+  if (Array.isArray(value)) {
+    return <ul className="ai-json__list">{value.map((item, index) => <li key={index}>{typeof item === 'object' && item !== null ? <JsonResult value={item} /> : String(item)}</li>)}</ul>
+  }
+  if (typeof value === 'object') {
+    return <div className="ai-json__object">{Object.entries(value).map(([key, item]) => <section key={key}><h4>{humanize(key)}</h4><JsonResult value={item} /></section>)}</div>
+  }
+  return <p>{String(value)}</p>
+}
+
+function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const normalized = normalizeApiError(error)
+  return <div className="ai-error" role="alert"><AlertCircle aria-hidden="true" /><div><strong>Yêu cầu chưa hoàn tất</strong><p>{normalized.message}</p>{normalized.correlationId && <small>Mã đối chiếu: {normalized.correlationId}</small>}</div>{onRetry && <button type="button" onClick={onRetry}><RefreshCw /> Thử lại</button>}</div>
+}
+
+function ResultMeta({ provider, model, duration }: { provider: string; model: string; duration: number }) {
+  return <div className="ai-result-meta"><span>{provider}</span><span>{model}</span><span>{(duration / 1000).toFixed(1)} giây</span></div>
+}
+
+export function AiCareerPage() {
+  const queryClient = useQueryClient()
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [selectedResumeId, setSelectedResumeId] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [assistantResult, setAssistantResult] = useState<AssistantResponse | null>(null)
+  const [assistantTask, setAssistantTask] = useState<CandidateAssistantTask | null>(null)
+  const [jobId, setJobId] = useState('')
+  const [activeMatch, setActiveMatch] = useState<MatchingResult | null>(null)
+  const [explanation, setExplanation] = useState<MatchExplanation | null>(null)
+  const [interview, setInterview] = useState<InterviewPreparation | null>(null)
+
+  const resumes = useQuery({ queryKey: ['ai-resumes'], queryFn: getAiResumes })
+  const resumeItems = useMemo(() => resumes.data?.content ?? [], [resumes.data])
+  const selectedResume = resumeItems.find((resume) => resume.id === selectedResumeId)
+
+  useEffect(() => {
+    if (!selectedResumeId && resumeItems.length > 0) setSelectedResumeId(resumeItems[0].id)
+    if (selectedResumeId && resumeItems.length > 0 && !resumeItems.some((resume) => resume.id === selectedResumeId)) setSelectedResumeId(resumeItems[0].id)
+  }, [resumeItems, selectedResumeId])
+
+  const analysis = useQuery({
+    queryKey: ['ai-resume-analysis', selectedResumeId],
+    queryFn: () => getAiResumeAnalysis(selectedResumeId),
+    enabled: Boolean(selectedResumeId && selectedResume?.status === 'ANALYZED'),
+  })
+  const matches = useQuery({
+    queryKey: ['ai-resume-matches', selectedResumeId],
+    queryFn: () => getResumeMatches(selectedResumeId),
+    enabled: Boolean(selectedResumeId && selectedResume?.status === 'ANALYZED'),
+  })
+  const tasks = useQuery({ queryKey: ['ai-tasks'], queryFn: getAiTasks })
+  const jobs = useQuery({
+    queryKey: ['jobs', 'ai-career-selector'],
+    queryFn: () => getJobs({ keyword: '', page: 0, size: 24, sort: 'publishedAt,desc' }),
+  })
+
+  useEffect(() => {
+    if (!activeMatch && matches.data?.content[0]) setActiveMatch(matches.data.content[0])
+  }, [activeMatch, matches.data])
+
+  const refreshAiData = async () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['ai-resumes'] }),
+    queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }),
+  ])
+
+  const upload = useMutation({
+    mutationFn: uploadAiResume,
+    onSuccess: async (resume) => {
+      setSelectedFile(null); setFileError(''); setNotice(`Đã tải “${resume.originalFilename}” lên AI Career Center.`)
+      if (fileInput.current) fileInput.current.value = ''
+      await refreshAiData(); setSelectedResumeId(resume.id)
+    },
+  })
+  const remove = useMutation({
+    mutationFn: deleteAiResume,
+    onSuccess: async () => { setNotice('Đã xóa CV dùng cho AI.'); setSelectedResumeId(''); await refreshAiData() },
+  })
+  const analyze = useMutation({
+    mutationFn: analyzeAiResume,
+    onSuccess: async (result) => {
+      setNotice('Phân tích CV đã hoàn tất.'); await refreshAiData()
+      queryClient.setQueryData(['ai-resume-analysis', result.resumeDocumentId], result)
+    },
+  })
+  const assistant = useMutation({
+    mutationFn: ({ task, resumeId, matchId }: { task: CandidateAssistantTask; resumeId: string; matchId?: string }) => runCandidateAssistant(task, resumeId, matchId),
+    onSuccess: async (result) => { setAssistantResult(result); await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }) },
+  })
+  const matching = useMutation({
+    mutationFn: ({ selectedJob, resumeId }: { selectedJob: string; resumeId: string }) => matchJob(selectedJob, resumeId),
+    onSuccess: async (result) => {
+      setActiveMatch(result); setExplanation(null); setInterview(null); setNotice('Đánh giá độ phù hợp đã hoàn tất.')
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['ai-resume-matches', result.resumeId] }), queryClient.invalidateQueries({ queryKey: ['ai-tasks'] })])
+    },
+  })
+  const explain = useMutation({
+    mutationFn: generateMatchExplanation,
+    onSuccess: async (result) => { setExplanation(result); await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }) },
+  })
+  const prepareInterview = useMutation({
+    mutationFn: generateInterviewPreparation,
+    onSuccess: async (result) => { setInterview(result); await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }) },
+  })
+
+  const chooseFile = (file: File | null) => {
+    setNotice(''); setFileError('')
+    if (!file) { setSelectedFile(null); return }
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+    if (!acceptedExtensions.has(extension)) { setSelectedFile(null); setFileError('Chỉ hỗ trợ PDF, DOCX hoặc TXT UTF-8.'); return }
+    if (file.size <= 0 || file.size > MAX_FILE_SIZE) { setSelectedFile(null); setFileError('Tệp phải có dữ liệu và không vượt quá 10 MB.'); return }
+    setSelectedFile(file)
+  }
+
+  const runTask = (task: CandidateAssistantTask) => {
+    if (!selectedResumeId) return
+    setAssistantTask(task); setAssistantResult(null)
+    assistant.mutate({ task, resumeId: selectedResumeId, matchId: activeMatch?.id })
+  }
+
+  const mutationError = upload.error ?? remove.error
+
+  return <main className="ai-career-page">
+    <header className="ai-career-hero">
+      <div><span className="ai-career-eyebrow"><Sparkles /> Trợ lý nghề nghiệp có kiểm soát</span><h1>AI Career Center</h1><p>Phân tích CV, xây dựng lộ trình và chuẩn bị phỏng vấn dựa trên dữ liệu thật của bạn.</p><div className="ai-career-hero__trust"><ShieldCheck /> AI chỉ hỗ trợ ra quyết định — không thay đổi điểm hoặc trạng thái tuyển dụng.</div></div>
+      <div className="ai-career-hero__model"><BrainCircuit /><span>AI đang sử dụng</span><strong>Qwen2.5:3B-Instruct</strong><small>Chạy cục bộ qua hệ thống bảo mật</small></div>
+    </header>
+
+    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">CV cho AI</a><a href="#career-assistant">Career Assistant</a><a href="#job-matching">Job Matching</a><a href="#ai-history">Lịch sử</a></nav>
+
+    {notice && <div className="ai-success" role="status"><CheckCircle2 /> {notice}</div>}
+    {mutationError && <ErrorNotice error={mutationError} />}
+
+    <section className="ai-section" id="ai-resume" aria-labelledby="ai-resume-title">
+      <div className="ai-section__heading"><div><span>Bước 1 · Dữ liệu đầu vào</span><h2 id="ai-resume-title">CV dùng cho AI</h2><p>AI Service có kho CV riêng. Bạn cần tải CV lên đây dù đã có CV ứng tuyển trong hồ sơ Candidate.</p></div><FileSearch /></div>
+      <div className="ai-resume-layout">
+        <div className="ai-upload-card" aria-busy={upload.isPending}>
+          <UploadCloud /><h3>Tải CV để phân tích</h3><p>PDF, DOCX hoặc TXT UTF-8 · tối đa 10 MB</p>
+          <label htmlFor="ai-resume-file">Chọn tệp CV<input ref={fileInput} id="ai-resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} disabled={upload.isPending} /></label>
+          {selectedFile && <div className="ai-selected-file"><FileText /><span><strong>{selectedFile.name}</strong><small>{formatSize(selectedFile.size)}</small></span></div>}
+          {fileError && <p className="ai-inline-error" role="alert">{fileError}</p>}
+          <button type="button" className="ai-primary" disabled={!selectedFile || upload.isPending} onClick={() => selectedFile && upload.mutate(selectedFile)}>{upload.isPending ? <><LoaderCircle className="ai-spin" /> Đang tải lên...</> : <><UploadCloud /> Tải lên AI</>}</button>
+        </div>
+        <div className="ai-resume-list">
+          <h3>CV đã tải lên AI <span>{resumeItems.length}</span></h3>
+          {resumes.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang tải danh sách...</p>}
+          {resumes.isError && <ErrorNotice error={resumes.error} onRetry={() => void resumes.refetch()} />}
+          {resumes.isSuccess && resumeItems.length === 0 && <div className="ai-empty"><FileText /><strong>Chưa có CV dùng cho AI</strong><p>Tải một CV hợp lệ để bắt đầu phân tích.</p></div>}
+          {resumeItems.map((resume) => <article key={resume.id} className={`ai-resume-item${selectedResumeId === resume.id ? ' is-selected' : ''}`}>
+            <button type="button" className="ai-resume-item__select" onClick={() => { setSelectedResumeId(resume.id); setActiveMatch(null); setAssistantResult(null) }}><FileText /><span><strong>{resume.originalFilename}</strong><small>{formatSize(resume.fileSize)} · {formatDate(resume.uploadTime)}</small></span><em className={`ai-status ai-status--${resume.status.toLowerCase()}`}>{resume.status}</em></button>
+            <button type="button" className="ai-icon-button" aria-label={`Xóa ${resume.originalFilename}`} onClick={() => window.confirm(`Xóa “${resume.originalFilename}” khỏi AI Career Center?`) && remove.mutate(resume.id)} disabled={remove.isPending}><Trash2 /></button>
+          </article>)}
+        </div>
+      </div>
+
+      {selectedResume && <div className="ai-analysis" aria-busy={analyze.isPending}>
+        <div className="ai-analysis__action"><div><span>CV đang chọn</span><h3>{selectedResume.originalFilename}</h3><p>{selectedResume.status === 'ANALYZED' ? 'CV đã có kết quả phân tích được lưu trên máy chủ.' : 'Chạy phân tích trước khi dùng Career Assistant hoặc Job Matching.'}</p></div><button type="button" className="ai-primary" onClick={() => analyze.mutate(selectedResume.id)} disabled={analyze.isPending}>{analyze.isPending ? <><LoaderCircle className="ai-spin" /> AI đang phân tích...</> : <><Sparkles /> {selectedResume.status === 'ANALYZED' ? 'Phân tích lại' : 'Phân tích CV'}</>}</button></div>
+        {analyze.isError && <ErrorNotice error={analyze.error} onRetry={() => analyze.mutate(selectedResume.id)} />}
+        {analysis.isPending && selectedResume.status === 'ANALYZED' && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang lấy kết quả phân tích...</p>}
+        {analysis.isError && <ErrorNotice error={analysis.error} onRetry={() => void analysis.refetch()} />}
+        {analysis.data && <div className="ai-analysis__result"><div className="ai-score"><strong>{analysis.data.qualityScore}</strong><span>/ 100</span><p>Chất lượng CV</p></div><div className="ai-analysis__details"><div className="ai-breakdowns">{Object.entries(analysis.data.scoreBreakdown).map(([key, item]) => <div key={key}><span>{humanize(key)}</span><strong>{item.score}/{item.maximum}</strong><p>{item.rationale}</p></div>)}</div><div className="ai-tags"><h4>Kỹ năng được nhận diện</h4>{analysis.data.skills.map((skill) => <span key={`${skill.category}-${skill.name}`}>{skill.name}</span>)}</div><details><summary>Xem toàn bộ dữ liệu CV có cấu trúc</summary><JsonResult value={analysis.data.structuredData} /></details><ResultMeta provider={analysis.data.providerName} model={analysis.data.modelName} duration={analysis.data.analysisDurationMs} /></div></div>}
+      </div>}
+    </section>
+
+    <section className="ai-section" id="career-assistant" aria-labelledby="assistant-title">
+      <div className="ai-section__heading"><div><span>Bước 2 · Phát triển sự nghiệp</span><h2 id="assistant-title">Career Assistant</h2><p>Chọn một tác vụ cụ thể. AI chỉ chạy khi bạn bấm tạo kết quả.</p></div><GraduationCap /></div>
+      {!analysis.data && <div className="ai-prerequisite"><AlertCircle /><div><strong>Cần CV đã phân tích</strong><p>Chọn CV trạng thái ANALYZED hoặc hoàn tất phân tích ở bước 1.</p></div><a href="#ai-resume">Đi đến CV cho AI <ArrowRight /></a></div>}
+      <div className="ai-task-grid">{candidateAssistantTasks.map((task) => <article key={task} className={assistantTask === task ? 'is-active' : ''}><span><Target /></span><h3>{taskContent[task].title}</h3><p>{taskContent[task].description}</p><button type="button" onClick={() => runTask(task)} disabled={!analysis.data || assistant.isPending}>{assistant.isPending && assistantTask === task ? <><LoaderCircle className="ai-spin" /> Đang tạo...</> : <>Tạo kết quả <ArrowRight /></>}</button></article>)}</div>
+      {assistant.isError && <ErrorNotice error={assistant.error} onRetry={() => assistantTask && runTask(assistantTask)} />}
+      {assistantResult && <article className="ai-generated-result" aria-live="polite"><header><div><span>Kết quả AI</span><h3>{taskContent[assistantResult.taskType].title}</h3></div><Sparkles /></header><JsonResult value={assistantResult.response} /><ResultMeta provider={assistantResult.providerName} model={assistantResult.modelName} duration={assistantResult.generationDurationMs} /></article>}
+    </section>
+
+    <section className="ai-section" id="job-matching" aria-labelledby="matching-title">
+      <div className="ai-section__heading"><div><span>Bước 3 · Đánh giá cơ hội</span><h2 id="matching-title">Job Matching</h2><p>Điểm được tính hoàn toàn tại backend từ một việc làm thật và CV AI đã phân tích.</p></div><BriefcaseBusiness /></div>
+      <div className="ai-match-form"><label>Việc làm đang tuyển<select value={jobId} onChange={(event) => setJobId(event.target.value)}><option value="">Chọn một việc làm</option>{jobs.data?.content.map((job) => <option key={job.id} value={job.id}>{job.title} · {job.jobCode}</option>)}</select></label><label>CV dùng để đánh giá<select value={selectedResumeId} onChange={(event) => setSelectedResumeId(event.target.value)}><option value="">Chọn CV</option>{resumeItems.filter((resume) => resume.status === 'ANALYZED').map((resume) => <option key={resume.id} value={resume.id}>{resume.originalFilename}</option>)}</select></label><button className="ai-primary" type="button" disabled={!jobId || !analysis.data || matching.isPending} onClick={() => matching.mutate({ selectedJob: jobId, resumeId: selectedResumeId })}>{matching.isPending ? <><LoaderCircle className="ai-spin" /> Đang đánh giá...</> : <><Target /> Phân tích độ phù hợp</>}</button></div>
+      {jobs.isError && <ErrorNotice error={jobs.error} onRetry={() => void jobs.refetch()} />}
+      {matching.isError && <ErrorNotice error={matching.error} onRetry={() => jobId && matching.mutate({ selectedJob: jobId, resumeId: selectedResumeId })} />}
+      {matches.data && matches.data.content.length > 0 && <label className="ai-match-history">Kết quả gần đây<select value={activeMatch?.id ?? ''} onChange={(event) => { const next = matches.data.content.find((match) => match.id === event.target.value) ?? null; setActiveMatch(next); setExplanation(null); setInterview(null) }}><option value="">Chọn kết quả</option>{matches.data.content.map((match) => <option key={match.id} value={match.id}>{match.overallScore}/100 · {formatDate(match.updatedAt)}</option>)}</select></label>}
+      {activeMatch && <article className="ai-match-result"><div className="ai-match-score"><strong>{activeMatch.overallScore}</strong><span>/100</span><p>Độ phù hợp</p></div><div className="ai-match-content"><div className="ai-breakdowns">{activeMatch.scoreBreakdown.map((item) => <div key={item.dimension}><span>{humanize(item.dimension)}</span><strong>{item.actualScore}/{item.maximumScore}</strong><p>{item.reason}</p></div>)}</div><div className="ai-match-columns"><div><h4>Điểm mạnh</h4><ul>{activeMatch.strengths.map((value) => <li key={value}>{value}</li>)}</ul><h4>Kỹ năng phù hợp</h4><div className="ai-tags">{activeMatch.matchedSkills.map((value) => <span key={value}>{value}</span>)}</div></div><div><h4>Khoảng trống</h4><ul>{activeMatch.gapAnalysis.map((value) => <li key={value}>{value}</li>)}</ul><h4>Kỹ năng còn thiếu</h4><div className="ai-tags ai-tags--warning">{activeMatch.missingSkills.map((value) => <span key={value}>{value}</span>)}</div></div></div><div className="ai-match-actions"><button type="button" onClick={() => explain.mutate(activeMatch.id)} disabled={explain.isPending}>{explain.isPending ? <><LoaderCircle className="ai-spin" /> Đang giải thích...</> : <><Sparkles /> Vì sao công việc phù hợp?</>}</button><button type="button" onClick={() => prepareInterview.mutate(activeMatch.id)} disabled={prepareInterview.isPending}>{prepareInterview.isPending ? <><LoaderCircle className="ai-spin" /> Đang chuẩn bị...</> : <><GraduationCap /> Chuẩn bị phỏng vấn</>}</button></div></div></article>}
+      {explain.isError && <ErrorNotice error={explain.error} onRetry={() => activeMatch && explain.mutate(activeMatch.id)} />}
+      {explanation && <article className="ai-generated-result"><header><div><span>Giải thích từ AI</span><h3>Vì sao công việc phù hợp với bạn</h3></div><Sparkles /></header><JsonResult value={explanation.explanation} /><ResultMeta provider={explanation.providerName} model={explanation.modelName} duration={explanation.generationDurationMs} /></article>}
+      {prepareInterview.isError && <ErrorNotice error={prepareInterview.error} onRetry={() => activeMatch && prepareInterview.mutate(activeMatch.id)} />}
+      {interview && <article className="ai-generated-result"><header><div><span>Bộ câu hỏi thực tế</span><h3>Chuẩn bị phỏng vấn</h3></div><GraduationCap /></header><JsonResult value={interview.questionSet} /><ResultMeta provider={interview.providerName} model={interview.modelName} duration={interview.generationDurationMs} /></article>}
+    </section>
+
+    <section className="ai-section" id="ai-history" aria-labelledby="history-title">
+      <div className="ai-section__heading"><div><span>Hoạt động đã lưu</span><h2 id="history-title">Lịch sử tác vụ AI</h2><p>Trạng thái thật từ AI Service, không lưu kết quả tạm trong trình duyệt.</p></div><History /></div>
+      {tasks.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang tải lịch sử...</p>}
+      {tasks.isError && <ErrorNotice error={tasks.error} onRetry={() => void tasks.refetch()} />}
+      {tasks.data && tasks.data.content.length === 0 && <div className="ai-empty"><History /><strong>Chưa có tác vụ AI</strong><p>Các tác vụ sẽ xuất hiện sau khi bạn chủ động chạy.</p></div>}
+      {tasks.data && tasks.data.content.length > 0 && <div className="ai-task-history">{tasks.data.content.map((task) => <article key={task.id}><span className={`ai-status ai-status--${task.status.toLowerCase()}`}>{task.status}</span><div><h3>{taskLabels[task.taskType] ?? humanize(task.taskType)}</h3><p>{task.errorMessage ?? `${task.providerName ?? 'Hệ thống'} · ${task.modelName ?? 'Không dùng mô hình sinh'}`}</p></div><time dateTime={task.createdAt}>{formatDate(task.completedAt ?? task.createdAt)}</time></article>)}</div>}
+    </section>
+  </main>
+}
