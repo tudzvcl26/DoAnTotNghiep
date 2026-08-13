@@ -1,6 +1,7 @@
 package com.recruitment.auth;
 
 import com.recruitment.auth.bootstrap.SecureAdminBootstrap;
+import com.recruitment.auth.bootstrap.SecureEmployerTestBootstrap;
 import com.recruitment.auth.dto.request.RegisterRequest;
 import com.recruitment.auth.dto.response.AuthResponse;
 import com.recruitment.auth.entity.RefreshToken;
@@ -54,5 +55,6 @@ class RefreshTokenHardeningIntegrationTest {
     @Test
     void adminBootstrapIsOffByDefault() {
         assertThat(context.getBeansOfType(SecureAdminBootstrap.class)).isEmpty();
+        assertThat(context.getBeansOfType(SecureEmployerTestBootstrap.class)).isEmpty();
     }
 }

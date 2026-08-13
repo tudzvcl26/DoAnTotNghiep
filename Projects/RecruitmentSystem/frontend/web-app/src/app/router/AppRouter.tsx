@@ -5,6 +5,7 @@ import { RegisterPage } from '../../features/auth/pages/RegisterPage'
 import { CompaniesPage } from '../../features/companies/CompaniesPage'
 import { CompanyDetailsPage } from '../../features/companies/CompanyDetailsPage'
 import { EmployerDashboardPage } from '../../features/employer/EmployerDashboardPage'
+import { EmployerCompanyPage } from '../../features/employer/EmployerCompanyPage'
 import { HomePage } from '../../features/home/HomePage'
 import { NotFoundPage } from '../../features/home/NotFoundPage'
 import { JobDetailsPage } from '../../features/jobs/JobDetailsPage'
@@ -46,8 +47,9 @@ export function AppRouter() {
           <Route path="candidate/notifications" element={<NotificationPage />} />
           <Route path="candidate/ai-career" element={<AiCareerPage />} />
         </Route>
-        <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER', 'ADMIN']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
+        <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="employer" element={<EmployerDashboardPage />} />
+          <Route path="employer/company" element={<EmployerCompanyPage />} />
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="admin" element={<AdminDashboardPage />} />
