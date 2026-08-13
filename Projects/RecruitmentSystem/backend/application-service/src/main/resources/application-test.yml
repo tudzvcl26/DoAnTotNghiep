@@ -39,6 +39,13 @@ services:
   recruitment-service:
     url: http://localhost:8084
 
+storage:
+  resume:
+    endpoint: http://localhost:9000
+    access-key: test-access-key
+    secret-key: test-secret-key
+    bucket: test-resumes
+
 jwt:
   secret: 4F8A9B72D35E1C847A91F6D28C5B9E73F84A9D21E6C4B7A15D8F2C93E7A4B6F18
   access-token-expiration: 3600000

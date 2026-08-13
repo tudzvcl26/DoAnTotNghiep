@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -118,6 +119,13 @@ public class CompanyController {
 
         );
 
+    }
+
+    @GetMapping("/owner/{ownerId}")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Get active companies owned by a user")
+    public ResponseEntity<List<CompanyResponse>> getByOwnerId(@PathVariable UUID ownerId) {
+        return ResponseEntity.ok(companyService.getByOwnerId(ownerId));
     }
 
     @GetMapping

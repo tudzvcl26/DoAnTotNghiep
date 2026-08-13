@@ -1,5 +1,5 @@
 import { apiClient } from '../../lib/api/client'
-import type { ApiResponse, PageResponse, SpringPage } from '../../types/api/common'
+import type { ApiResponse, PageResponse } from '../../types/api/common'
 import type { Application, ApplicationStatus, ApplicationSummary, UpdateApplicationStatusRequest } from '../../types/models/application'
 import type { Company, CreateCompanyRequest, UpdateCompanyRequest } from '../../types/models/company'
 import type { JobCategory, JobDetail, JobMutationRequest, JobSummary } from '../../types/models/job'
@@ -8,22 +8,12 @@ const PAGE_SIZE = 100
 export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
 export const employerJobsKey = (companyIds: string[]) => ['employer-jobs', companyIds] as const
 export const employerJobKey = (jobId: string) => ['employer-job', jobId] as const
-export const employerApplicationsKey = (jobId: string) => ['employer-applications', jobId] as const
+export const employerApplicationsKey = ['employer-applications'] as const
 export const employerApplicationKey = (applicationId: string) => ['employer-application', applicationId] as const
 
 export async function getEmployerCompanies(ownerId: string): Promise<Company[]> {
-  const owned: Company[] = []
-  let page = 0
-  let totalPages = 1
-  do {
-    const response = await apiClient.get<SpringPage<Company>>('/api/v1/companies', {
-      params: { page, size: PAGE_SIZE, sort: 'createdAt,desc' },
-    })
-    owned.push(...response.data.content.filter((company) => company.ownerId === ownerId))
-    totalPages = response.data.totalPages
-    page += 1
-  } while (page < totalPages)
-  return owned
+  const response = await apiClient.get<Company[]>(`/api/v1/companies/owner/${ownerId}`)
+  return response.data
 }
 
 export async function createEmployerCompany(request: CreateCompanyRequest): Promise<Company> {
@@ -103,11 +93,11 @@ export async function closeEmployerJob(jobId: string): Promise<JobDetail> {
   return response.data.data
 }
 
-export type EmployerApplicationsParams = { page: number; size: number; status?: ApplicationStatus }
+export type EmployerApplicationsParams = { page: number; size: number; sort: string; status?: ApplicationStatus; jobId?: string }
 
-export async function getEmployerJobApplications(jobId: string, params: EmployerApplicationsParams): Promise<PageResponse<ApplicationSummary>> {
-  const response = await apiClient.get<ApiResponse<PageResponse<ApplicationSummary>>>(`/api/v1/jobs/${jobId}/applications`, {
-    params: { page: params.page, size: params.size, sort: 'appliedAt,desc', ...(params.status ? { status: params.status } : {}) },
+export async function getEmployerApplications(params: EmployerApplicationsParams): Promise<PageResponse<ApplicationSummary>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<ApplicationSummary>>>('/api/v1/applications/employer', {
+    params: { page: params.page, size: params.size, sort: params.sort, ...(params.status ? { status: params.status } : {}), ...(params.jobId ? { jobId: params.jobId } : {}) },
   })
   return response.data.data
 }
@@ -122,21 +112,17 @@ export async function updateEmployerApplicationStatus(applicationId: string, req
   return response.data.data
 }
 
+export async function downloadEmployerApplicationResume(applicationId: string): Promise<Blob> {
+  const response = await apiClient.get<Blob>(`/api/v1/applications/${applicationId}/resume`, { responseType: 'blob' })
+  return response.data
+}
+
 export type PublishedJobApplications = {
   total: number
   recent: ApplicationSummary[]
 }
 
-export async function getPublishedJobApplications(jobs: JobSummary[]): Promise<PublishedJobApplications> {
-  if (jobs.length === 0) return { total: 0, recent: [] }
-  const pages = await Promise.all(jobs.map(async (job) => {
-    const response = await apiClient.get<ApiResponse<PageResponse<ApplicationSummary>>>(`/api/v1/jobs/${job.id}/applications`, {
-      params: { page: 0, size: 5, sort: 'appliedAt,desc' },
-    })
-    return response.data.data
-  }))
-  return {
-    total: pages.reduce((sum, page) => sum + page.totalElements, 0),
-    recent: pages.flatMap((page) => page.content).sort((a, b) => Date.parse(b.appliedAt) - Date.parse(a.appliedAt)).slice(0, 5),
-  }
+export async function getEmployerApplicationSummary(): Promise<PublishedJobApplications> {
+  const page = await getEmployerApplications({ page: 0, size: 5, sort: 'appliedAt,desc' })
+  return { total: page.totalElements, recent: page.content }
 }

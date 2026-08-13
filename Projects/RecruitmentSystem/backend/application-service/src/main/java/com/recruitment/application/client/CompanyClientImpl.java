@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -52,6 +53,34 @@ public class CompanyClientImpl implements CompanyClient {
 
             return dto;
         });
+    }
+
+    @Override
+    public List<CompanyClientDto> getCompaniesByOwnerId(UUID ownerId, String bearerToken) {
+        return DownstreamClientSupport.execute(() -> {
+            RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                    .uri("/api/v1/companies/owner/{ownerId}", ownerId);
+            if (bearerToken != null && !bearerToken.isBlank()) {
+                spec.header("Authorization", bearerToken.startsWith("Bearer ") ? bearerToken : "Bearer " + bearerToken);
+            }
+            String responseStr = spec.retrieve().body(String.class);
+            if (responseStr == null || responseStr.isBlank()) {
+                return List.<CompanyClientDto>of();
+            }
+            JsonNode root = objectMapper.readTree(responseStr);
+            JsonNode data = root.has("data") ? root.get("data") : root;
+            if (data == null || !data.isArray()) {
+                return List.<CompanyClientDto>of();
+            }
+            return java.util.stream.StreamSupport.stream(data.spliterator(), false)
+                    .map(node -> CompanyClientDto.builder()
+                            .id(node.hasNonNull("id") ? UUID.fromString(node.get("id").asText()) : null)
+                            .ownerId(node.hasNonNull("ownerId") ? UUID.fromString(node.get("ownerId").asText()) : null)
+                            .name(node.hasNonNull("name") ? node.get("name").asText() : null)
+                            .build())
+                    .filter(company -> company.getId() != null)
+                    .toList();
+        }).orElse(List.<CompanyClientDto>of());
     }
 
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface CompanyRepository extends
@@ -23,6 +24,8 @@ public interface CompanyRepository extends
     Optional<Company> findBySlug(String slug);
 
     Optional<Company> findByOwnerId(UUID ownerId);
+
+    List<Company> findAllByOwnerId(UUID ownerId);
 
     boolean existsBySlug(String slug);
 

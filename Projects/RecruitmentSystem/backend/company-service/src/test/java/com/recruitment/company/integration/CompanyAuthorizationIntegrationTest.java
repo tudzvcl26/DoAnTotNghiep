@@ -108,6 +108,20 @@ public class CompanyAuthorizationIntegrationTest {
         com.fasterxml.jackson.databind.JsonNode companyNode = root.has("data") ? root.get("data") : root;
         UUID company1Id = UUID.fromString(companyNode.get("id").asText());
 
+        // The owner lookup used by Application Service is authenticated and owner-scoped.
+        mockMvc.perform(get("/api/v1/companies/owner/" + employer1Id)
+                        .header("Authorization", "Bearer " + employer1Token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(company1Id.toString()));
+        mockMvc.perform(get("/api/v1/companies/owner/" + employer1Id)
+                        .header("Authorization", "Bearer " + employer2Token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/companies/owner/" + employer1Id)
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/companies/owner/" + employer1Id))
+                .andExpect(status().isUnauthorized());
+
         // 4. EMPLOYER 1 updates own company -> 200 OK
         UpdateCompanyRequest updateReq = new UpdateCompanyRequest();
         updateReq.setName("Company Beta Updated");

@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -146,6 +147,16 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CompanyResponse> getByOwnerId(UUID ownerId) {
+        assertOwnerAccess(ownerId);
+        return companyRepository.findAllByOwnerId(ownerId).stream()
+                .filter(company -> company.getStatus() == CompanyStatus.ACTIVE)
+                .map(companyMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<CompanyResponse> getAll(Pageable pageable) {
 
         return companyRepository
@@ -229,6 +240,16 @@ public class CompanyServiceImpl implements CompanyService {
 
         }
 
+    }
+
+    private void assertOwnerAccess(UUID ownerId) {
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new AccessDeniedException("User is not authenticated.");
+        }
+        if (!currentUser.isAdmin() && !currentUser.getUserId().equals(ownerId)) {
+            throw new AccessDeniedException("You do not have permission to view companies for this owner.");
+        }
     }
 
     private void validateDuplicate(

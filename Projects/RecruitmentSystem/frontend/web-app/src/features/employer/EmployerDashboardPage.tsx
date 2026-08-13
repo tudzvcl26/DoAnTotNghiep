@@ -8,7 +8,7 @@ import { getErrorMessage } from '../../lib/api/error-adapter'
 import type { Notification } from '../../types/models/notification'
 import { useAuth } from '../auth/auth-context'
 import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../notifications/notifications.api'
-import { employerCompanyKey, getEmployerCompanies, getPublishedCompanyJobs, getPublishedJobApplications } from './employer.api'
+import { employerCompanyKey, getEmployerApplicationSummary, getEmployerCompanies, getPublishedCompanyJobs } from './employer.api'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -39,7 +39,7 @@ export function EmployerDashboardPage() {
   const companies = useQuery({ queryKey: employerCompanyKey(userId), queryFn: () => getEmployerCompanies(userId), enabled: Boolean(userId) })
   const companyIds = companies.data?.map((company) => company.id) ?? []
   const jobs = useQuery({ queryKey: ['employer-published-jobs', companyIds], queryFn: () => getPublishedCompanyJobs(companyIds), enabled: companies.isSuccess })
-  const applications = useQuery({ queryKey: ['employer-published-job-applications', jobs.data?.map((job) => job.id) ?? []], queryFn: () => getPublishedJobApplications(jobs.data ?? []), enabled: jobs.isSuccess })
+  const applications = useQuery({ queryKey: ['employer-application-summary'], queryFn: getEmployerApplicationSummary })
   const notifications = useQuery({ queryKey: ['employer-notifications', userId], queryFn: () => getNotifications({ page: 0, size: 5 }), enabled: Boolean(userId) })
   const unread = useQuery({ queryKey: ['employer-notification-unread', userId], queryFn: getUnreadNotificationCount, enabled: Boolean(userId) })
 
@@ -60,7 +60,7 @@ export function EmployerDashboardPage() {
     <section className="employer-metrics" aria-label="Tổng quan tuyển dụng">
       <article><span><Building2 /></span><div><small>Công ty sở hữu</small><strong>{companies.isPending ? '—' : companies.data?.length ?? 0}</strong></div></article>
       <article><span><BriefcaseBusiness /></span><div><small>Tin đang hiển thị</small><strong>{jobs.isPending ? '—' : jobs.data?.length ?? 0}</strong></div></article>
-      <article><span><UsersRound /></span><div><small>Ứng tuyển trên tin hiển thị</small><strong>{applications.isPending ? '—' : applications.data?.total ?? 0}</strong></div></article>
+      <article><span><UsersRound /></span><div><small>Ứng tuyển toàn doanh nghiệp</small><strong>{applications.isPending ? '—' : applications.data?.total ?? 0}</strong></div></article>
       <article><span><Bell /></span><div><small>Thông báo chưa đọc</small><strong>{unread.isPending ? '—' : unread.data?.unreadCount ?? 0}</strong></div></article>
     </section>
 
@@ -86,12 +86,12 @@ export function EmployerDashboardPage() {
 
     <div className="employer-dashboard__grid">
       <section className="employer-card" aria-labelledby="employer-applications-title">
-        <div className="employer-card__heading"><div><span>Ứng viên gần đây</span><h2 id="employer-applications-title">Ứng tuyển trên tin đang hiển thị</h2></div><Link to="/employer/applications">Quản lý <ArrowRight /></Link></div>
+        <div className="employer-card__heading"><div><span>Ứng viên gần đây</span><h2 id="employer-applications-title">Ứng tuyển toàn doanh nghiệp</h2></div><Link to="/employer/applications">Quản lý <ArrowRight /></Link></div>
         {applications.isPending && <Skeleton />}
         {applications.isError && <SectionError error={applications.error} retry={() => void applications.refetch()} />}
-        {applications.data?.recent.length === 0 && <div className="employer-empty employer-empty--compact"><span><CircleUserRound /></span><div><h3>Chưa có ứng tuyển</h3><p>Không có application trên các tin PUBLISHED hiện tại.</p></div></div>}
+        {applications.data?.recent.length === 0 && <div className="employer-empty employer-empty--compact"><span><CircleUserRound /></span><div><h3>Chưa có ứng tuyển</h3><p>Chưa có Application trên các Job thuộc doanh nghiệp.</p></div></div>}
         {applications.data && applications.data.recent.length > 0 && <div className="employer-application-list">{applications.data.recent.map((application) => <Link to={`/employer/applications/${application.id}`} key={application.id}><span><CircleUserRound /></span><div><strong>Ứng viên {application.candidateId.slice(0, 8)}</strong><small>Nộp lúc {formatDate(application.appliedAt)}</small></div><em>{humanize(application.status)}</em></Link>)}</div>}
-        <p className="employer-contract-note"><FileSearch /> Company-wide application endpoint chưa tồn tại; số liệu được tổng hợp từ từng tin PUBLISHED có ownership check.</p>
+        <p className="employer-contract-note"><FileSearch /> Số liệu được phân trang trực tiếp trên company-wide Application endpoint với ownership từ JWT.</p>
       </section>
 
       <section className="employer-card" aria-labelledby="employer-notifications-title">

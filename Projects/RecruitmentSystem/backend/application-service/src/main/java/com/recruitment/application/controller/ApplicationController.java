@@ -7,6 +7,8 @@ import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.dto.request.WithdrawApplicationRequest;
 import com.recruitment.application.dto.response.ApplicationResponse;
 import com.recruitment.application.dto.response.ApplicationSummaryResponse;
+import com.recruitment.application.dto.response.ApplicationResumeDownload;
+import com.recruitment.application.entity.enums.ApplicationStatus;
 import com.recruitment.application.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +18,10 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,6 +31,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.nio.charset.StandardCharsets;
 
 import java.util.UUID;
 
@@ -62,6 +71,17 @@ public class ApplicationController {
         );
     }
 
+    @GetMapping("/employer")
+    @PreAuthorize("hasRole('EMPLOYER')")
+    @Operation(summary = "Employer get applications across owned companies")
+    public ApiResponse<PageResponse<ApplicationSummaryResponse>> getEmployerApplications(
+            @RequestParam(required = false) ApplicationStatus status,
+            @RequestParam(required = false) UUID jobId,
+            @ParameterObject Pageable pageable
+    ) {
+        return ApiResponse.success(applicationService.getEmployerApplications(status, jobId, pageable));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get application detail by ID")
@@ -73,6 +93,26 @@ public class ApplicationController {
         return ApiResponse.success(
                 applicationService.getById(id)
         );
+    }
+
+    @GetMapping("/{id}/resume")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Download the immutable resume snapshot for an application")
+    public ResponseEntity<byte[]> downloadResume(@PathVariable UUID id) {
+        ApplicationResumeDownload download = applicationService.downloadResume(id);
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(download.contentType());
+        } catch (IllegalArgumentException exception) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+        return ResponseEntity.ok()
+                .header("X-Content-Type-Options", "nosniff")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(download.filename(), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(mediaType)
+                .body(download.content());
     }
 
     @PatchMapping("/{id}/withdraw")

@@ -11,6 +11,9 @@ import com.recruitment.application.client.ResumeClientDto;
 import com.recruitment.application.dto.request.ApplyJobRequest;
 import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.entity.enums.ApplicationStatus;
+import com.recruitment.application.entity.Application;
+import com.recruitment.application.repository.ApplicationRepository;
+import com.recruitment.application.service.ResumeSnapshotStorage;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -29,6 +32,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -60,6 +64,12 @@ public class ApplicationAuthorizationIntegrationTest {
 
     @MockBean
     private CompanyClient companyClient;
+
+    @MockBean
+    private ResumeSnapshotStorage resumeSnapshotStorage;
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
 
     private String generateToken(UUID userId, String email, List<String> roles) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
@@ -121,15 +131,20 @@ public class ApplicationAuthorizationIntegrationTest {
                 .sizeBytes(1024L)
                 .checksum("sha256-test")
                 .assetVersion(1L)
-                .rawJsonData("{\"id\":\"resume-v1\",\"assetVersion\":1,\"storageKey\":\"immutable-v1.pdf\"}")
+                .rawJsonData("{\"id\":\"" + UUID.randomUUID() + "\",\"assetVersion\":1,\"storageKey\":\"immutable-v1.pdf\",\"originalFilename\":\"resume.pdf\",\"contentType\":\"application/pdf\"}")
                 .build();
         given(userClient.getCurrentResume(eq(candidateUserId), any())).willReturn(Optional.of(resumeDto));
+        given(resumeSnapshotStorage.download("immutable-v1.pdf")).willReturn("snapshot-pdf".getBytes());
 
         // Mock CompanyClient
         given(companyClient.getCompanyById(company1Id))
                 .willReturn(Optional.of(CompanyClientDto.builder().id(company1Id).ownerId(employerUserId).name("Tech Corp").build()));
         given(companyClient.getCompanyById(company2Id))
                 .willReturn(Optional.of(CompanyClientDto.builder().id(company2Id).ownerId(employer2UserId).name("Other Corp").build()));
+        given(companyClient.getCompaniesByOwnerId(eq(employerUserId), any()))
+                .willReturn(List.of(CompanyClientDto.builder().id(company1Id).ownerId(employerUserId).name("Tech Corp").build()));
+        given(companyClient.getCompaniesByOwnerId(eq(employer2UserId), any()))
+                .willReturn(List.of(CompanyClientDto.builder().id(company2Id).ownerId(employer2UserId).name("Other Corp").build()));
 
         // 1. Unauthenticated request -> 401 Unauthorized
         ApplyJobRequest applyReq = new ApplyJobRequest();
@@ -184,6 +199,36 @@ public class ApplicationAuthorizationIntegrationTest {
         // 8. Employer 2 attempts to view application list for Job 1 -> 403 Forbidden
         mockMvc.perform(get("/api/v1/jobs/" + jobId + "/applications")
                         .header("Authorization", "Bearer " + employer2Token))
+                .andExpect(status().isForbidden());
+
+        // Company-wide list derives ownership from JWT, supports paging/status/job filters,
+        // and never returns Company 1's application to Employer 2.
+        mockMvc.perform(get("/api/v1/applications/employer")
+                        .param("page", "0").param("size", "1")
+                        .param("status", "APPLIED").param("jobId", jobId.toString())
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(applicationId.toString()));
+        mockMvc.perform(get("/api/v1/applications/employer")
+                        .header("Authorization", "Bearer " + employer2Token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+
+        // Candidate owner and Employer owner can download the immutable snapshot;
+        // unrelated Candidate/Employer identities are denied.
+        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/resume")
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes("snapshot-pdf".getBytes()));
+        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/resume")
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/resume")
+                        .header("Authorization", "Bearer " + employer2Token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/applications/" + applicationId + "/resume")
+                        .header("Authorization", "Bearer " + candidate2Token))
                 .andExpect(status().isForbidden());
 
         // 9. Employer 1 advances through the explicit APPLIED -> SCREENING -> INTERVIEW path
@@ -242,6 +287,24 @@ public class ApplicationAuthorizationIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("APP_010"));
+    }
+
+    @Test
+    @DisplayName("Application without a resume snapshot returns APP_011")
+    void missingApplicationResumeReturnsNotFound() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        Application application = new Application();
+        application.setCandidateId(candidateId);
+        application.setCompanyId(UUID.randomUUID());
+        application.setJobId(UUID.randomUUID());
+        application.setStatus(ApplicationStatus.APPLIED);
+        application.setAppliedAt(LocalDateTime.now());
+        application.setActive(true);
+        application = applicationRepository.save(application);
+
+        mockMvc.perform(get("/api/v1/applications/" + application.getId() + "/resume")
+                        .header("Authorization", "Bearer " + generateToken(candidateId, "candidate@test.com", List.of("CANDIDATE"))))
+                .andExpect(status().isNotFound());
     }
 
 }

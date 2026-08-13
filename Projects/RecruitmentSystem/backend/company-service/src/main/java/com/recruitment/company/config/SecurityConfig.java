@@ -46,6 +46,7 @@ public class SecurityConfig {
 
                                 "/actuator/health", "/actuator/health/**"
                         ).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/companies/owner/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/companies/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(

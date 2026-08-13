@@ -116,6 +116,12 @@ public enum ErrorCode {
             "An active current resume is required before applying."
     ),
 
+    APPLICATION_RESUME_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "APP_011",
+            "Application resume snapshot was not found."
+    ),
+
     DOWNSTREAM_BAD_REQUEST(
             HttpStatus.BAD_REQUEST,
             "DEP_400",

@@ -13,6 +13,7 @@ import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.dto.request.WithdrawApplicationRequest;
 import com.recruitment.application.dto.response.ApplicationResponse;
 import com.recruitment.application.dto.response.ApplicationSummaryResponse;
+import com.recruitment.application.dto.response.ApplicationResumeDownload;
 import com.recruitment.application.entity.Application;
 import com.recruitment.application.entity.ApplicationStatusHistory;
 import com.recruitment.application.entity.JobSnapshot;
@@ -33,9 +34,14 @@ import com.recruitment.application.security.CurrentUser;
 import com.recruitment.application.security.SecurityUtils;
 import com.recruitment.application.service.ApplicationService;
 import com.recruitment.application.service.ApplicationStatusTransitionPolicy;
+import com.recruitment.application.service.ResumeSnapshotStorage;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.application.outbox.ApplicationEventOutboxService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +71,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final CompanyClient companyClient;
     private final ApplicationStatusTransitionPolicy transitionPolicy;
     private final ApplicationEventOutboxService outboxService;
+    private final ResumeSnapshotStorage resumeSnapshotStorage;
+    private final ObjectMapper objectMapper;
 
     @Override
     public ApplicationResponse apply(ApplyJobRequest request) {
@@ -216,6 +224,53 @@ public class ApplicationServiceImpl implements ApplicationService {
                 applicationRepository.findByJobIdAndActiveTrue(jobId, pageable),
                 applicationMapper::toSummaryResponse
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ApplicationSummaryResponse> getEmployerApplications(
+            ApplicationStatus status,
+            UUID jobId,
+            Pageable pageable
+    ) {
+        CurrentUser currentUser = getCurrentAuthenticatedUser();
+        List<UUID> companyIds = companyClient
+                .getCompaniesByOwnerId(currentUser.getUserId(), SecurityUtils.getBearerToken())
+                .stream()
+                .filter(company -> currentUser.getUserId().equals(company.getOwnerId()))
+                .map(CompanyClientDto::getId)
+                .toList();
+        if (companyIds.isEmpty()) {
+            return PageResponse.from(Page.<Application>empty(pageable), applicationMapper::toSummaryResponse);
+        }
+        return PageResponse.from(
+                applicationRepository.findEmployerApplications(companyIds, status, jobId, pageable),
+                applicationMapper::toSummaryResponse
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApplicationResumeDownload downloadResume(UUID applicationId) {
+        CurrentUser currentUser = getCurrentAuthenticatedUser();
+        Application application = applicationRepository.findByIdAndActiveTrue(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.APPLICATION_NOT_FOUND));
+        assertCanViewApplication(application, currentUser);
+        ResumeSnapshot snapshot = resumeSnapshotRepository.findByApplicationId(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.APPLICATION_RESUME_NOT_FOUND));
+        JsonNode metadata;
+        try {
+            metadata = objectMapper.readTree(snapshot.getSnapshotData());
+        } catch (Exception exception) {
+            throw new ResourceNotFoundException(ErrorCode.APPLICATION_RESUME_NOT_FOUND);
+        }
+        String storageKey = metadata.path("storageKey").asText(null);
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new ResourceNotFoundException(ErrorCode.APPLICATION_RESUME_NOT_FOUND);
+        }
+        String filename = metadata.path("originalFilename").asText("resume-" + applicationId + ".bin");
+        String contentType = metadata.path("contentType").asText(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+        return new ApplicationResumeDownload(resumeSnapshotStorage.download(storageKey), filename, contentType);
     }
 
     @Override

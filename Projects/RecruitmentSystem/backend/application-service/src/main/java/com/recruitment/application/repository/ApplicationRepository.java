@@ -5,9 +5,12 @@ import com.recruitment.application.entity.enums.ApplicationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
 import java.util.UUID;
 
 @Repository
@@ -22,5 +25,19 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID> 
     Page<Application> findByJobIdAndActiveTrue(UUID jobId, Pageable pageable);
 
     Page<Application> findByJobIdAndStatusAndActiveTrue(UUID jobId, ApplicationStatus status, Pageable pageable);
+
+    @Query("""
+            select application from Application application
+            where application.active = true
+              and application.companyId in :companyIds
+              and (:status is null or application.status = :status)
+              and (:jobId is null or application.jobId = :jobId)
+            """)
+    Page<Application> findEmployerApplications(
+            @Param("companyIds") Collection<UUID> companyIds,
+            @Param("status") ApplicationStatus status,
+            @Param("jobId") UUID jobId,
+            Pageable pageable
+    );
 
 }
