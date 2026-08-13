@@ -12,6 +12,6 @@ export function EmployerSidebar({ onNavigate }: { onNavigate?: () => void }) {
     <nav aria-label="Điều hướng Employer Portal">{employerNavigation.map(({ label, to, icon: Icon, end }) =>
       <NavLink key={to} to={to} end={end} onClick={onNavigate} className={({ isActive }) => isActive ? 'is-active' : ''}><Icon aria-hidden="true" /><span>{label}</span></NavLink>,
     )}</nav>
-    <div className="employer-sidebar__note"><strong>Phase 5A</strong><p>Dashboard và hồ sơ công ty. Quản lý tin tuyển dụng, ứng viên sẽ được mở ở phase tiếp theo.</p></div>
+    <div className="employer-sidebar__note"><strong>Phase 5B</strong><p>Dashboard và quản lý hồ sơ công ty. Tin tuyển dụng, ứng viên sẽ được mở ở phase tiếp theo.</p></div>
   </div>
 }

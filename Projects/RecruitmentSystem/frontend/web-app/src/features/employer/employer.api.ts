@@ -1,10 +1,11 @@
 import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse, SpringPage } from '../../types/api/common'
 import type { ApplicationSummary } from '../../types/models/application'
-import type { Company } from '../../types/models/company'
+import type { Company, CreateCompanyRequest, UpdateCompanyRequest } from '../../types/models/company'
 import type { JobSummary } from '../../types/models/job'
 
 const PAGE_SIZE = 100
+export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
 
 export async function getEmployerCompanies(ownerId: string): Promise<Company[]> {
   const owned: Company[] = []
@@ -19,6 +20,16 @@ export async function getEmployerCompanies(ownerId: string): Promise<Company[]> 
     page += 1
   } while (page < totalPages)
   return owned
+}
+
+export async function createEmployerCompany(request: CreateCompanyRequest): Promise<Company> {
+  const response = await apiClient.post<Company>('/api/v1/companies', request)
+  return response.data
+}
+
+export async function updateEmployerCompany(companyId: string, request: UpdateCompanyRequest): Promise<Company> {
+  const response = await apiClient.put<Company>(`/api/v1/companies/${companyId}`, request)
+  return response.data
 }
 
 export async function getPublishedCompanyJobs(companyIds: string[]): Promise<JobSummary[]> {

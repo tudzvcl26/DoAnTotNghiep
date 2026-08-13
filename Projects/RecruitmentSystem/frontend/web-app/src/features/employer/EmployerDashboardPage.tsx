@@ -8,7 +8,7 @@ import { getErrorMessage } from '../../lib/api/error-adapter'
 import type { Notification } from '../../types/models/notification'
 import { useAuth } from '../auth/auth-context'
 import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../notifications/notifications.api'
-import { getEmployerCompanies, getPublishedCompanyJobs, getPublishedJobApplications } from './employer.api'
+import { employerCompanyKey, getEmployerCompanies, getPublishedCompanyJobs, getPublishedJobApplications } from './employer.api'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -36,7 +36,7 @@ export function EmployerDashboardPage() {
   const { currentUser } = useAuth()
   const userId = currentUser?.id ?? ''
   const queryClient = useQueryClient()
-  const companies = useQuery({ queryKey: ['employer-companies', userId], queryFn: () => getEmployerCompanies(userId), enabled: Boolean(userId) })
+  const companies = useQuery({ queryKey: employerCompanyKey(userId), queryFn: () => getEmployerCompanies(userId), enabled: Boolean(userId) })
   const companyIds = companies.data?.map((company) => company.id) ?? []
   const jobs = useQuery({ queryKey: ['employer-published-jobs', companyIds], queryFn: () => getPublishedCompanyJobs(companyIds), enabled: companies.isSuccess })
   const applications = useQuery({ queryKey: ['employer-published-job-applications', jobs.data?.map((job) => job.id) ?? []], queryFn: () => getPublishedJobApplications(jobs.data ?? []), enabled: jobs.isSuccess })
