@@ -10,6 +10,8 @@ import { NotFoundPage } from '../../features/home/NotFoundPage'
 import { JobDetailsPage } from '../../features/jobs/JobDetailsPage'
 import { JobsPage } from '../../features/jobs/JobsPage'
 import { CandidateDashboardPage } from '../../features/candidate/CandidateDashboardPage'
+import { ApplicationDetailPage } from '../../features/applications/ApplicationDetailPage'
+import { ApplicationListPage } from '../../features/applications/ApplicationListPage'
 import { ProfilePage } from '../../features/profile/ProfilePage'
 import { ResumePage } from '../../features/resumes/ResumePage'
 import { ProtectedRoute } from '../guards/ProtectedRoute'
@@ -37,6 +39,8 @@ export function AppRouter() {
           <Route path="candidate" element={<CandidateDashboardPage />} />
           <Route path="candidate/profile" element={<ProfilePage />} />
           <Route path="candidate/resumes" element={<ResumePage />} />
+          <Route path="candidate/applications" element={<ApplicationListPage />} />
+          <Route path="candidate/applications/:applicationId" element={<ApplicationDetailPage />} />
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER', 'ADMIN']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="employer" element={<EmployerDashboardPage />} />

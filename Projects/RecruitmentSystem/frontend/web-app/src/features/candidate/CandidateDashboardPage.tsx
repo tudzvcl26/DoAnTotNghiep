@@ -181,7 +181,7 @@ function RecentApplications({ applications }: { applications: ApplicationSummary
   return (
     <div className="candidate-application-list">
       {applications.slice(0, 5).map((application) => (
-        <Link to={`/jobs/${application.jobId}`} key={application.id}>
+        <Link to={`/candidate/applications/${application.id}`} key={application.id}>
           <span className="candidate-application-list__icon"><BriefcaseBusiness size={19} /></span>
           <div><strong>Mã việc làm: {application.jobId.slice(0, 8)}</strong><small>Ứng tuyển ngày {formatDate(application.appliedAt)}</small></div>
           <span className={`candidate-status-chip candidate-status-chip--${application.status.toLowerCase()}`}>{applicationStatusLabels[application.status]}</span>
@@ -203,8 +203,9 @@ export function CandidateDashboardPage() {
   const { currentUser } = useAuth()
   const userId = currentUser?.id ?? ''
   const applicationsQuery = useQuery({
-    queryKey: ['candidate-applications'],
-    queryFn: getMyApplications,
+    queryKey: ['candidate-applications', userId, { page: 0, size: 20 }],
+    queryFn: () => getMyApplications({ page: 0, size: 20 }),
+    enabled: Boolean(userId),
   })
 
   return (
