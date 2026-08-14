@@ -30,6 +30,12 @@ public class JobController {
 
     private final JobService jobService;
 
+    @GetMapping("/recommendation-feed")
+    @Operation(summary = "Get paged published job details for recommendation processing")
+    public ApiResponse<PageResponse<JobResponse>> getRecommendationFeed(@ParameterObject Pageable pageable) {
+        return ApiResponse.success(jobService.getRecommendationFeed(pageable));
+    }
+
     @GetMapping("/employer/statistics")
     @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
     @Operation(summary = "Get owner-scoped employer job statistics")

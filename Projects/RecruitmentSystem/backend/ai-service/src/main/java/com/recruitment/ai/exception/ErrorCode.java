@@ -41,6 +41,7 @@ public enum ErrorCode {
     RECOMMENDATION_INVALID(HttpStatus.BAD_GATEWAY, "AI_RECOMMENDATION_002", "AI provider returned invalid recommendation JSON.", true),
     RECOMMENDATION_PROMPT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "AI_RECOMMENDATION_003", "Active recommendation prompt is not configured.", true),
     RECOMMENDATION_RESUME_REQUIRED(HttpStatus.BAD_REQUEST, "AI_RECOMMENDATION_004", "An analyzed resume is required.", false),
+    RECOMMENDATION_CONSENT_REQUIRED(HttpStatus.CONFLICT, "AI_RECOMMENDATION_005", "Candidate recommendation consent is required.", false),
     ASSISTANT_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "AI_ASSISTANT_001", "AI provider returned invalid assistant JSON.", true),
     ASSISTANT_PROMPT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "AI_ASSISTANT_002", "Active assistant prompt is not configured.", true),
     ASSISTANT_CONTEXT_INVALID(HttpStatus.BAD_REQUEST, "AI_ASSISTANT_003", "The selected assistant task requires additional structured context.", false),

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collection;
+import com.recruitment.ai.entity.enums.AiTaskStatus;
 
 @Repository
 public interface AiTaskRepository extends JpaRepository<AiTask, UUID> {
@@ -15,5 +17,8 @@ public interface AiTaskRepository extends JpaRepository<AiTask, UUID> {
     Optional<AiTask> findByIdAndRequestedBy(UUID id, UUID requestedBy);
 
     Page<AiTask> findByRequestedBy(UUID requestedBy, Pageable pageable);
+
+    Optional<AiTask> findFirstByRequestedByAndTaskTypeAndStatusInOrderByCreatedAtDesc(
+            UUID requestedBy, String taskType, Collection<AiTaskStatus> statuses);
 
 }

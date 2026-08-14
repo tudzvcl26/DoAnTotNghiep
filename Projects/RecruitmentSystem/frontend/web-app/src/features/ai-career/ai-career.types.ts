@@ -124,3 +124,18 @@ export type AiTask = {
   completedAt: string | null
   createdAt: string
 }
+
+export type JobRecommendation = {
+  id: string
+  matchId: string
+  resumeId: string
+  jobId: string
+  overallScore: number
+  strengths: string[]
+  weaknesses: string[]
+  missingSkills: string[]
+  recommendation: JsonValue
+  providerName: string
+  modelName: string
+  updatedAt: string
+}

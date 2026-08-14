@@ -47,6 +47,10 @@ public class AiAmqpConfig {
                 )
         );
         Queue deadLetterQueue = new Queue(properties.getDeadLetterQueue(), true);
+        Queue recommendationQueue = new Queue(
+                properties.getRecommendationQueue(), true, false, false,
+                Map.of("x-dead-letter-exchange", properties.getDeadLetterExchange(),
+                        "x-dead-letter-routing-key", properties.getRecommendationQueue()));
 
         List<Declarable> declarables = new ArrayList<>();
         declarables.add(inboundExchange);
@@ -54,11 +58,16 @@ public class AiAmqpConfig {
         declarables.add(deadLetterExchange);
         declarables.add(queue);
         declarables.add(deadLetterQueue);
+        declarables.add(recommendationQueue);
         INBOUND_ROUTING_KEYS.forEach(key ->
                 declarables.add(BindingBuilder.bind(queue).to(inboundExchange).with(key)));
         declarables.add(BindingBuilder.bind(deadLetterQueue)
                 .to(deadLetterExchange)
                 .with(properties.getQueue()));
+        declarables.add(BindingBuilder.bind(recommendationQueue)
+                .to(outboundExchange).with(properties.getRecommendationRoutingKey()));
+        declarables.add(BindingBuilder.bind(deadLetterQueue)
+                .to(deadLetterExchange).with(properties.getRecommendationQueue()));
         return new Declarables(declarables);
     }
 

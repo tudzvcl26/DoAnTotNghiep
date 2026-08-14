@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.util.Optional;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface JobRecommendationRepository extends JpaRepository<JobRecommendation, UUID> {
@@ -16,4 +17,11 @@ public interface JobRecommendationRepository extends JpaRepository<JobRecommenda
     Optional<JobRecommendation> findByMatchResultId(UUID matchId);
     Page<JobRecommendation> findByCandidateUserIdAndResumeDocumentIdAndOverallScoreBetween(
             UUID candidateUserId, UUID resumeDocumentId, int minimumScore, int maximumScore, Pageable pageable);
+
+    long countByCandidateUserIdAndResumeDocumentId(UUID candidateUserId, UUID resumeDocumentId);
+
+    void deleteByCandidateUserIdAndResumeDocumentId(UUID candidateUserId, UUID resumeDocumentId);
+
+    void deleteByCandidateUserIdAndResumeDocumentIdAndJobIdNotIn(
+            UUID candidateUserId, UUID resumeDocumentId, Collection<UUID> jobIds);
 }

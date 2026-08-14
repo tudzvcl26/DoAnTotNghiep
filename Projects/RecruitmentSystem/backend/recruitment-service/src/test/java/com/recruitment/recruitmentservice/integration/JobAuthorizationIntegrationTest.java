@@ -345,6 +345,11 @@ public class JobAuthorizationIntegrationTest {
         String candidateToken = generateToken(candidateId, "candidate-list@test.com", List.of("CANDIDATE"));
         String adminToken = generateToken(adminId, "admin-list@test.com", List.of("ADMIN"));
 
+        mockMvc.perform(get("/api/v1/jobs/recommendation-feed").param("page", "0").param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.content[?(@.id == '%s')]", draft.getId()).isEmpty());
+
         mockMvc.perform(get("/api/v1/jobs/employer"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/jobs/employer").header("Authorization", "Bearer " + candidateToken))

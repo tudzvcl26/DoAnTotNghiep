@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.ai.common.PageResponse;
+import com.recruitment.ai.config.RecommendationProperties;
+import com.recruitment.ai.config.MatchingProperties;
 import com.recruitment.ai.dto.response.*;
 import com.recruitment.ai.entity.*;
 import com.recruitment.ai.entity.enums.AiTaskStatus;
@@ -13,9 +15,13 @@ import com.recruitment.ai.exception.ErrorCode;
 import com.recruitment.ai.matching.client.JobGateway;
 import com.recruitment.ai.matching.model.JobSnapshot;
 import com.recruitment.ai.prompt.GenerationContextBuilder;
+import com.recruitment.ai.mapper.AiTaskMapper;
+import com.recruitment.ai.messaging.RecommendationRefreshMessage;
+import com.recruitment.ai.messaging.RecommendationRefreshPublisher;
 import com.recruitment.ai.provider.*;
 import com.recruitment.ai.provider.llm.*;
 import com.recruitment.ai.recommendation.RecommendationJsonValidator;
+import com.recruitment.ai.recommendation.CandidateConsentGateway;
 import com.recruitment.ai.repository.*;
 import com.recruitment.ai.security.CurrentUser;
 import com.recruitment.ai.security.SecurityUtils;
@@ -31,7 +37,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -55,6 +65,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ProviderUsageRecorder usageRecorder;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
+    private final CandidateConsentGateway consentGateway;
+    private final RecommendationRefreshPublisher refreshPublisher;
+    private final AiTaskMapper taskMapper;
+    private final RecommendationProperties recommendationProperties;
+    private final RedisTemplate<String, Object> aiRedisTemplate;
+    private final MatchingProperties matchingProperties;
 
     @Override
     public PageResponse<JobRecommendationResponse> recommendJobs(
@@ -62,23 +78,96 @@ public class RecommendationServiceImpl implements RecommendationService {
         CurrentUser user = currentUser();
         if (!user.isAdmin() && !user.hasRole("CANDIDATE")) throw new AccessDeniedException("Candidate access required.");
         ResumeAnalysisResult analysis = resolveCandidateAnalysis(user, resumeId);
-        List<JobSnapshot> jobs = jobGateway.getPublishedJobs(accessToken());
-        for (JobSnapshot job : jobs) {
-            MatchingResultResponse matched = matchingService.match(job.id(), analysis.getResumeDocument().getId());
-            JobMatchResult result = matchRepository.findDetailedById(matched.id())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.MATCH_NOT_FOUND));
-            ensureJobRecommendation(result, job);
-        }
+        requireConsent(analysis.getResumeDocument().getOwnerUserId());
         PageResponse<JobRecommendationResponse> response = transaction().execute(status -> {
             var page = jobRecommendationRepository.findByCandidateUserIdAndResumeDocumentIdAndOverallScoreBetween(
                     analysis.getResumeDocument().getOwnerUserId(), analysis.getResumeDocument().getId(),
                     bounded(minimumScore), bounded(maximumScore), pageable);
             return PageResponse.from(page, this::jobResponse);
         });
-        log.info("Job recommendations completed owner={} resumeId={} recommendationCount={} correlationId={}",
+        log.info("Persisted job recommendations read owner={} resumeId={} recommendationCount={} correlationId={}",
                 analysis.getResumeDocument().getOwnerUserId(), analysis.getResumeDocument().getId(),
                 response.getTotalElements(), correlationId());
         return response;
+    }
+
+    @Override
+    public AiTaskResponse refreshJobs(UUID resumeId) {
+        CurrentUser user = currentUser();
+        if (!user.hasRole("CANDIDATE")) throw new AccessDeniedException("Candidate access required.");
+        ResumeAnalysisResult analysis = resolveCandidateAnalysis(user, resumeId);
+        requireConsent(user.getUserId());
+        Optional<AiTask> active = taskRepository
+                .findFirstByRequestedByAndTaskTypeAndStatusInOrderByCreatedAtDesc(user.getUserId(),
+                        "JOB_RECOMMENDATION_REFRESH", List.of(AiTaskStatus.PENDING, AiTaskStatus.RUNNING));
+        if (active.isPresent()) return taskMapper.toResponse(active.get());
+
+        AiTask task = transaction().execute(status -> {
+            AiTask value = new AiTask();
+            value.setTaskType("JOB_RECOMMENDATION_REFRESH"); value.setStatus(AiTaskStatus.PENDING);
+            value.setRequestedBy(user.getUserId()); value.setSubjectType("RESUME_DOCUMENT");
+            value.setSubjectId(analysis.getResumeDocument().getId()); value.setCorrelationId(correlationId());
+            value.setProgress(0); return taskRepository.saveAndFlush(value);
+        });
+        try {
+            refreshPublisher.publish(new RecommendationRefreshMessage(task.getId(), user.getUserId(),
+                    analysis.getResumeDocument().getId(), task.getCorrelationId()));
+        } catch (RuntimeException exception) {
+            failTask(task.getId(), exception);
+            throw new BusinessException(ErrorCode.MATCH_UPSTREAM_UNAVAILABLE);
+        }
+        return taskMapper.toResponse(task);
+    }
+
+    @Override
+    public void processJobRefresh(RecommendationRefreshMessage message) {
+        startRefreshTask(message.taskId());
+        try {
+            ResumeAnalysisResult analysis = analysisRepository.findByResumeDocumentId(message.resumeId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RECOMMENDATION_RESUME_REQUIRED));
+            if (!analysis.getResumeDocument().getOwnerUserId().equals(message.candidateId())) {
+                throw new BusinessException(ErrorCode.RESUME_NOT_FOUND);
+            }
+            List<JobSnapshot> jobs = jobGateway.getPublishedJobs("").stream()
+                    .limit(Math.max(1, recommendationProperties.getCandidatePoolSize())).toList();
+            String checksum = recommendationChecksum(analysis, jobs);
+            updateTaskChecksum(message.taskId(), checksum, 15);
+            String cacheKey = "ai:job-recommendations:" + recommendationProperties.getCacheVersion() + ":"
+                    + message.candidateId() + ":" + message.resumeId() + ":" + checksum;
+            if (cacheHit(cacheKey) && jobRecommendationRepository.countByCandidateUserIdAndResumeDocumentId(
+                    message.candidateId(), message.resumeId()) > 0) {
+                completeRefreshTask(message.taskId(), AiTaskStatus.COMPLETED, "CACHE", 100);
+                return;
+            }
+
+            List<RankedJob> ranked = new ArrayList<>();
+            int completed = 0;
+            for (JobSnapshot job : jobs) {
+                MatchingResultResponse match = matchingService.matchForRecommendation(job, analysis, message.correlationId());
+                JobMatchResult entity = matchRepository.findDetailedById(match.id())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.MATCH_NOT_FOUND));
+                ranked.add(new RankedJob(job, entity));
+                completed++;
+                updateTaskProgress(message.taskId(), 15 + Math.min(50, completed * 50 / Math.max(1, jobs.size())));
+            }
+            ranked.sort(Comparator.comparingInt((RankedJob item) -> item.match().getOverallScore()).reversed());
+            List<RankedJob> top = ranked.stream().limit(Math.max(1, recommendationProperties.getTopK())).toList();
+            int fallbacks = 0;
+            for (RankedJob item : top) {
+                RefreshGenerated generated = generateForRefresh(item.match(), item.job(), message);
+                saveRefreshRecommendation(item.match(), generated.generated());
+                if (generated.fallback()) fallbacks++;
+            }
+            removeStaleRecommendations(message.candidateId(), message.resumeId(),
+                    top.stream().map(item -> item.job().id()).toList());
+            completeRefreshTask(message.taskId(), fallbacks == 0 ? AiTaskStatus.COMPLETED : AiTaskStatus.PARTIAL,
+                    "recommendations=" + top.size(), 100);
+            cache(cacheKey);
+        } catch (RuntimeException exception) {
+            failTask(message.taskId(), exception);
+            log.warn("Recommendation refresh failed taskId={} candidateId={} cause={}",
+                    message.taskId(), message.candidateId(), exception.getClass().getSimpleName());
+        }
     }
 
     @Override
@@ -146,6 +235,126 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new AccessDeniedException("You do not own this job.");
         }
         return job;
+    }
+
+    private void requireConsent(UUID candidateId) {
+        if (!consentGateway.hasConsent(candidateId, accessToken())) {
+            throw new BusinessException(ErrorCode.RECOMMENDATION_CONSENT_REQUIRED);
+        }
+    }
+
+    private void startRefreshTask(UUID taskId) {
+        transaction().executeWithoutResult(status -> taskRepository.findById(taskId).ifPresent(task -> {
+            task.setStatus(AiTaskStatus.RUNNING); task.setProgress(5); task.setStartedAt(LocalDateTime.now());
+            taskRepository.save(task);
+        }));
+    }
+
+    private void updateTaskChecksum(UUID taskId, String checksum, int progress) {
+        transaction().executeWithoutResult(status -> taskRepository.findById(taskId).ifPresent(task -> {
+            task.setInputChecksum(checksum); task.setProgress(progress); taskRepository.save(task);
+        }));
+    }
+
+    private void updateTaskProgress(UUID taskId, int progress) {
+        transaction().executeWithoutResult(status -> taskRepository.findById(taskId).ifPresent(task -> {
+            task.setProgress(Math.max(task.getProgress(), progress)); taskRepository.save(task);
+        }));
+    }
+
+    private void completeRefreshTask(UUID taskId, AiTaskStatus status, String reference, int progress) {
+        transaction().executeWithoutResult(transactionStatus -> taskRepository.findById(taskId).ifPresent(task -> {
+            task.setStatus(status); task.setProgress(progress); task.setResultReference(reference);
+            task.setCompletedAt(LocalDateTime.now()); taskRepository.save(task);
+        }));
+    }
+
+    private RefreshGenerated generateForRefresh(
+            JobMatchResult match, JobSnapshot job, RecommendationRefreshMessage message) {
+        PromptTemplateVersion prompt = promptRepository.findByTemplateCodeAndActiveTrue("JOB_RECOMMENDATION")
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECOMMENDATION_PROMPT_NOT_CONFIGURED));
+        ModelDeployment model = modelRepository.findByCapabilityAndEnabledTrueAndDefaultForCapabilityTrue(
+                ModelCapability.STRUCTURED_GENERATION)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_MODEL_NOT_CONFIGURED));
+        StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
+        long started = System.nanoTime();
+        try {
+            StructuredGenerationResult result = provider.generate(new StructuredGenerationRequest(
+                    model.getModelName(), prompt.getSystemPrompt() + "\nRequired JSON Schema: " + prompt.getOutputSchema(),
+                    prompt.getUserPromptTemplate().replace("{{context}}", contextBuilder.build(match, job)),
+                    prompt.getOutputSchema(), message.correlationId()));
+            Generated generated = new Generated(message.taskId(), prompt, model, result,
+                    validator.validateJob(result.structuredOutput()), elapsed(started), message.correlationId());
+            record(generated, "JOB_RECOMMENDATION_REFRESH", true);
+            return new RefreshGenerated(generated, false);
+        } catch (RuntimeException exception) {
+            long duration = elapsed(started);
+            usageRecorder.record(new ProviderUsage(provider.descriptor().providerName(), model.getModelName(),
+                    "JOB_RECOMMENDATION_REFRESH", 0, 0, duration, false, message.correlationId()));
+            JsonNode fallback = objectMapper.createObjectNode()
+                    .put("recommendationSummary", "Deterministic match score: " + match.getOverallScore() + "/100.")
+                    .put("gapSummary", String.join("; ", readList(match.getMissingSkills())))
+                    .put("recommendationReason", "Generated from the versioned rule-based match while the AI provider was unavailable.");
+            StructuredGenerationResult result = new StructuredGenerationResult(
+                    "deterministic-fallback", "rules", fallback.toString(), 0, 0);
+            return new RefreshGenerated(new Generated(message.taskId(), prompt, model, result, fallback,
+                    duration, message.correlationId()), true);
+        }
+    }
+
+    private void saveRefreshRecommendation(JobMatchResult match, Generated generated) {
+        transaction().executeWithoutResult(status -> {
+            JobRecommendation value = jobRecommendationRepository.findByMatchResultId(match.getId())
+                    .orElseGet(JobRecommendation::new);
+            value.setMatchResult(matchRepository.getReferenceById(match.getId()));
+            value.setResumeDocumentId(match.getResumeDocumentId());
+            value.setCandidateUserId(match.getResumeOwnerUserId()); value.setJobId(match.getJobId());
+            value.setOverallScore(match.getOverallScore()); apply(value, generated);
+            jobRecommendationRepository.saveAndFlush(value);
+        });
+    }
+
+    private void removeStaleRecommendations(UUID candidateId, UUID resumeId, List<UUID> retainedJobIds) {
+        transaction().executeWithoutResult(status -> {
+            if (retainedJobIds.isEmpty()) {
+                jobRecommendationRepository.deleteByCandidateUserIdAndResumeDocumentId(candidateId, resumeId);
+            } else {
+                jobRecommendationRepository.deleteByCandidateUserIdAndResumeDocumentIdAndJobIdNotIn(
+                        candidateId, resumeId, retainedJobIds);
+            }
+        });
+    }
+
+    private String recommendationChecksum(ResumeAnalysisResult analysis, List<JobSnapshot> jobs) {
+        StringBuilder value = new StringBuilder(recommendationProperties.getCacheVersion())
+                .append('|').append(analysis.getId()).append('|').append(analysis.getUpdatedAt())
+                .append('|').append(matchingProperties.getRuleVersion())
+                .append('|').append(matchingProperties.getWeightsVersion());
+        promptRepository.findByTemplateCodeAndActiveTrue("JOB_RECOMMENDATION").ifPresent(prompt -> value
+                .append('|').append(prompt.getTemplateCode()).append(':').append(prompt.getVersionNumber()));
+        modelRepository.findByCapabilityAndEnabledTrueAndDefaultForCapabilityTrue(ModelCapability.STRUCTURED_GENERATION)
+                .ifPresent(model -> value.append('|').append(model.getProviderName()).append(':').append(model.getModelName()));
+        jobs.stream().sorted(Comparator.comparing(JobSnapshot::id)).forEach(job -> value.append('|')
+                .append(job.id()).append(':').append(job.title()).append(':').append(job.description())
+                .append(':').append(job.requirements()).append(':').append(job.responsibilities())
+                .append(':').append(job.experienceLevel()).append(':').append(job.companyId())
+                .append(':').append(job.status()).append(':').append(job.active()));
+        try {
+            return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not calculate recommendation checksum.", exception);
+        }
+    }
+
+    private boolean cacheHit(String key) {
+        try { return Boolean.TRUE.equals(aiRedisTemplate.hasKey(key)); }
+        catch (RuntimeException exception) { log.warn("Recommendation cache read unavailable"); return false; }
+    }
+
+    private void cache(String key) {
+        try { aiRedisTemplate.opsForValue().set(key, true, Duration.ofHours(recommendationProperties.getCacheTtlHours())); }
+        catch (RuntimeException exception) { log.warn("Recommendation cache write unavailable"); }
     }
 
     private void ensureJobRecommendation(JobMatchResult match, JobSnapshot job) {
@@ -299,4 +508,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private record Generated(UUID taskId, PromptTemplateVersion prompt, ModelDeployment model,
                              StructuredGenerationResult result, JsonNode data, long duration, String correlationId) { }
+    private record RefreshGenerated(Generated generated, boolean fallback) { }
+    private record RankedJob(JobSnapshot job, JobMatchResult match) { }
 }

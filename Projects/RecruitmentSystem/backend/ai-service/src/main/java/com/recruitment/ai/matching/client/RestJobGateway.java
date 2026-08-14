@@ -2,6 +2,7 @@ package com.recruitment.ai.matching.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.recruitment.ai.config.ServiceClientProperties;
+import com.recruitment.ai.config.RecommendationProperties;
 import com.recruitment.ai.exception.BusinessException;
 import com.recruitment.ai.exception.ErrorCode;
 import com.recruitment.ai.matching.model.JobSnapshot;
@@ -16,6 +17,10 @@ import org.springframework.web.client.RestClientException;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -23,8 +28,9 @@ public class RestJobGateway implements JobGateway {
 
     private final RestClient recruitmentClient;
     private final RestClient companyClient;
+    private final int recommendationFeedSize;
 
-    public RestJobGateway(ServiceClientProperties properties) {
+    public RestJobGateway(ServiceClientProperties properties, RecommendationProperties recommendationProperties) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(properties.getConnectTimeout());
         requestFactory.setReadTimeout(properties.getReadTimeout());
@@ -32,6 +38,7 @@ public class RestJobGateway implements JobGateway {
                 .requestFactory(requestFactory).build();
         this.companyClient = RestClient.builder().baseUrl(properties.getCompanyServiceUrl())
                 .requestFactory(requestFactory).build();
+        this.recommendationFeedSize = Math.max(1, Math.min(100, recommendationProperties.getCandidatePoolSize()));
     }
 
     @Override
@@ -70,28 +77,41 @@ public class RestJobGateway implements JobGateway {
     public List<JobSnapshot> getPublishedJobs(String accessToken) {
         try {
             List<JobSnapshot> jobs = new ArrayList<>();
+            List<JsonNode> feedJobs = new ArrayList<>();
             int page = 0;
             boolean hasNext;
             do {
                 int currentPage = page;
                 JsonNode envelope = recruitmentClient.get()
-                        .uri(builder -> builder.path("/api/v1/jobs").queryParam("page", currentPage)
-                                .queryParam("size", 100).build())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .uri(builder -> builder.path("/api/v1/jobs/recommendation-feed").queryParam("page", currentPage)
+                                .queryParam("size", recommendationFeedSize)
+                                .queryParam("sort", "publishedAt,desc").build())
                         .retrieve().body(JsonNode.class);
                 JsonNode data = envelope == null ? null : envelope.path("data");
                 JsonNode content = data == null ? null : data.path("content");
                 if (content == null || !content.isArray()) {
                     throw new BusinessException(ErrorCode.MATCH_UPSTREAM_UNAVAILABLE);
                 }
-                for (JsonNode summary : content) {
-                    UUID jobId = UUID.fromString(summary.path("id").asText());
-                    JobSnapshot job = getJob(jobId, accessToken);
-                    if (job.active() && "PUBLISHED".equalsIgnoreCase(job.status())) jobs.add(job);
+                for (JsonNode job : content) {
+                    feedJobs.add(job);
                 }
                 hasNext = data.path("hasNext").asBoolean(false);
                 page++;
-            } while (hasNext && page < 100);
+            } while (hasNext && page < 1);
+            Set<UUID> companyIds = feedJobs.stream()
+                    .map(job -> UUID.fromString(job.path("companyId").asText()))
+                    .collect(Collectors.toSet());
+            Map<UUID, UUID> companyOwners = companyOwners(companyIds);
+            for (JsonNode job : feedJobs) {
+                    UUID jobId = UUID.fromString(job.path("id").asText());
+                    UUID companyId = UUID.fromString(job.path("companyId").asText());
+                    UUID ownerId = companyOwners.get(companyId);
+                    if (ownerId == null) throw new BusinessException(ErrorCode.MATCH_UPSTREAM_UNAVAILABLE);
+                    jobs.add(new JobSnapshot(jobId, text(job, "title"), text(job, "description"),
+                            text(job, "requirements"), text(job, "responsibilities"),
+                            text(job, "experienceLevel"), text(job, "status"),
+                            job.path("active").asBoolean(false), companyId, ownerId));
+            }
             return jobs;
         } catch (BusinessException exception) {
             throw exception;
@@ -99,6 +119,26 @@ public class RestJobGateway implements JobGateway {
             log.error("Published job listing failed type={}", exception.getClass().getSimpleName());
             throw new BusinessException(ErrorCode.MATCH_UPSTREAM_UNAVAILABLE);
         }
+    }
+
+    private Map<UUID, UUID> companyOwners(Set<UUID> requiredCompanyIds) {
+        if (requiredCompanyIds.isEmpty()) return Map.of();
+        JsonNode page = companyClient.get()
+                .uri(builder -> builder.path("/api/v1/companies").queryParam("page", 0)
+                        .queryParam("size", 1000).build())
+                .retrieve().body(JsonNode.class);
+        JsonNode content = page == null ? null : page.path("content");
+        if (content == null || !content.isArray()) {
+            throw new BusinessException(ErrorCode.MATCH_UPSTREAM_UNAVAILABLE);
+        }
+        Map<UUID, UUID> owners = new HashMap<>();
+        for (JsonNode company : content) {
+            UUID id = UUID.fromString(company.path("id").asText());
+            if (requiredCompanyIds.contains(id) && company.hasNonNull("ownerId")) {
+                owners.put(id, UUID.fromString(company.path("ownerId").asText()));
+            }
+        }
+        return owners;
     }
 
     private String text(JsonNode node, String field) {

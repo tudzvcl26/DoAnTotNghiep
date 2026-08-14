@@ -82,13 +82,26 @@ public class MatchingServiceImpl implements MatchingService {
             throw new AccessDeniedException("You do not own this job.");
         }
 
+        return computeAndPersist(job, analysis, CorrelationIds.current(), started);
+    }
+
+    @Override
+    public MatchingResultResponse matchForRecommendation(
+            JobSnapshot job, ResumeAnalysisResult analysis, String correlationId) {
+        if (!job.active() || !"PUBLISHED".equalsIgnoreCase(job.status())) {
+            throw new BusinessException(ErrorCode.MATCH_JOB_NOT_PUBLISHED);
+        }
+        return computeAndPersist(job, analysis, correlationId, System.nanoTime());
+    }
+
+    private MatchingResultResponse computeAndPersist(
+            JobSnapshot job, ResumeAnalysisResult analysis, String correlationId, long started) {
+        ResumeDocument document = analysis.getResumeDocument();
         JsonNode resumeFacts = readTree(analysis.getStructuredData());
         JobRequirements requirements = requirementsParser.parse(job);
         MatchingComputation computation = matchingEngine.match(new MatchingContext(resumeFacts, job, requirements));
         long durationMs = elapsedMs(started);
-        String correlationId = CorrelationIds.current();
-
-        JobMatchResult result = matchRepository.findByJobIdAndResumeAnalysisResultId(jobId, analysis.getId())
+        JobMatchResult result = matchRepository.findByJobIdAndResumeAnalysisResultId(job.id(), analysis.getId())
                 .orElseGet(JobMatchResult::new);
         result.setResumeAnalysisResult(analysis);
         result.setResumeDocumentId(document.getId());
@@ -118,7 +131,7 @@ public class MatchingServiceImpl implements MatchingService {
         }
         JobMatchResult saved = matchRepository.saveAndFlush(result);
         log.info("Rule match completed matchId={} resumeId={} jobId={} score={} durationMs={} ruleVersion={} weightsVersion={} correlationId={}",
-                saved.getId(), resumeId, jobId, saved.getOverallScore(), durationMs, saved.getRuleVersion(),
+                saved.getId(), document.getId(), job.id(), saved.getOverallScore(), durationMs, saved.getRuleVersion(),
                 saved.getWeightsVersion(), correlationId);
         return response(saved);
     }

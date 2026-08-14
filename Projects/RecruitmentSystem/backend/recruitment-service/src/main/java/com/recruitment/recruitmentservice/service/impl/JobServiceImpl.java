@@ -214,6 +214,15 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<JobResponse> getRecommendationFeed(Pageable pageable) {
+        return PageResponse.from(
+                jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
+                jobMapper::toResponse
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PageResponse<JobSummaryResponse> search(
             String keyword,
             Pageable pageable

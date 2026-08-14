@@ -3,6 +3,7 @@ import type { ApiResponse, PageResponse } from '../../types/api/common'
 import type {
   AiResume, AiTask, AssistantResponse, CandidateAssistantTask, InterviewPreparation,
   MatchExplanation, MatchingResult, ResumeAnalysis,
+  JobRecommendation,
 } from './ai-career.types'
 
 const AI = '/api/v1/ai'
@@ -68,5 +69,17 @@ export async function getAiTasks(): Promise<PageResponse<AiTask>> {
   const response = await apiClient.get<ApiResponse<PageResponse<AiTask>>>(`${AI}/tasks`, {
     params: { page: 0, size: 20, sort: 'createdAt,desc' },
   })
+  return response.data.data
+}
+
+export async function getJobRecommendations(resumeId: string): Promise<PageResponse<JobRecommendation>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<JobRecommendation>>>(`${AI}/recommendations/jobs`, {
+    params: { resumeId, page: 0, size: 10, sort: 'overallScore', direction: 'desc' },
+  })
+  return response.data.data
+}
+
+export async function refreshJobRecommendations(resumeId: string): Promise<AiTask> {
+  const response = await apiClient.post<ApiResponse<AiTask>>(`${AI}/recommendations/jobs/refresh`, null, { params: { resumeId } })
   return response.data.data
 }

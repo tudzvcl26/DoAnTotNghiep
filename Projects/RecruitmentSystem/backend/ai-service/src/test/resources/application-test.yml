@@ -75,6 +75,7 @@ ai:
     initialize-on-startup: false
   messaging:
     initialize-topology: false
+    recommendation-listener-enabled: false
     inbound-exchange: recruitment.events.test
     outbound-exchange: ai.events.test
     queue: ai-service.events.test

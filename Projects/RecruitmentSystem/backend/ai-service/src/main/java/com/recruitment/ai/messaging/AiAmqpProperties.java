@@ -17,5 +17,7 @@ public class AiAmqpProperties {
     private String queue;
     private String deadLetterExchange;
     private String deadLetterQueue;
+    private String recommendationQueue = "ai.recommendation.refresh.q";
+    private String recommendationRoutingKey = "ai.recommendation.refresh";
 
 }

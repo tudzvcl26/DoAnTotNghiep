@@ -5,12 +5,13 @@ import {
   Target, Trash2, UploadCloud,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { normalizeApiError } from '../../lib/api/error-adapter'
 import { getJobs } from '../jobs/jobs.api'
 import {
   analyzeAiResume, deleteAiResume, generateInterviewPreparation, generateMatchExplanation,
   getAiResumeAnalysis, getAiResumes, getAiTasks, getResumeMatches, matchJob,
-  runCandidateAssistant, uploadAiResume,
+  runCandidateAssistant, uploadAiResume, getJobRecommendations, refreshJobRecommendations,
 } from './ai-career.api'
 import {
   candidateAssistantTasks, type AssistantResponse, type CandidateAssistantTask,
@@ -103,7 +104,12 @@ export function AiCareerPage() {
     queryFn: () => getResumeMatches(selectedResumeId),
     enabled: Boolean(selectedResumeId && selectedResume?.status === 'ANALYZED'),
   })
-  const tasks = useQuery({ queryKey: ['ai-tasks'], queryFn: getAiTasks })
+  const tasks = useQuery({ queryKey: ['ai-tasks'], queryFn: getAiTasks, refetchInterval: 5000 })
+  const recommendations = useQuery({
+    queryKey: ['ai-job-recommendations', selectedResumeId],
+    queryFn: () => getJobRecommendations(selectedResumeId),
+    enabled: Boolean(selectedResumeId && selectedResume?.status === 'ANALYZED'),
+  })
   const jobs = useQuery({
     queryKey: ['jobs', 'ai-career-selector'],
     queryFn: () => getJobs({ keyword: '', page: 0, size: 24, sort: 'publishedAt,desc' }),
@@ -156,6 +162,21 @@ export function AiCareerPage() {
     mutationFn: generateInterviewPreparation,
     onSuccess: async (result) => { setInterview(result); await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }) },
   })
+  const refreshRecommendations = useMutation({
+    mutationFn: refreshJobRecommendations,
+    onSuccess: async () => {
+      setNotice('Đã xếp hàng làm mới gợi ý việc làm. Bạn có thể tiếp tục sử dụng trang trong khi hệ thống xử lý.')
+      await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] })
+    },
+  })
+
+  const recommendationTask = tasks.data?.content.find((task) => task.taskType === 'JOB_RECOMMENDATION_REFRESH')
+  const recommendationTaskStatus = recommendationTask?.status
+  useEffect(() => {
+    if (recommendationTaskStatus && ['COMPLETED', 'PARTIAL'].includes(recommendationTaskStatus)) {
+      void queryClient.invalidateQueries({ queryKey: ['ai-job-recommendations', selectedResumeId] })
+    }
+  }, [queryClient, recommendationTaskStatus, selectedResumeId])
 
   const chooseFile = (file: File | null) => {
     setNotice(''); setFileError('')
@@ -180,7 +201,7 @@ export function AiCareerPage() {
       <div className="ai-career-hero__model"><BrainCircuit /><span>AI đang sử dụng</span><strong>Qwen2.5:3B-Instruct</strong><small>Chạy cục bộ qua hệ thống bảo mật</small></div>
     </header>
 
-    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">CV cho AI</a><a href="#career-assistant">Career Assistant</a><a href="#job-matching">Job Matching</a><a href="#ai-history">Lịch sử</a></nav>
+    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">CV cho AI</a><a href="#job-recommendations">Job Recommendations</a><a href="#career-assistant">Career Assistant</a><a href="#job-matching">Job Matching</a><a href="#ai-history">Lịch sử</a></nav>
 
     {notice && <div className="ai-success" role="status"><CheckCircle2 /> {notice}</div>}
     {mutationError && <ErrorNotice error={mutationError} />}
@@ -214,6 +235,16 @@ export function AiCareerPage() {
         {analysis.isError && <ErrorNotice error={analysis.error} onRetry={() => void analysis.refetch()} />}
         {analysis.data && <div className="ai-analysis__result"><div className="ai-score"><strong>{analysis.data.qualityScore}</strong><span>/ 100</span><p>Chất lượng CV</p></div><div className="ai-analysis__details"><div className="ai-breakdowns">{Object.entries(analysis.data.scoreBreakdown).map(([key, item]) => <div key={key}><span>{humanize(key)}</span><strong>{item.score}/{item.maximum}</strong><p>{item.rationale}</p></div>)}</div><div className="ai-tags"><h4>Kỹ năng được nhận diện</h4>{analysis.data.skills.map((skill) => <span key={`${skill.category}-${skill.name}`}>{skill.name}</span>)}</div><details><summary>Xem toàn bộ dữ liệu CV có cấu trúc</summary><JsonResult value={analysis.data.structuredData} /></details><ResultMeta provider={analysis.data.providerName} model={analysis.data.modelName} duration={analysis.data.analysisDurationMs} /></div></div>}
       </div>}
+    </section>
+
+    <section className="ai-section" id="job-recommendations" aria-labelledby="recommendations-title">
+      <div className="ai-section__heading"><div><span>Hybrid · Bất đồng bộ</span><h2 id="recommendations-title">Job Recommendations</h2><p>GET chỉ đọc kết quả đã lưu. Nút làm mới tạo task nền và không giữ trang chờ mô hình AI.</p></div><BriefcaseBusiness /></div>
+      <div className="ai-analysis__action"><div><strong>{recommendationTask ? `Trạng thái: ${recommendationTask.status}` : 'Chưa có task làm mới'}</strong><p>{recommendationTask?.status === 'FAILED' ? recommendationTask.errorMessage : 'Cần bật recommendation consent trong Candidate Profile trước khi tạo gợi ý.'}</p></div><button type="button" className="ai-primary" disabled={!analysis.data || refreshRecommendations.isPending || recommendationTask?.status === 'PENDING' || recommendationTask?.status === 'RUNNING'} onClick={() => refreshRecommendations.mutate(selectedResumeId)}>{refreshRecommendations.isPending ? <><LoaderCircle className="ai-spin" /> Đang xếp hàng...</> : <><RefreshCw /> Làm mới gợi ý</>}</button></div>
+      {refreshRecommendations.isError && <ErrorNotice error={refreshRecommendations.error} onRetry={() => selectedResumeId && refreshRecommendations.mutate(selectedResumeId)} />}
+      {recommendations.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang đọc gợi ý đã lưu...</p>}
+      {recommendations.isError && <ErrorNotice error={recommendations.error} onRetry={() => void recommendations.refetch()} />}
+      {recommendations.data?.content.length === 0 && <div className="ai-empty"><BriefcaseBusiness /><strong>Chưa có gợi ý đã lưu</strong><p>Bật consent, chọn CV đã phân tích rồi yêu cầu làm mới.</p></div>}
+      {recommendations.data && recommendations.data.content.length > 0 && <div className="ai-task-grid">{recommendations.data.content.map((item) => <article key={item.id}><span><strong>{item.overallScore}/100</strong></span><h3>Job {item.jobId.slice(0, 8)}</h3><JsonResult value={item.recommendation} /><Link to={`/jobs/${item.jobId}`}>Xem việc làm <ArrowRight /></Link></article>)}</div>}
     </section>
 
     <section className="ai-section" id="career-assistant" aria-labelledby="assistant-title">

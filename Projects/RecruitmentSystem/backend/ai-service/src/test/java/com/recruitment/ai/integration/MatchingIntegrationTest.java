@@ -6,6 +6,10 @@ import com.recruitment.ai.entity.PromptTemplateVersion;
 import com.recruitment.ai.entity.enums.ModelCapability;
 import com.recruitment.ai.matching.client.JobGateway;
 import com.recruitment.ai.matching.model.JobSnapshot;
+import com.recruitment.ai.messaging.RecommendationRefreshMessage;
+import com.recruitment.ai.messaging.RecommendationRefreshPublisher;
+import com.recruitment.ai.recommendation.CandidateConsentGateway;
+import com.recruitment.ai.service.RecommendationService;
 import com.recruitment.ai.provider.ModelRouter;
 import com.recruitment.ai.provider.ProviderDescriptor;
 import com.recruitment.ai.provider.llm.StructuredGenerationProvider;
@@ -39,6 +43,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.mockito.ArgumentCaptor;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -49,6 +55,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -122,10 +130,14 @@ class MatchingIntegrationTest {
     @Autowired private CandidateRecommendationRepository candidateRecommendationRepository;
     @Autowired private AssistantSessionRepository assistantSessionRepository;
     @Autowired private AssistantResponseRepository assistantResponseRepository;
+    @Autowired private RecommendationService recommendationService;
 
     @MockitoBean private AiStorageService storageService;
     @MockitoBean private ModelRouter modelRouter;
     @MockitoBean private JobGateway jobGateway;
+    @MockitoBean private CandidateConsentGateway consentGateway;
+    @MockitoBean private RecommendationRefreshPublisher refreshPublisher;
+    @MockitoBean private RedisTemplate<String, Object> aiRedisTemplate;
 
     private UUID candidateId;
     private UUID employerId;
@@ -199,6 +211,7 @@ class MatchingIntegrationTest {
         when(jobGateway.getJob(any(), any())).thenAnswer(invocation -> publishedJob(invocation.getArgument(0), employerId));
         when(jobGateway.getPublishedJobs(any())).thenAnswer(invocation ->
                 List.of(publishedJob(UUID.randomUUID(), employerId)));
+        when(consentGateway.hasConsent(any(), any())).thenReturn(true);
     }
 
     @Test
@@ -207,10 +220,26 @@ class MatchingIntegrationTest {
         UUID jobId = UUID.randomUUID();
         when(jobGateway.getPublishedJobs(any())).thenReturn(List.of(publishedJob(jobId, employerId)));
 
-        String jobsBody = mockMvc.perform(get("/api/v1/ai/recommendations/jobs")
+        mockMvc.perform(get("/api/v1/ai/recommendations/jobs")
                         .param("resumeId", resumeId.toString()).param("sort", "overallScore")
                         .header("Authorization", "Bearer " + candidateToken)
                         .header("X-Correlation-Id", "job-recommendations"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(0));
+        assertThat(matchRepository.count()).isZero();
+        assertThat(jobRecommendationRepository.count()).isZero();
+        verifyNoInteractions(refreshPublisher);
+        mockMvc.perform(post("/api/v1/ai/recommendations/jobs/refresh")
+                        .param("resumeId", resumeId.toString())
+                        .header("Authorization", "Bearer " + candidateToken)
+                        .header("X-Correlation-Id", "job-recommendations"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.status").value("PENDING"));
+        ArgumentCaptor<RecommendationRefreshMessage> refresh = ArgumentCaptor.forClass(RecommendationRefreshMessage.class);
+        verify(refreshPublisher).publish(refresh.capture());
+        recommendationService.processJobRefresh(refresh.getValue());
+
+        String jobsBody = mockMvc.perform(get("/api/v1/ai/recommendations/jobs")
+                        .param("resumeId", resumeId.toString()).param("sort", "overallScore")
+                        .header("Authorization", "Bearer " + candidateToken))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.content[0].overallScore").isNumber())
                 .andExpect(jsonPath("$.data.content[0].recommendation.recommendationSummary").isNotEmpty())
@@ -344,6 +373,25 @@ class MatchingIntegrationTest {
         mockMvc.perform(get("/api/v1/ai/matching/resume/{resumeId}", resumeId)
                         .header("Authorization", "Bearer " + candidateToken))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1));
+    }
+
+    @Test
+    void recommendationRefreshRequiresConsentAndCandidateRole() throws Exception {
+        UUID resumeId = analyzedResume();
+        when(consentGateway.hasConsent(any(), any())).thenReturn(false);
+        mockMvc.perform(post("/api/v1/ai/recommendations/jobs/refresh")
+                        .param("resumeId", resumeId.toString())
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("AI_RECOMMENDATION_005"));
+        mockMvc.perform(get("/api/v1/ai/recommendations/jobs")
+                        .param("resumeId", resumeId.toString())
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isConflict());
+        mockMvc.perform(post("/api/v1/ai/recommendations/jobs/refresh")
+                        .param("resumeId", resumeId.toString())
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isForbidden());
+        assertThat(jobRecommendationRepository.count()).isZero();
     }
 
     @Test

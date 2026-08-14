@@ -4,6 +4,7 @@ import com.recruitment.ai.common.ApiResponse;
 import com.recruitment.ai.common.PageResponse;
 import com.recruitment.ai.dto.response.CandidateRecommendationResponse;
 import com.recruitment.ai.dto.response.JobRecommendationResponse;
+import com.recruitment.ai.dto.response.AiTaskResponse;
 import com.recruitment.ai.service.RecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 
 import java.util.UUID;
 
@@ -35,6 +37,14 @@ public class RecommendationController {
             @RequestParam(defaultValue = "desc") String direction) {
         return ApiResponse.success(recommendationService.recommendJobs(
                 resumeId, minScore, maxScore, page(page, size, sort, direction)));
+    }
+
+    @PostMapping("/jobs/refresh")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(summary = "Queue an asynchronous refresh of candidate job recommendations")
+    public ApiResponse<AiTaskResponse> refreshJobs(@RequestParam(required = false) UUID resumeId) {
+        return ApiResponse.success(recommendationService.refreshJobs(resumeId));
     }
 
     @GetMapping("/jobs/{id}")

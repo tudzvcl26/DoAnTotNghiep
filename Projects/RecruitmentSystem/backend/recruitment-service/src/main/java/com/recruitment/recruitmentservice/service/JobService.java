@@ -32,6 +32,8 @@ public interface JobService {
             Pageable pageable
     );
 
+    PageResponse<JobResponse> getRecommendationFeed(Pageable pageable);
+
     PageResponse<JobSummaryResponse> search(
             String keyword,
             Pageable pageable
