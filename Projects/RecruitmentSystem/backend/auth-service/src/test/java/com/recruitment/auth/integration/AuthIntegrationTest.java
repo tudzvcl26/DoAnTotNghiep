@@ -8,6 +8,10 @@ import com.recruitment.auth.dto.request.RegisterRequest;
 import com.recruitment.auth.dto.request.RegistrationRole;
 import com.recruitment.auth.dto.response.AuthResponse;
 import com.recruitment.auth.service.AuthenticationService;
+import com.recruitment.auth.entity.Role;
+import com.recruitment.auth.entity.User;
+import com.recruitment.auth.repository.RoleRepository;
+import com.recruitment.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +21,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,6 +46,60 @@ public class AuthIntegrationTest {
 
     @Autowired
     private AuthenticationService authenticationService;
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private RoleRepository roleRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+
+    @Test
+    @DisplayName("Admin user management is role-protected and prevents self lockout")
+    void adminUserManagement() throws Exception {
+        String stamp = String.valueOf(System.currentTimeMillis());
+        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        User admin = User.builder().email("admin_" + stamp + "@example.test")
+                .passwordHash(passwordEncoder.encode("Password123!"))
+                .fullName("Admin User").enabled(true).verified(true).roles(new HashSet<>()).build();
+        admin.getRoles().add(adminRole);
+        userRepository.save(admin);
+        AuthResponse adminAuth = authenticationService.login(login(admin.getEmail(), "Password123!"));
+
+        RegisterRequest candidateRequest = new RegisterRequest();
+        candidateRequest.setEmail("managed_" + stamp + "@example.test");
+        candidateRequest.setPassword("Password123!");
+        candidateRequest.setFullName("Managed Candidate");
+        AuthResponse candidateAuth = authenticationService.register(candidateRequest);
+        User candidate = userRepository.findByEmail(candidateRequest.getEmail()).orElseThrow();
+
+        mockMvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + candidateAuth.getAccessToken()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/users").param("keyword", "managed_" + stamp)
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/admin/users/" + candidate.getId() + "/roles")
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"roles\":[\"EMPLOYER\"]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.roles[0]").value("EMPLOYER"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/admin/users/" + candidate.getId() + "/enabled")
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.enabled").value(false));
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + candidate.getEmail() + "\",\"password\":\"Password123!\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_005"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/admin/users/" + admin.getId() + "/enabled")
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("AUTH_012"));
+    }
+
+    private LoginRequest login(String email, String password) {
+        LoginRequest request = new LoginRequest();
+        request.setEmail(email);
+        request.setPassword(password);
+        return request;
+    }
 
     @Test
     @DisplayName("Registration defaults to CANDIDATE when role is omitted")

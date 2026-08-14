@@ -1,4 +1,15 @@
 import type { NotificationEventType } from '../../types/models/notification'
+import type { Company } from '../../types/models/company'
+import type { Application, ApplicationStatus, ApplicationSummary } from '../../types/models/application'
+
+export type AdminUser = {
+  id: string; email: string; fullName: string; phone: string | null; enabled: boolean; verified: boolean
+  roles: string[]; lastLoginAt: string | null; createdAt: string; updatedAt: string
+}
+export type AdminCompany = Company
+export type AdminApplication = Application
+export type AdminApplicationSummary = ApplicationSummary
+export type AdminApplicationFilters = { page: number; size: number; sort: string; status?: ApplicationStatus; jobId?: string; companyId?: string; candidateId?: string }
 
 export type CatalogKind = 'categories' | 'skills' | 'benefits'
 

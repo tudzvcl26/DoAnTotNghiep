@@ -88,8 +88,9 @@ class GatewayIntegrationTest {
     void applicationStartsAndDeclaresAllExpectedRoutes() {
         List<String> routeIds = routeLocator.getRoutes().map(Route::getId).collectList().block();
         assertThat(routeIds).containsExactlyInAnyOrder(
-                "application-job-applications", "auth-service", "user-service", "company-service",
-                "application-service", "recruitment-service", "notification-service", "ai-service");
+                "application-job-applications", "auth-service", "admin-users", "user-service", "company-service",
+                "admin-companies", "application-service", "admin-applications", "recruitment-service",
+                "notification-service", "ai-service");
     }
 
     @Test
@@ -141,6 +142,9 @@ class GatewayIntegrationTest {
         expectService(authorizedGet("/api/v1/applications/me", token), "application", true);
         expectService(authorizedGet("/api/v1/notifications", token), "notification", true);
         expectService(authorizedPost("/api/v1/ai/analyze", token), "ai", true);
+        expectService(authorizedGet("/api/v1/admin/users", token), "auth", true);
+        expectService(authorizedGet("/api/v1/admin/companies", token), "company", true);
+        expectService(authorizedGet("/api/v1/admin/applications", token), "application", true);
         assertThat(AUTHORIZATIONS.get("/api/v1/users/me")).isEqualTo("Bearer " + token);
     }
 

@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 import java.util.List;
+import com.recruitment.company.enums.CompanyStatus;
+import com.recruitment.company.enums.VerificationStatus;
 
 public interface CompanyService {
 
@@ -32,5 +34,12 @@ public interface CompanyService {
     );
 
     void delete(UUID companyId);
+
+    Page<CompanyResponse> getAdminCompanies(String keyword, CompanyStatus status,
+                                            VerificationStatus verificationStatus, UUID ownerId, Pageable pageable);
+
+    CompanyResponse getAdminCompany(UUID companyId);
+
+    CompanyResponse updateVerification(UUID companyId, VerificationStatus verificationStatus);
 
 }

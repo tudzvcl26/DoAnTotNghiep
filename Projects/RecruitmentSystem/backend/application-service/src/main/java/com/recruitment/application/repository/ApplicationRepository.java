@@ -40,6 +40,22 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID> 
             Pageable pageable
     );
 
+    @Query("""
+            select application from Application application
+            where application.active = true
+              and (:status is null or application.status = :status)
+              and (:jobId is null or application.jobId = :jobId)
+              and (:companyId is null or application.companyId = :companyId)
+              and (:candidateId is null or application.candidateId = :candidateId)
+            """)
+    Page<Application> findAdminApplications(
+            @Param("status") ApplicationStatus status,
+            @Param("jobId") UUID jobId,
+            @Param("companyId") UUID companyId,
+            @Param("candidateId") UUID candidateId,
+            Pageable pageable
+    );
+
     long countByActiveTrue();
 
     long countByActiveTrueAndStatus(ApplicationStatus status);

@@ -19,14 +19,23 @@ public class GatewayRouteConfig {
                 .route("auth-service", route -> route
                         .path("/api/v1/auth/**")
                         .uri(services.auth()))
+                .route("admin-users", route -> route
+                        .path("/api/v1/admin/users/**")
+                        .uri(services.auth()))
                 .route("user-service", route -> route
                         .path("/api/v1/users/**", "/api/v1/profiles/**")
                         .uri(services.user()))
                 .route("company-service", route -> route
                         .path("/api/v1/companies/**")
                         .uri(services.company()))
+                .route("admin-companies", route -> route
+                        .path("/api/v1/admin/companies/**")
+                        .uri(services.company()))
                 .route("application-service", route -> route
                         .path("/api/v1/applications/**")
+                        .uri(services.application()))
+                .route("admin-applications", route -> route
+                        .path("/api/v1/admin/applications/**")
                         .uri(services.application()))
                 .route("recruitment-service", route -> route
                         .path("/api/v1/jobs/**", "/api/v1/job-categories/**", "/api/v1/skills/**", "/api/v1/benefits/**")

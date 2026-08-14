@@ -5,6 +5,7 @@ import com.recruitment.company.dto.request.CreateCompanyRequest;
 import com.recruitment.company.dto.request.UpdateCompanyRequest;
 import com.recruitment.company.enums.CompanySize;
 import com.recruitment.company.enums.CompanyType;
+import com.recruitment.company.enums.VerificationStatus;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -107,6 +108,20 @@ public class CompanyAuthorizationIntegrationTest {
         com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
         com.fasterxml.jackson.databind.JsonNode companyNode = root.has("data") ? root.get("data") : root;
         UUID company1Id = UUID.fromString(companyNode.get("id").asText());
+
+        mockMvc.perform(get("/api/v1/admin/companies").header("Authorization", "Bearer " + employer1Token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/companies").param("verificationStatus", "PENDING")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        mockMvc.perform(patch("/api/v1/admin/companies/" + company1Id + "/verification")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"verificationStatus\":\"VERIFIED\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.verificationStatus").value(VerificationStatus.VERIFIED.name()));
+        mockMvc.perform(get("/api/v1/admin/companies/" + company1Id)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(company1Id.toString()));
 
         // The owner lookup used by Application Service is authenticated and owner-scoped.
         mockMvc.perform(get("/api/v1/companies/owner/" + employer1Id)

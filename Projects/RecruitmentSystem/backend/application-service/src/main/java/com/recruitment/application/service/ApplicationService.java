@@ -33,4 +33,8 @@ public interface ApplicationService {
 
     ApplicationResponse updateStatus(UUID id, UpdateApplicationStatusRequest request);
 
+    PageResponse<ApplicationSummaryResponse> getAdminApplications(ApplicationStatus status, UUID jobId,
+                                                                   UUID companyId, UUID candidateId,
+                                                                   Pageable pageable);
+
 }

@@ -5,7 +5,9 @@ import type {
   AdminNotificationRequest, AiProviderInfo, BroadcastNotificationRequest, CatalogCreateRequest, CatalogItem,
   CatalogKind, CatalogUpdateRequest, NotificationDeliveryLog, NotificationDeliveryStatus, NotificationTemplate,
   NotificationTemplateCreateRequest, NotificationTemplateUpdateRequest,
+  AdminUser, AdminCompany, AdminApplication, AdminApplicationFilters, AdminApplicationSummary,
 } from './admin.types'
+import type { SpringPage } from '../../types/api/common'
 
 const catalogPaths: Record<CatalogKind, string> = {
   categories: '/api/v1/job-categories', skills: '/api/v1/skills', benefits: '/api/v1/benefits',
@@ -81,5 +83,38 @@ export async function getNotificationDeliveryLogs(params: { page: number; size: 
 
 export async function getAiProviderInfo(): Promise<AiProviderInfo> {
   const response = await apiClient.get<ApiResponse<AiProviderInfo>>('/api/v1/ai/providers')
+  return response.data.data
+}
+
+export const adminUsersKey = ['admin-users'] as const
+export const adminCompaniesKey = ['admin-companies'] as const
+export const adminApplicationsKey = ['admin-applications'] as const
+
+export async function getAdminUsers(params: { page: number; size: number; sort: string; keyword?: string; role?: string; enabled?: boolean }): Promise<SpringPage<AdminUser>> {
+  const response = await apiClient.get<ApiResponse<SpringPage<AdminUser>>>('/api/v1/admin/users', { params })
+  return response.data.data
+}
+export async function updateAdminUserRoles(id: string, roles: string[]): Promise<AdminUser> {
+  const response = await apiClient.patch<ApiResponse<AdminUser>>(`/api/v1/admin/users/${id}/roles`, { roles })
+  return response.data.data
+}
+export async function updateAdminUserEnabled(id: string, enabled: boolean): Promise<AdminUser> {
+  const response = await apiClient.patch<ApiResponse<AdminUser>>(`/api/v1/admin/users/${id}/enabled`, { enabled })
+  return response.data.data
+}
+export async function getAdminCompanies(params: { page: number; size: number; sort: string; keyword?: string; status?: string; verificationStatus?: string }): Promise<SpringPage<AdminCompany>> {
+  const response = await apiClient.get<SpringPage<AdminCompany>>('/api/v1/admin/companies', { params })
+  return response.data
+}
+export async function updateAdminCompanyVerification(id: string, verificationStatus: string): Promise<AdminCompany> {
+  const response = await apiClient.patch<AdminCompany>(`/api/v1/admin/companies/${id}/verification`, { verificationStatus })
+  return response.data
+}
+export async function getAdminApplications(params: AdminApplicationFilters): Promise<PageResponse<AdminApplicationSummary>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<AdminApplicationSummary>>>('/api/v1/admin/applications', { params })
+  return response.data.data
+}
+export async function getAdminApplication(id: string): Promise<AdminApplication> {
+  const response = await apiClient.get<ApiResponse<AdminApplication>>(`/api/v1/admin/applications/${id}`)
   return response.data.data
 }

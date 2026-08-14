@@ -260,6 +260,17 @@ public class ApplicationAuthorizationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
 
+        mockMvc.perform(get("/api/v1/admin/applications").header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/applications").param("companyId", company1Id.toString())
+                        .param("candidateId", candidateUserId.toString()).param("status", "APPLIED")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].candidateProfileSnapshot.displayName").value("John Candidate"));
+        mockMvc.perform(get("/api/v1/admin/applications/" + applicationId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.id").value(applicationId.toString()));
+
         // Candidate owner and Employer owner can download the immutable snapshot;
         // unrelated Candidate/Employer identities are denied.
         mockMvc.perform(get("/api/v1/applications/" + applicationId + "/resume")

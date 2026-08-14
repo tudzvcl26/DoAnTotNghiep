@@ -278,6 +278,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         return applicationStatistics(companyIds, false);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ApplicationSummaryResponse> getAdminApplications(ApplicationStatus status, UUID jobId,
+                                                                          UUID companyId, UUID candidateId,
+                                                                          Pageable pageable) {
+        return buildApplicationSummaryPage(
+                applicationRepository.findAdminApplications(status, jobId, companyId, candidateId, pageable)
+        );
+    }
+
     private EmployerApplicationStatisticsResponse applicationStatistics(List<UUID> companyIds, boolean admin) {
         return new EmployerApplicationStatisticsResponse(
                 countApplications(companyIds, null, admin),

@@ -110,6 +110,18 @@ public enum ErrorCode {
             HttpStatus.UNAUTHORIZED,
             "AUTH_010",
             "Refresh token has expired"
+    ),
+
+    INVALID_ROLE(
+            HttpStatus.BAD_REQUEST,
+            "AUTH_011",
+            "Role is not available for management"
+    ),
+
+    ADMIN_SELF_LOCKOUT(
+            HttpStatus.CONFLICT,
+            "AUTH_012",
+            "An administrator cannot remove their own admin access or disable their own account"
     );
 
     private final HttpStatus status;

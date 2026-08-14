@@ -73,6 +73,11 @@ public class AuthenticationService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        User existingUser = userRepository.findByEmail(request.getEmail()).orElse(null);
+        if (existingUser != null && !Boolean.TRUE.equals(existingUser.getEnabled())) {
+            throw new BusinessException(ErrorCode.USER_DISABLED);
+        }
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -84,12 +89,8 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = existingUser != null ? existingUser : userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new BusinessException(ErrorCode.USER_DISABLED);
-        }
 
         user.setLastLoginAt(LocalDateTime.now());
 

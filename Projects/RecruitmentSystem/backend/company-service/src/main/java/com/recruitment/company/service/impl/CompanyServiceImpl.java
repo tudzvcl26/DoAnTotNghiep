@@ -242,6 +242,31 @@ public class CompanyServiceImpl implements CompanyService {
 
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CompanyResponse> getAdminCompanies(String keyword, CompanyStatus status,
+                                                   VerificationStatus verificationStatus, UUID ownerId,
+                                                   Pageable pageable) {
+        return companyRepository.findAll(
+                CompanySpecification.search(keyword, status, verificationStatus, ownerId), pageable
+        ).map(companyMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CompanyResponse getAdminCompany(UUID companyId) {
+        return companyMapper.toResponse(companyRepository.findById(companyId)
+                .orElseThrow(() -> new CompanyNotFoundException("Company not found.")));
+    }
+
+    @Override
+    public CompanyResponse updateVerification(UUID companyId, VerificationStatus verificationStatus) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new CompanyNotFoundException("Company not found."));
+        company.setVerificationStatus(verificationStatus);
+        return companyMapper.toResponse(companyRepository.save(company));
+    }
+
     private void assertOwnerAccess(UUID ownerId) {
         CurrentUser currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null || currentUser.getUserId() == null) {

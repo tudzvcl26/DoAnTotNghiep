@@ -5,6 +5,10 @@ import { AdminCatalogPage } from '../../features/admin/AdminCatalogPage'
 import { AdminDeliveryLogsPage } from '../../features/admin/AdminDeliveryLogsPage'
 import { AdminNotificationsPage } from '../../features/admin/AdminNotificationsPage'
 import { AdminNotificationTemplatesPage } from '../../features/admin/AdminNotificationTemplatesPage'
+import { AdminUsersPage } from '../../features/admin/AdminUsersPage'
+import { AdminCompaniesPage } from '../../features/admin/AdminCompaniesPage'
+import { AdminApplicationsPage } from '../../features/admin/AdminApplicationsPage'
+import { AdminApplicationDetailPage } from '../../features/admin/AdminApplicationDetailPage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
 import { RegisterPage } from '../../features/auth/pages/RegisterPage'
 import { CompaniesPage } from '../../features/companies/CompaniesPage'
@@ -69,6 +73,10 @@ export function AppRouter() {
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="admin/users" element={<AdminUsersPage />} />
+          <Route path="admin/companies" element={<AdminCompaniesPage />} />
+          <Route path="admin/applications" element={<AdminApplicationsPage />} />
+          <Route path="admin/applications/:applicationId" element={<AdminApplicationDetailPage />} />
           <Route path="admin/catalog/categories" element={<AdminCatalogPage kind="categories" />} />
           <Route path="admin/catalog/skills" element={<AdminCatalogPage kind="skills" />} />
           <Route path="admin/catalog/benefits" element={<AdminCatalogPage kind="benefits" />} />

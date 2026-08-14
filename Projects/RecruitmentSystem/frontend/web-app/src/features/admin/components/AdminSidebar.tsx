@@ -1,8 +1,11 @@
-import { BellRing, Bot, Boxes, CircleGauge, FileClock, LayoutTemplate, ListTree, Sparkles, Tags } from 'lucide-react'
+import { BellRing, Bot, Boxes, Building2, CircleGauge, FileClock, FileUser, LayoutTemplate, ListTree, Sparkles, Tags, UsersRound } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const navigation = [
   { label: 'Tổng quan', to: '/admin', icon: CircleGauge, end: true },
+  { label: 'Người dùng', to: '/admin/users', icon: UsersRound },
+  { label: 'Công ty', to: '/admin/companies', icon: Building2 },
+  { label: 'Applications', to: '/admin/applications', icon: FileUser },
   { label: 'Ngành nghề', to: '/admin/catalog/categories', icon: ListTree },
   { label: 'Kỹ năng', to: '/admin/catalog/skills', icon: Sparkles },
   { label: 'Phúc lợi', to: '/admin/catalog/benefits', icon: Tags },
