@@ -1,5 +1,10 @@
 import { Route, Routes } from 'react-router-dom'
 import { AdminDashboardPage } from '../../features/admin/AdminDashboardPage'
+import { AdminAiProviderPage } from '../../features/admin/AdminAiProviderPage'
+import { AdminCatalogPage } from '../../features/admin/AdminCatalogPage'
+import { AdminDeliveryLogsPage } from '../../features/admin/AdminDeliveryLogsPage'
+import { AdminNotificationsPage } from '../../features/admin/AdminNotificationsPage'
+import { AdminNotificationTemplatesPage } from '../../features/admin/AdminNotificationTemplatesPage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
 import { RegisterPage } from '../../features/auth/pages/RegisterPage'
 import { CompaniesPage } from '../../features/companies/CompaniesPage'
@@ -64,6 +69,13 @@ export function AppRouter() {
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="admin/catalog/categories" element={<AdminCatalogPage kind="categories" />} />
+          <Route path="admin/catalog/skills" element={<AdminCatalogPage kind="skills" />} />
+          <Route path="admin/catalog/benefits" element={<AdminCatalogPage kind="benefits" />} />
+          <Route path="admin/notifications" element={<AdminNotificationsPage />} />
+          <Route path="admin/notification-templates" element={<AdminNotificationTemplatesPage />} />
+          <Route path="admin/notification-delivery-logs" element={<AdminDeliveryLogsPage />} />
+          <Route path="admin/ai-provider" element={<AdminAiProviderPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>
