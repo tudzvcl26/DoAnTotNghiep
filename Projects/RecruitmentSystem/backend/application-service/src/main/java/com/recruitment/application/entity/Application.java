@@ -43,6 +43,9 @@ public class Application extends BaseEntity {
     @Column(name = "job_snapshot_id")
     private UUID jobSnapshotId;
 
+    @Column(name = "candidate_profile_snapshot_id")
+    private UUID candidateProfileSnapshotId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ApplicationStatus status = ApplicationStatus.APPLIED;

@@ -25,6 +25,8 @@ public class ApplicationResponse {
 
     private UUID jobSnapshotId;
 
+    private UUID candidateProfileSnapshotId;
+
     private ApplicationStatus status;
 
     private BigDecimal matchingScore;
@@ -40,6 +42,8 @@ public class ApplicationResponse {
     private ResumeSnapshotResponse resumeSnapshot;
 
     private JobSnapshotResponse jobSnapshot;
+
+    private CandidateProfileSnapshotResponse candidateProfileSnapshot;
 
     private List<ApplicationStatusHistoryResponse> statusHistory;
 

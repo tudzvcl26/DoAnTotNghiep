@@ -24,9 +24,10 @@ class ApplicationRestClientsTest {
 
     @Test void allClientsHandleNormalResponses() throws Exception {
         UUID id = UUID.randomUUID();
-        start(exchange -> respond(exchange, 200, "{\"data\":{\"id\":\"" + id + "\",\"userId\":\"" + id + "\",\"ownerId\":\"" + id + "\",\"companyId\":\"" + id + "\",\"assetVersion\":1}}"));
+        start(exchange -> respond(exchange, 200, "{\"data\":{\"id\":\"" + id + "\",\"userId\":\"" + id + "\",\"ownerId\":\"" + id + "\",\"companyId\":\"" + id + "\",\"assetVersion\":1,\"version\":9}}"));
         String base = baseUrl();
-        assertThat(new UserClientImpl(base, 500, 500, mapper).getCandidateProfile(id, "Bearer token")).isPresent();
+        assertThat(new UserClientImpl(base, 500, 500, mapper).getCandidateProfile(id, "Bearer token"))
+                .hasValueSatisfying(profile -> assertThat(profile.getVersion()).isEqualTo(9L));
         assertThat(new UserClientImpl(base, 500, 500, mapper).getCurrentResume(id, "Bearer token")).isPresent();
         assertThat(new JobClientImpl(base, 500, 500, mapper).getJobById(id)).isPresent();
         assertThat(new CompanyClientImpl(base, 500, 500, mapper).getCompanyById(id)).isPresent();

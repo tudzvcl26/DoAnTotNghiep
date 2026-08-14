@@ -17,6 +17,7 @@ import com.recruitment.application.dto.response.ApplicationResumeDownload;
 import com.recruitment.application.dto.response.EmployerApplicationStatisticsResponse;
 import com.recruitment.application.entity.Application;
 import com.recruitment.application.entity.ApplicationStatusHistory;
+import com.recruitment.application.entity.CandidateProfileSnapshot;
 import com.recruitment.application.entity.JobSnapshot;
 import com.recruitment.application.entity.ResumeSnapshot;
 import com.recruitment.application.entity.enums.ApplicationStatus;
@@ -25,10 +26,12 @@ import com.recruitment.application.exception.ErrorCode;
 import com.recruitment.application.exception.ResourceNotFoundException;
 import com.recruitment.application.mapper.ApplicationMapper;
 import com.recruitment.application.mapper.ApplicationStatusHistoryMapper;
+import com.recruitment.application.mapper.CandidateProfileSnapshotMapper;
 import com.recruitment.application.mapper.JobSnapshotMapper;
 import com.recruitment.application.mapper.ResumeSnapshotMapper;
 import com.recruitment.application.repository.ApplicationRepository;
 import com.recruitment.application.repository.ApplicationStatusHistoryRepository;
+import com.recruitment.application.repository.CandidateProfileSnapshotRepository;
 import com.recruitment.application.repository.JobSnapshotRepository;
 import com.recruitment.application.repository.ResumeSnapshotRepository;
 import com.recruitment.application.security.CurrentUser;
@@ -50,7 +53,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -61,11 +67,13 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationStatusHistoryRepository statusHistoryRepository;
     private final ResumeSnapshotRepository resumeSnapshotRepository;
     private final JobSnapshotRepository jobSnapshotRepository;
+    private final CandidateProfileSnapshotRepository candidateProfileSnapshotRepository;
 
     private final ApplicationMapper applicationMapper;
     private final ApplicationStatusHistoryMapper statusHistoryMapper;
     private final ResumeSnapshotMapper resumeSnapshotMapper;
     private final JobSnapshotMapper jobSnapshotMapper;
+    private final CandidateProfileSnapshotMapper candidateProfileSnapshotMapper;
 
     private final JobClient jobClient;
     private final UserClient userClient;
@@ -114,6 +122,18 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         Application savedApplication = applicationRepository.save(application);
 
+        CandidateProfileSnapshot candidateSnapshot = new CandidateProfileSnapshot();
+        candidateSnapshot.setApplicationId(savedApplication.getId());
+        candidateSnapshot.setCandidateId(candidateId);
+        candidateSnapshot.setProfileId(userProfile.getId());
+        candidateSnapshot.setDisplayName(userProfile.getDisplayName());
+        candidateSnapshot.setHeadline(userProfile.getHeadline());
+        candidateSnapshot.setContactEmail(userProfile.getContactEmail());
+        candidateSnapshot.setContactPhone(userProfile.getContactPhone());
+        candidateSnapshot.setProfileVersion(userProfile.getVersion());
+        candidateSnapshot.setCapturedAt(LocalDateTime.now());
+        CandidateProfileSnapshot savedCandidateSnapshot = candidateProfileSnapshotRepository.save(candidateSnapshot);
+
         ResumeSnapshot resumeSnapshot = new ResumeSnapshot();
         resumeSnapshot.setApplicationId(savedApplication.getId());
         resumeSnapshot.setCandidateId(candidateId);
@@ -130,6 +150,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         savedApplication.setResumeSnapshotId(savedResumeSnapshot.getId());
         savedApplication.setJobSnapshotId(savedJobSnapshot.getId());
+        savedApplication.setCandidateProfileSnapshotId(savedCandidateSnapshot.getId());
         savedApplication = applicationRepository.save(savedApplication);
 
         ApplicationStatusHistory history = new ApplicationStatusHistory();
@@ -151,10 +172,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         CurrentUser currentUser = getCurrentAuthenticatedUser();
         UUID candidateId = currentUser.getUserId();
 
-        return PageResponse.from(
-                applicationRepository.findByCandidateIdAndActiveTrue(candidateId, pageable),
-                applicationMapper::toSummaryResponse
-        );
+        return buildApplicationSummaryPage(applicationRepository.findByCandidateIdAndActiveTrue(candidateId, pageable));
     }
 
     @Override
@@ -215,16 +233,10 @@ public class ApplicationServiceImpl implements ApplicationService {
         assertCompanyOwner(job.getCompanyId(), currentUser);
 
         if (status != null) {
-            return PageResponse.from(
-                    applicationRepository.findByJobIdAndStatusAndActiveTrue(jobId, status, pageable),
-                    applicationMapper::toSummaryResponse
-            );
+            return buildApplicationSummaryPage(applicationRepository.findByJobIdAndStatusAndActiveTrue(jobId, status, pageable));
         }
 
-        return PageResponse.from(
-                applicationRepository.findByJobIdAndActiveTrue(jobId, pageable),
-                applicationMapper::toSummaryResponse
-        );
+        return buildApplicationSummaryPage(applicationRepository.findByJobIdAndActiveTrue(jobId, pageable));
     }
 
     @Override
@@ -242,12 +254,9 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .map(CompanyClientDto::getId)
                 .toList();
         if (companyIds.isEmpty()) {
-            return PageResponse.from(Page.<Application>empty(pageable), applicationMapper::toSummaryResponse);
+            return buildApplicationSummaryPage(Page.empty(pageable));
         }
-        return PageResponse.from(
-                applicationRepository.findEmployerApplications(companyIds, status, jobId, pageable),
-                applicationMapper::toSummaryResponse
-        );
+        return buildApplicationSummaryPage(applicationRepository.findEmployerApplications(companyIds, status, jobId, pageable));
     }
 
     @Override
@@ -423,10 +432,37 @@ public class ApplicationServiceImpl implements ApplicationService {
         jobSnapshotRepository.findByApplicationId(application.getId())
                 .ifPresent(snapshot -> response.setJobSnapshot(jobSnapshotMapper.toResponse(snapshot)));
 
+        candidateProfileSnapshotRepository.findByApplicationId(application.getId())
+                .ifPresent(snapshot -> response.setCandidateProfileSnapshot(candidateProfileSnapshotMapper.toResponse(snapshot)));
+
         List<ApplicationStatusHistory> histories = statusHistoryRepository.findByApplicationIdOrderByChangedAtAsc(application.getId());
         response.setStatusHistory(statusHistoryMapper.toResponseList(histories));
 
         return response;
+    }
+
+    private PageResponse<ApplicationSummaryResponse> buildApplicationSummaryPage(Page<Application> page) {
+        Map<UUID, CandidateProfileSnapshot> snapshots = candidateProfileSnapshotRepository
+                .findByApplicationIdIn(page.getContent().stream().map(Application::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(CandidateProfileSnapshot::getApplicationId, Function.identity()));
+        List<ApplicationSummaryResponse> content = page.getContent().stream().map(application -> {
+            ApplicationSummaryResponse response = applicationMapper.toSummaryResponse(application);
+            CandidateProfileSnapshot snapshot = snapshots.get(application.getId());
+            if (snapshot != null) {
+                response.setCandidateProfileSnapshot(candidateProfileSnapshotMapper.toResponse(snapshot));
+            }
+            return response;
+        }).toList();
+        return PageResponse.<ApplicationSummaryResponse>builder()
+                .content(content)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build();
     }
 
 }

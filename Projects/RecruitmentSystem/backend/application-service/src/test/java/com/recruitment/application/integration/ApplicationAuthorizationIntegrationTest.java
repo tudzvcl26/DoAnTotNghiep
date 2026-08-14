@@ -13,6 +13,7 @@ import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.entity.enums.ApplicationStatus;
 import com.recruitment.application.entity.Application;
 import com.recruitment.application.repository.ApplicationRepository;
+import com.recruitment.application.repository.CandidateProfileSnapshotRepository;
 import com.recruitment.application.service.ResumeSnapshotStorage;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -70,6 +72,9 @@ public class ApplicationAuthorizationIntegrationTest {
 
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private CandidateProfileSnapshotRepository candidateProfileSnapshotRepository;
 
     private String generateToken(UUID userId, String email, List<String> roles) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
@@ -120,6 +125,10 @@ public class ApplicationAuthorizationIntegrationTest {
                 .id(UUID.randomUUID())
                 .userId(candidateUserId)
                 .displayName("John Candidate")
+                .headline("Backend Engineer")
+                .contactEmail("john.candidate@example.test")
+                .contactPhone("0900000001")
+                .version(7L)
                 .rawJsonData("{\"userId\":\"" + candidateUserId + "\",\"displayName\":\"John Candidate\"}")
                 .build();
         given(userClient.getCandidateProfile(eq(candidateUserId), any())).willReturn(Optional.of(userDto));
@@ -163,11 +172,24 @@ public class ApplicationAuthorizationIntegrationTest {
                         .content(objectMapper.writeValueAsString(applyReq)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.resumeSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("immutable-v1.pdf")))
+                .andExpect(jsonPath("$.data.candidateProfileSnapshot.displayName").value("John Candidate"))
+                .andExpect(jsonPath("$.data.candidateProfileSnapshot.headline").value("Backend Engineer"))
+                .andExpect(jsonPath("$.data.candidateProfileSnapshot.profileVersion").value(7))
                 .andReturn().getResponse().getContentAsString();
 
         com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseContent);
         com.fasterxml.jackson.databind.JsonNode dataNode = root.has("data") ? root.get("data") : root;
         UUID applicationId = UUID.fromString(dataNode.get("id").asText());
+        assertThat(candidateProfileSnapshotRepository.findByApplicationId(applicationId))
+                .hasValueSatisfying(snapshot -> {
+                    assertThat(snapshot.getDisplayName()).isEqualTo("John Candidate");
+                    assertThat(snapshot.getContactEmail()).isEqualTo("john.candidate@example.test");
+                    assertThat(snapshot.getCapturedAt()).isNotNull();
+                });
+
+        // A later profile update must not alter the data captured with this application.
+        userDto.setDisplayName("John Candidate Updated");
+        userDto.setHeadline("Principal Engineer");
 
         // 3. Duplicate apply -> 409 Conflict
         mockMvc.perform(post("/api/v1/applications")
@@ -184,7 +206,9 @@ public class ApplicationAuthorizationIntegrationTest {
         // 5. Candidate get application detail -> 200 OK
         mockMvc.perform(get("/api/v1/applications/" + applicationId)
                         .header("Authorization", "Bearer " + candidateToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidateProfileSnapshot.displayName").value("John Candidate"))
+                .andExpect(jsonPath("$.data.candidateProfileSnapshot.headline").value("Backend Engineer"));
 
         // 6. Employer 2 (unrelated company) attempts to view application -> 403 Forbidden (IDOR)
         mockMvc.perform(get("/api/v1/applications/" + applicationId)
@@ -209,7 +233,8 @@ public class ApplicationAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + employerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.content[0].id").value(applicationId.toString()));
+                .andExpect(jsonPath("$.data.content[0].id").value(applicationId.toString()))
+                .andExpect(jsonPath("$.data.content[0].candidateProfileSnapshot.displayName").value("John Candidate"));
         mockMvc.perform(get("/api/v1/applications/employer")
                         .header("Authorization", "Bearer " + employer2Token))
                 .andExpect(status().isOk())

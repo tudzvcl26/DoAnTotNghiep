@@ -31,8 +31,10 @@ export type Application = {
   matchingVersion: string | null
   resumeSnapshotId: string | null
   jobSnapshotId: string | null
+  candidateProfileSnapshotId: string | null
   resumeSnapshot: ResumeSnapshot | null
   jobSnapshot: JobSnapshot | null
+  candidateProfileSnapshot: CandidateProfileSnapshot | null
   statusHistory: ApplicationStatusHistory[]
   createdAt: string
   updatedAt: string
@@ -56,6 +58,19 @@ export type JobSnapshot = {
   createdAt: string
 }
 
+export type CandidateProfileSnapshot = {
+  id: string
+  applicationId: string
+  candidateId: string
+  profileId: string | null
+  displayName: string
+  headline: string | null
+  contactEmail: string | null
+  contactPhone: string | null
+  profileVersion: number | null
+  capturedAt: string
+}
+
 export type ApplicationStatusHistory = {
   id: string
   applicationId: string
@@ -73,6 +88,7 @@ export type ApplicationSummary = {
   candidateId: string
   companyId: string
   jobId: string
+  candidateProfileSnapshot: CandidateProfileSnapshot | null
   status: ApplicationStatus
   matchingScore: number | null
   matchingVersion: string | null

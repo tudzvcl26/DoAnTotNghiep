@@ -29,6 +29,8 @@ public class UserClientDto {
 
     private String contactPhone;
 
+    private Long version;
+
     private String rawJsonData;
 
 }

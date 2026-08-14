@@ -11,7 +11,8 @@ const allowedSorts = ['appliedAt,desc', 'appliedAt,asc', 'updatedAt,desc']
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function ApplicationCard({ application }: { application: ApplicationSummary }) {
-  return <article className="employer-application-card"><span><FileUser /></span><div><div><span className={`employer-application-status employer-application-status--${application.status.toLowerCase()}`}>{employerApplicationStatusLabels[application.status]}</span><small>Ứng viên {application.candidateId.slice(0, 8)}</small></div><h2>Job {application.jobId.slice(0, 8)}</h2><dl><div><dt>Ngày ứng tuyển</dt><dd>{formatEmployerApplicationDate(application.appliedAt)}</dd></div><div><dt>Cập nhật</dt><dd>{formatEmployerApplicationDate(application.updatedAt)}</dd></div><div><dt>Mã đơn</dt><dd>{application.id.slice(0, 8)}</dd></div></dl></div><Link to={`/employer/applications/${application.id}`}>Xem hồ sơ</Link></article>
+  const candidate = application.candidateProfileSnapshot
+  return <article className="employer-application-card"><span><FileUser /></span><div><div><span className={`employer-application-status employer-application-status--${application.status.toLowerCase()}`}>{employerApplicationStatusLabels[application.status]}</span><small>{candidate?.headline || `Candidate ${application.candidateId.slice(0, 8)}`}</small></div><h2>{candidate?.displayName || `Ứng viên ${application.candidateId.slice(0, 8)}`}</h2><dl><div><dt>Ngày ứng tuyển</dt><dd>{formatEmployerApplicationDate(application.appliedAt)}</dd></div><div><dt>Cập nhật</dt><dd>{formatEmployerApplicationDate(application.updatedAt)}</dd></div><div><dt>Mã đơn</dt><dd>{application.id.slice(0, 8)}</dd></div></dl></div><Link to={`/employer/applications/${application.id}`}>Xem hồ sơ</Link></article>
 }
 
 export function EmployerApplicationsPage() {

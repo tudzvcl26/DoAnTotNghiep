@@ -55,6 +55,7 @@ public class UserClientImpl implements UserClient {
                     .summary(data.has("summary") && !data.get("summary").isNull() ? data.get("summary").asText() : null)
                     .contactEmail(data.has("contactEmail") && !data.get("contactEmail").isNull() ? data.get("contactEmail").asText() : null)
                     .contactPhone(data.has("contactPhone") && !data.get("contactPhone").isNull() ? data.get("contactPhone").asText() : null)
+                    .version(data.has("version") && !data.get("version").isNull() ? data.get("version").asLong() : null)
                     .rawJsonData(data.toString())
                     .build();
 

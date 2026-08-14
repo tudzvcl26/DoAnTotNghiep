@@ -20,6 +20,8 @@ public class ApplicationSummaryResponse {
 
     private UUID jobId;
 
+    private CandidateProfileSnapshotResponse candidateProfileSnapshot;
+
     private ApplicationStatus status;
 
     private BigDecimal matchingScore;
