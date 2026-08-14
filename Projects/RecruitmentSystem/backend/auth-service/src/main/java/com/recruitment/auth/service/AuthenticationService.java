@@ -43,6 +43,7 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final RefreshTokenHasher refreshTokenHasher;
+    private final AccountActionService accountActionService;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -68,6 +69,7 @@ public class AuthenticationService {
         user.getRoles().add(role);
 
         userRepository.save(user);
+        accountActionService.issueRegistrationVerification(user);
 
         return generateAuthResponse(user);
     }

@@ -11,7 +11,11 @@ public class PublicEndpointPolicy {
     private static final Set<String> PUBLIC_POST_ENDPOINTS = Set.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
-            "/api/v1/auth/refresh");
+            "/api/v1/auth/refresh",
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/reset-password",
+            "/api/v1/auth/verify-email",
+            "/api/v1/auth/resend-verification");
 
     public boolean isPublic(HttpMethod method, String path) {
         if (HttpMethod.OPTIONS.equals(method)
@@ -25,6 +29,9 @@ public class PublicEndpointPolicy {
         }
         if (!HttpMethod.GET.equals(method)) {
             return false;
+        }
+        if ("/api/v1/auth/dev/action-token".equals(path)) {
+            return true;
         }
         if (isJobApplicationsPath(path)) {
             return false;

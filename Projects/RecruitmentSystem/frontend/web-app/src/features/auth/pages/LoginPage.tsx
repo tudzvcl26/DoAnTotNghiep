@@ -181,6 +181,7 @@ export function LoginPage() {
                   />
                 </div>
                 {errors.password && <p id="password-error" className="login-form__error">{errors.password.message}</p>}
+                <Link to="/forgot-password">Forgot password?</Link>
               </div>
 
               <Button className="login-submit" type="submit" size="lg" fullWidth disabled={isSubmitting}>
@@ -188,7 +189,7 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <div className="login-card__footer">New here? <Link to="/register">Create an account</Link></div>
+            <div className="login-card__footer">New here? <Link to="/register">Create an account</Link> · <Link to="/verify-email">Verify email</Link></div>
           </article>
           <span className="login-card-wrap__note">Secure gateway · Private session</span>
         </div>

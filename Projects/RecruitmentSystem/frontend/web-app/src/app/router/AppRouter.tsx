@@ -11,6 +11,9 @@ import { AdminApplicationsPage } from '../../features/admin/AdminApplicationsPag
 import { AdminApplicationDetailPage } from '../../features/admin/AdminApplicationDetailPage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
 import { RegisterPage } from '../../features/auth/pages/RegisterPage'
+import { ForgotPasswordPage } from '../../features/auth/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '../../features/auth/pages/ResetPasswordPage'
+import { VerifyEmailPage } from '../../features/auth/pages/VerifyEmailPage'
 import { CompaniesPage } from '../../features/companies/CompaniesPage'
 import { CompanyDetailsPage } from '../../features/companies/CompanyDetailsPage'
 import { EmployerDashboardPage } from '../../features/employer/EmployerDashboardPage'
@@ -51,6 +54,9 @@ export function AppRouter() {
           <Route path="companies/:companyId" element={<CompanyDetailsPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
+          <Route path="verify-email" element={<VerifyEmailPage />} />
         </Route>
         <Route element={<ProtectedRoute><RoleGuard roles={['CANDIDATE']}><CandidateLayout /></RoleGuard></ProtectedRoute>}>
           <Route path="candidate" element={<CandidateDashboardPage />} />

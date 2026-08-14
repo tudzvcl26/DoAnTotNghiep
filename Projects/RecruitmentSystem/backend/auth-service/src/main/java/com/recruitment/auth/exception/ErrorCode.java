@@ -122,6 +122,18 @@ public enum ErrorCode {
             HttpStatus.CONFLICT,
             "AUTH_012",
             "An administrator cannot remove their own admin access or disable their own account"
+    ),
+
+    ACTION_TOKEN_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "AUTH_013",
+            "The account action token is invalid or has already been used"
+    ),
+
+    ACTION_TOKEN_EXPIRED(
+            HttpStatus.BAD_REQUEST,
+            "AUTH_014",
+            "The account action token has expired"
     );
 
     private final HttpStatus status;

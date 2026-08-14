@@ -48,6 +48,12 @@ jwt:
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
 
 auth:
+  account-actions:
+    password-reset-expiry-minutes: ${AUTH_PASSWORD_RESET_EXPIRY_MINUTES:15}
+    email-verification-expiry-minutes: ${AUTH_EMAIL_VERIFICATION_EXPIRY_MINUTES:1440}
+    issuance-cooldown-seconds: ${AUTH_ACTION_TOKEN_COOLDOWN_SECONDS:60}
+  dev-action-token:
+    access-key: ${AUTH_DEV_ACTION_TOKEN_ACCESS_KEY:}
   admin-bootstrap:
     enabled: ${AUTH_ADMIN_BOOTSTRAP_ENABLED:false}
     email: ${AUTH_ADMIN_BOOTSTRAP_EMAIL:}

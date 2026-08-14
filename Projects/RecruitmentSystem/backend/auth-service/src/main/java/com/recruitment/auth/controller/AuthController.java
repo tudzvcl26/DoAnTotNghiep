@@ -5,9 +5,14 @@ import com.recruitment.auth.dto.request.LoginRequest;
 import com.recruitment.auth.dto.request.LogoutRequest;
 import com.recruitment.auth.dto.request.RefreshTokenRequest;
 import com.recruitment.auth.dto.request.RegisterRequest;
+import com.recruitment.auth.dto.request.ForgotPasswordRequest;
+import com.recruitment.auth.dto.request.ResetPasswordRequest;
+import com.recruitment.auth.dto.request.ResendVerificationRequest;
+import com.recruitment.auth.dto.request.VerifyEmailRequest;
 import com.recruitment.auth.dto.response.AuthResponse;
 import com.recruitment.auth.dto.response.UserProfileResponse;
 import com.recruitment.auth.service.AuthenticationService;
+import com.recruitment.auth.service.AccountActionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthenticationService authenticationService;
+    private final AccountActionService accountActionService;
 
     @Operation(summary = "Register new account")
     @PostMapping("/register")
@@ -59,6 +65,36 @@ public class AuthController {
                         httpRequest.getRequestURI()
                 )
         );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest body, HttpServletRequest request) {
+        accountActionService.requestPasswordReset(body.getEmail());
+        return ResponseEntity.accepted().body(ApiResponse.success(
+                "If the account exists, password reset instructions have been prepared.", request.getRequestURI()));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest body, HttpServletRequest request) {
+        accountActionService.resetPassword(body.getToken(), body.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully.", request.getRequestURI()));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest body, HttpServletRequest request) {
+        accountActionService.verifyEmail(body.getToken());
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully.", request.getRequestURI()));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest body, HttpServletRequest request) {
+        accountActionService.resendVerification(body.getEmail());
+        return ResponseEntity.accepted().body(ApiResponse.success(
+                "If the account is eligible, verification instructions have been prepared.", request.getRequestURI()));
     }
 
     @Operation(summary = "Refresh Access Token")
