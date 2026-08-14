@@ -47,6 +47,9 @@ public class SecurityConfig {
                                 "/actuator/health/**"
                         ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/v1/jobs/employer"
+                        ).authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/jobs/**",
                                 "/api/v1/job-categories/**",
                                 "/api/v1/skills/**",

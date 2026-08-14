@@ -6,6 +6,7 @@ import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
+import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.service.JobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +28,18 @@ import java.util.UUID;
 public class JobController {
 
     private final JobService jobService;
+
+    @GetMapping("/employer")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Get owner-scoped employer jobs")
+    public ApiResponse<PageResponse<JobSummaryResponse>> getEmployerJobs(
+            @RequestParam(required = false) UUID companyId,
+            @RequestParam(required = false) JobStatus status,
+            @RequestParam(required = false) String keyword,
+            @ParameterObject Pageable pageable
+    ) {
+        return ApiResponse.success(jobService.getEmployerJobs(companyId, status, keyword, pageable));
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

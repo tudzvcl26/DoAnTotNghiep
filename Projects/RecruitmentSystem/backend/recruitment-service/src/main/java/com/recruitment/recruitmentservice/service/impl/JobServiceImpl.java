@@ -18,13 +18,17 @@ import com.recruitment.recruitmentservice.repository.JobRepository;
 import com.recruitment.recruitmentservice.security.CurrentUser;
 import com.recruitment.recruitmentservice.security.SecurityUtils;
 import com.recruitment.recruitmentservice.service.JobService;
+import com.recruitment.recruitmentservice.specification.JobSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -238,6 +242,40 @@ public class JobServiceImpl implements JobService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<JobSummaryResponse> getEmployerJobs(
+            UUID companyId,
+            JobStatus status,
+            String keyword,
+            Pageable pageable
+    ) {
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new AccessDeniedException("User is not authenticated.");
+        }
+
+        boolean admin = currentUser.isAdmin();
+        List<UUID> ownedCompanyIds = admin
+                ? List.of()
+                : companyClient.getCompaniesByOwner(currentUser.getUserId(), accessToken()).stream()
+                        .map(CompanyClientDto::getId)
+                        .filter(Objects::nonNull)
+                        .toList();
+
+        if (!admin && companyId != null && !ownedCompanyIds.contains(companyId)) {
+            throw new AccessDeniedException("You do not have permission to view jobs for this company.");
+        }
+
+        return PageResponse.from(
+                jobRepository.findAll(
+                        JobSpecification.employerJobs(ownedCompanyIds, companyId, status, keyword, admin),
+                        pageable
+                ),
+                jobMapper::toSummaryResponse
+        );
+    }
+
     private Job findActiveJob(UUID id) {
 
         return jobRepository.findByIdAndActiveTrue(id)
@@ -298,6 +336,14 @@ public class JobServiceImpl implements JobService {
 
         assertCompanyOwner(job.getCompanyId());
 
+    }
+
+    private String accessToken() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getCredentials() == null) {
+            throw new AccessDeniedException("Access token is unavailable.");
+        }
+        return authentication.getCredentials().toString();
     }
 
 }

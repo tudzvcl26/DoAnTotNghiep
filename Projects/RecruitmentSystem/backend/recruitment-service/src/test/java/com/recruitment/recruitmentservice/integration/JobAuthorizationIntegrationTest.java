@@ -7,9 +7,12 @@ import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.JobCategory;
+import com.recruitment.recruitmentservice.entity.Job;
 import com.recruitment.recruitmentservice.entity.enums.EmploymentType;
 import com.recruitment.recruitmentservice.entity.enums.ExperienceLevel;
+import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.repository.JobCategoryRepository;
+import com.recruitment.recruitmentservice.repository.JobRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -31,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -49,6 +53,9 @@ public class JobAuthorizationIntegrationTest {
 
     @Autowired
     private JobCategoryRepository jobCategoryRepository;
+
+    @Autowired
+    private JobRepository jobRepository;
 
     @MockBean
     private CompanyClient companyClient;
@@ -311,6 +318,83 @@ public class JobAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("JOB_004"));
+    }
+
+    @Test
+    @DisplayName("Employer job list is owner scoped, filterable and protected")
+    void employerJobListIsOwnerScopedAndProtected() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID otherOwnerId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        UUID companyId = UUID.randomUUID();
+        UUID otherCompanyId = UUID.randomUUID();
+
+        given(companyClient.getCompaniesByOwner(org.mockito.ArgumentMatchers.eq(ownerId), anyString()))
+                .willReturn(List.of(new CompanyClientDto(companyId, ownerId)));
+        given(companyClient.getCompaniesByOwner(org.mockito.ArgumentMatchers.eq(otherOwnerId), anyString()))
+                .willReturn(List.of(new CompanyClientDto(otherCompanyId, otherOwnerId)));
+
+        Job draft = job("Scoped Draft Java", "SCOPED_DRAFT_" + System.nanoTime(), companyId, JobStatus.DRAFT);
+        Job published = job("Scoped Published Java", "SCOPED_PUBLISHED_" + System.nanoTime(), companyId, JobStatus.PUBLISHED);
+        Job foreign = job("Foreign Published Java", "FOREIGN_PUBLISHED_" + System.nanoTime(), otherCompanyId, JobStatus.PUBLISHED);
+        jobRepository.saveAllAndFlush(List.of(draft, published, foreign));
+
+        String ownerToken = generateToken(ownerId, "owner-list@test.com", List.of("EMPLOYER"));
+        String otherToken = generateToken(otherOwnerId, "other-list@test.com", List.of("EMPLOYER"));
+        String candidateToken = generateToken(candidateId, "candidate-list@test.com", List.of("CANDIDATE"));
+        String adminToken = generateToken(adminId, "admin-list@test.com", List.of("ADMIN"));
+
+        mockMvc.perform(get("/api/v1/jobs/employer"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/jobs/employer").header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/jobs/employer")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "0").param("size", "10").param("sort", "title,asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.content[?(@.id == '%s')]", foreign.getId()).isEmpty());
+
+        mockMvc.perform(get("/api/v1/jobs/employer")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("status", "DRAFT").param("keyword", "Scoped"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(draft.getId().toString()));
+
+        mockMvc.perform(get("/api/v1/jobs/employer")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("companyId", otherCompanyId.toString()))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/jobs/employer")
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(foreign.getId().toString()));
+
+        mockMvc.perform(get("/api/v1/jobs/employer")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("companyId", companyId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2));
+    }
+
+    private Job job(String title, String code, UUID companyId, JobStatus status) {
+        Job job = new Job();
+        job.setTitle(title);
+        job.setJobCode(code);
+        job.setEmploymentType(EmploymentType.FULL_TIME);
+        job.setExperienceLevel(ExperienceLevel.JUNIOR);
+        job.setStatus(status);
+        job.setQuantity(1);
+        job.setRemoteAllowed(false);
+        job.setActive(true);
+        job.setCompanyId(companyId);
+        job.setCategory(testCategory);
+        return job;
     }
 
 }

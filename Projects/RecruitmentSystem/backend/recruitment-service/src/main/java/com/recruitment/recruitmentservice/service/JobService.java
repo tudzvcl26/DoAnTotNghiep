@@ -5,6 +5,7 @@ import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
+import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
@@ -31,6 +32,13 @@ public interface JobService {
     );
 
     PageResponse<JobSummaryResponse> search(
+            String keyword,
+            Pageable pageable
+    );
+
+    PageResponse<JobSummaryResponse> getEmployerJobs(
+            UUID companyId,
+            JobStatus status,
             String keyword,
             Pageable pageable
     );

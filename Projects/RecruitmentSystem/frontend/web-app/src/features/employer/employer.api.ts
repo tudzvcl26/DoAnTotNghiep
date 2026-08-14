@@ -2,11 +2,11 @@ import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse } from '../../types/api/common'
 import type { Application, ApplicationStatus, ApplicationSummary, UpdateApplicationStatusRequest } from '../../types/models/application'
 import type { Company, CreateCompanyRequest, UpdateCompanyRequest } from '../../types/models/company'
-import type { JobCategory, JobDetail, JobMutationRequest, JobSummary } from '../../types/models/job'
+import type { JobCategory, JobDetail, JobMutationRequest, JobStatus, JobSummary } from '../../types/models/job'
 
 const PAGE_SIZE = 100
 export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
-export const employerJobsKey = (companyIds: string[]) => ['employer-jobs', companyIds] as const
+export const employerJobsKey = ['employer-jobs'] as const
 export const employerJobKey = (jobId: string) => ['employer-job', jobId] as const
 export const employerApplicationsKey = ['employer-applications'] as const
 export const employerApplicationKey = (applicationId: string) => ['employer-application', applicationId] as const
@@ -28,37 +28,24 @@ export async function updateEmployerCompany(companyId: string, request: UpdateCo
 
 export async function getPublishedCompanyJobs(companyIds: string[]): Promise<JobSummary[]> {
   if (companyIds.length === 0) return []
-  const owned = new Set(companyIds)
-  const jobs: JobSummary[] = []
-  let page = 0
-  let totalPages = 1
-  do {
-    const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>('/api/v1/jobs', {
-      params: { page, size: PAGE_SIZE, sort: 'publishedAt,desc' },
-    })
-    jobs.push(...response.data.data.content.filter((job) => owned.has(job.companyId)))
-    totalPages = response.data.data.totalPages
-    page += 1
-  } while (page < totalPages)
-  return jobs
+  const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>('/api/v1/jobs/employer', {
+    params: { page: 0, size: PAGE_SIZE, status: 'PUBLISHED', sort: 'publishedAt,desc' },
+  })
+  return response.data.data.content
 }
 
-export async function searchEmployerPublishedJobs(companyIds: string[], keyword: string): Promise<JobSummary[]> {
-  if (companyIds.length === 0) return []
-  const owned = new Set(companyIds)
-  const jobs: JobSummary[] = []
-  let page = 0
-  let totalPages = 1
-  const search = keyword.trim()
-  do {
-    const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>(search ? '/api/v1/jobs/search' : '/api/v1/jobs', {
-      params: { ...(search ? { keyword: search } : {}), page, size: PAGE_SIZE, sort: 'publishedAt,desc' },
-    })
-    jobs.push(...response.data.data.content.filter((job) => owned.has(job.companyId)))
-    totalPages = response.data.data.totalPages
-    page += 1
-  } while (page < totalPages)
-  return jobs
+export type EmployerJobsParams = { page: number; size: number; sort: string; keyword?: string; status?: JobStatus; companyId?: string }
+
+export async function getEmployerJobs(params: EmployerJobsParams): Promise<PageResponse<JobSummary>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>('/api/v1/jobs/employer', {
+    params: {
+      page: params.page, size: params.size, sort: params.sort,
+      ...(params.keyword ? { keyword: params.keyword } : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.companyId ? { companyId: params.companyId } : {}),
+    },
+  })
+  return response.data.data
 }
 
 export async function getEmployerJob(jobId: string): Promise<JobDetail> {

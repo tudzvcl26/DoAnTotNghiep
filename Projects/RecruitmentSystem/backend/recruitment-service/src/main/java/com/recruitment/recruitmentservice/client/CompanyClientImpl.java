@@ -1,9 +1,12 @@
 package com.recruitment.recruitmentservice.client;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,6 +33,16 @@ public class CompanyClientImpl implements CompanyClient {
 
             return response;
         });
+    }
+
+    @Override
+    public List<CompanyClientDto> getCompaniesByOwner(UUID ownerId, String accessToken) {
+        return DownstreamClientSupport.execute(() -> restClient.get()
+                .uri("/api/v1/companies/owner/{ownerId}", ownerId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<CompanyClientDto>>() { }))
+                .orElseGet(List::of);
     }
 
 }
