@@ -8,6 +8,7 @@ import com.recruitment.application.dto.request.WithdrawApplicationRequest;
 import com.recruitment.application.dto.response.ApplicationResponse;
 import com.recruitment.application.dto.response.ApplicationSummaryResponse;
 import com.recruitment.application.dto.response.ApplicationResumeDownload;
+import com.recruitment.application.dto.response.EmployerApplicationStatisticsResponse;
 import com.recruitment.application.entity.enums.ApplicationStatus;
 import com.recruitment.application.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +45,13 @@ import java.util.UUID;
 public class ApplicationController {
 
     private final ApplicationService applicationService;
+
+    @GetMapping("/employer/statistics")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Get owner-scoped employer application statistics")
+    public ApiResponse<EmployerApplicationStatisticsResponse> getEmployerStatistics() {
+        return ApiResponse.success(applicationService.getEmployerStatistics());
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

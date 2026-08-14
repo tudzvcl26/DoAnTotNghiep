@@ -6,6 +6,7 @@ import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
+import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.Job;
 import com.recruitment.recruitmentservice.entity.JobCategory;
@@ -256,12 +257,7 @@ public class JobServiceImpl implements JobService {
         }
 
         boolean admin = currentUser.isAdmin();
-        List<UUID> ownedCompanyIds = admin
-                ? List.of()
-                : companyClient.getCompaniesByOwner(currentUser.getUserId(), accessToken()).stream()
-                        .map(CompanyClientDto::getId)
-                        .filter(Objects::nonNull)
-                        .toList();
+        List<UUID> ownedCompanyIds = admin ? List.of() : ownedCompanyIds(currentUser);
 
         if (!admin && companyId != null && !ownedCompanyIds.contains(companyId)) {
             throw new AccessDeniedException("You do not have permission to view jobs for this company.");
@@ -274,6 +270,38 @@ public class JobServiceImpl implements JobService {
                 ),
                 jobMapper::toSummaryResponse
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmployerJobStatisticsResponse getEmployerStatistics() {
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new AccessDeniedException("User is not authenticated.");
+        }
+        boolean admin = currentUser.isAdmin();
+        List<UUID> companyIds = admin ? List.of() : ownedCompanyIds(currentUser);
+        if (!admin && companyIds.isEmpty()) {
+            return new EmployerJobStatisticsResponse(0, 0, 0, 0);
+        }
+        return new EmployerJobStatisticsResponse(
+                countEmployerJobs(companyIds, null, admin),
+                countEmployerJobs(companyIds, JobStatus.PUBLISHED, admin),
+                countEmployerJobs(companyIds, JobStatus.DRAFT, admin),
+                countEmployerJobs(companyIds, JobStatus.CLOSED, admin)
+        );
+    }
+
+    private long countEmployerJobs(List<UUID> companyIds, JobStatus status, boolean admin) {
+        return jobRepository.count(JobSpecification.employerJobs(companyIds, null, status, null, admin));
+    }
+
+    private List<UUID> ownedCompanyIds(CurrentUser currentUser) {
+        return companyClient.getCompaniesByOwner(currentUser.getUserId(), accessToken()).stream()
+                .filter(company -> currentUser.getUserId().equals(company.getOwnerId()))
+                .map(CompanyClientDto::getId)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private Job findActiveJob(UUID id) {

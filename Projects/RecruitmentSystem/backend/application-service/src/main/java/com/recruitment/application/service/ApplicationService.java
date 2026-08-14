@@ -7,6 +7,7 @@ import com.recruitment.application.dto.request.WithdrawApplicationRequest;
 import com.recruitment.application.dto.response.ApplicationResponse;
 import com.recruitment.application.dto.response.ApplicationSummaryResponse;
 import com.recruitment.application.dto.response.ApplicationResumeDownload;
+import com.recruitment.application.dto.response.EmployerApplicationStatisticsResponse;
 import com.recruitment.application.entity.enums.ApplicationStatus;
 import org.springframework.data.domain.Pageable;
 
@@ -25,6 +26,8 @@ public interface ApplicationService {
     PageResponse<ApplicationSummaryResponse> getJobApplications(UUID jobId, ApplicationStatus status, Pageable pageable);
 
     PageResponse<ApplicationSummaryResponse> getEmployerApplications(ApplicationStatus status, UUID jobId, Pageable pageable);
+
+    EmployerApplicationStatisticsResponse getEmployerStatistics();
 
     ApplicationResumeDownload downloadResume(UUID applicationId);
 

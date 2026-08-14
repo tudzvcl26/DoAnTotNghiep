@@ -4,6 +4,7 @@ import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
+import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import org.springframework.data.domain.Pageable;
@@ -42,5 +43,7 @@ public interface JobService {
             String keyword,
             Pageable pageable
     );
+
+    EmployerJobStatisticsResponse getEmployerStatistics();
 
 }

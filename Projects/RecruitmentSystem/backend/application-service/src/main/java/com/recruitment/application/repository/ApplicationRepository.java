@@ -40,4 +40,12 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID> 
             Pageable pageable
     );
 
+    long countByActiveTrue();
+
+    long countByActiveTrueAndStatus(ApplicationStatus status);
+
+    long countByActiveTrueAndCompanyIdIn(Collection<UUID> companyIds);
+
+    long countByActiveTrueAndCompanyIdInAndStatus(Collection<UUID> companyIds, ApplicationStatus status);
+
 }

@@ -26,14 +26,6 @@ export async function updateEmployerCompany(companyId: string, request: UpdateCo
   return response.data
 }
 
-export async function getPublishedCompanyJobs(companyIds: string[]): Promise<JobSummary[]> {
-  if (companyIds.length === 0) return []
-  const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>('/api/v1/jobs/employer', {
-    params: { page: 0, size: PAGE_SIZE, status: 'PUBLISHED', sort: 'publishedAt,desc' },
-  })
-  return response.data.data.content
-}
-
 export type EmployerJobsParams = { page: number; size: number; sort: string; keyword?: string; status?: JobStatus; companyId?: string }
 
 export async function getEmployerJobs(params: EmployerJobsParams): Promise<PageResponse<JobSummary>> {
@@ -45,6 +37,19 @@ export async function getEmployerJobs(params: EmployerJobsParams): Promise<PageR
       ...(params.companyId ? { companyId: params.companyId } : {}),
     },
   })
+  return response.data.data
+}
+
+export type EmployerJobStatistics = { total: number; published: number; draft: number; closed: number }
+export type EmployerApplicationStatistics = { total: number; applied: number; screening: number; interview: number; offer: number; hired: number; rejected: number; withdrawn: number }
+
+export async function getEmployerJobStatistics(): Promise<EmployerJobStatistics> {
+  const response = await apiClient.get<ApiResponse<EmployerJobStatistics>>('/api/v1/jobs/employer/statistics')
+  return response.data.data
+}
+
+export async function getEmployerApplicationStatistics(): Promise<EmployerApplicationStatistics> {
+  const response = await apiClient.get<ApiResponse<EmployerApplicationStatistics>>('/api/v1/applications/employer/statistics')
   return response.data.data
 }
 

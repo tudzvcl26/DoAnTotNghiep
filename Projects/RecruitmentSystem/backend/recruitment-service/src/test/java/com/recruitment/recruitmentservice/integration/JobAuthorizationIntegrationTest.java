@@ -380,6 +380,19 @@ public class JobAuthorizationIntegrationTest {
                         .param("companyId", companyId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(2));
+
+        mockMvc.perform(get("/api/v1/jobs/employer/statistics"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/jobs/employer/statistics")
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/jobs/employer/statistics")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.draft").value(1))
+                .andExpect(jsonPath("$.data.published").value(1))
+                .andExpect(jsonPath("$.data.closed").value(0));
     }
 
     private Job job(String title, String code, UUID companyId, JobStatus status) {

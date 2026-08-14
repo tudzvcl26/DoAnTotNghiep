@@ -5,6 +5,7 @@ import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
+import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.service.JobService;
@@ -28,6 +29,13 @@ import java.util.UUID;
 public class JobController {
 
     private final JobService jobService;
+
+    @GetMapping("/employer/statistics")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Get owner-scoped employer job statistics")
+    public ApiResponse<EmployerJobStatisticsResponse> getEmployerStatistics() {
+        return ApiResponse.success(jobService.getEmployerStatistics());
+    }
 
     @GetMapping("/employer")
     @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")

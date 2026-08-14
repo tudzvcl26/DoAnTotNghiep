@@ -14,6 +14,7 @@ import com.recruitment.application.dto.request.WithdrawApplicationRequest;
 import com.recruitment.application.dto.response.ApplicationResponse;
 import com.recruitment.application.dto.response.ApplicationSummaryResponse;
 import com.recruitment.application.dto.response.ApplicationResumeDownload;
+import com.recruitment.application.dto.response.EmployerApplicationStatisticsResponse;
 import com.recruitment.application.entity.Application;
 import com.recruitment.application.entity.ApplicationStatusHistory;
 import com.recruitment.application.entity.JobSnapshot;
@@ -247,6 +248,49 @@ public class ApplicationServiceImpl implements ApplicationService {
                 applicationRepository.findEmployerApplications(companyIds, status, jobId, pageable),
                 applicationMapper::toSummaryResponse
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmployerApplicationStatisticsResponse getEmployerStatistics() {
+        CurrentUser currentUser = getCurrentAuthenticatedUser();
+        if (currentUser.isAdmin()) {
+            return applicationStatistics(List.of(), true);
+        }
+        List<UUID> companyIds = companyClient
+                .getCompaniesByOwnerId(currentUser.getUserId(), SecurityUtils.getBearerToken())
+                .stream()
+                .filter(company -> currentUser.getUserId().equals(company.getOwnerId()))
+                .map(CompanyClientDto::getId)
+                .toList();
+        if (companyIds.isEmpty()) {
+            return new EmployerApplicationStatisticsResponse(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+        return applicationStatistics(companyIds, false);
+    }
+
+    private EmployerApplicationStatisticsResponse applicationStatistics(List<UUID> companyIds, boolean admin) {
+        return new EmployerApplicationStatisticsResponse(
+                countApplications(companyIds, null, admin),
+                countApplications(companyIds, ApplicationStatus.APPLIED, admin),
+                countApplications(companyIds, ApplicationStatus.SCREENING, admin),
+                countApplications(companyIds, ApplicationStatus.INTERVIEW, admin),
+                countApplications(companyIds, ApplicationStatus.OFFER, admin),
+                countApplications(companyIds, ApplicationStatus.HIRED, admin),
+                countApplications(companyIds, ApplicationStatus.REJECTED, admin),
+                countApplications(companyIds, ApplicationStatus.WITHDRAWN, admin)
+        );
+    }
+
+    private long countApplications(List<UUID> companyIds, ApplicationStatus status, boolean admin) {
+        if (admin) {
+            return status == null
+                    ? applicationRepository.countByActiveTrue()
+                    : applicationRepository.countByActiveTrueAndStatus(status);
+        }
+        return status == null
+                ? applicationRepository.countByActiveTrueAndCompanyIdIn(companyIds)
+                : applicationRepository.countByActiveTrueAndCompanyIdInAndStatus(companyIds, status);
     }
 
     @Override
