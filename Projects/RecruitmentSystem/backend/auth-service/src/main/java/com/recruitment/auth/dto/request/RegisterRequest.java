@@ -36,4 +36,6 @@ public class RegisterRequest {
     )
     private String phone;
 
+    private RegistrationRole role;
+
 }

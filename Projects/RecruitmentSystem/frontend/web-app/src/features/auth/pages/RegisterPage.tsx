@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle, ArrowLeft, ArrowRight, LoaderCircle, LockKeyhole, Mail, Phone, Sparkles, UserRound } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, BriefcaseBusiness, LoaderCircle, LockKeyhole, Mail, Phone, Sparkles, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
@@ -14,13 +14,17 @@ export function RegisterPage() {
   const [submitError, setSubmitError] = useState('')
   const { register: createAccount } = useAuth()
   const navigate = useNavigate()
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) })
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { role: 'CANDIDATE' },
+  })
+  const selectedRole = watch('role')
 
   const onSubmit = handleSubmit(async ({ confirmPassword: _, ...values }) => {
     setSubmitError('')
     try {
       const user = await createAccount(values)
-      navigate(getRoleHome(user.roles), { replace: true })
+      navigate(user.roles.some((role) => role.replace(/^ROLE_/, '') === 'EMPLOYER') ? '/employer/company' : getRoleHome(user.roles), { replace: true })
     } catch (error) {
       setSubmitError(getErrorMessage(error))
     }
@@ -41,7 +45,7 @@ export function RegisterPage() {
       <main className="register-page__main">
         <article className="register-card">
           <div className="register-card__heading">
-            <span className="register-card__kicker">Candidate account</span>
+            <span className="register-card__kicker">Candidate &amp; employer accounts</span>
             <h1>Create your account</h1>
             <p>Start your career journey with RecruitmentSystem.</p>
           </div>
@@ -52,6 +56,20 @@ export function RegisterPage() {
                 <AlertCircle size={17} aria-hidden="true" /><span>{submitError}</span>
               </div>
             )}
+
+            <fieldset className="register-role register-form__wide">
+              <legend>Account type</legend>
+              <label className={selectedRole === 'CANDIDATE' ? 'register-role__option register-role__option--selected' : 'register-role__option'}>
+                <input type="radio" value="CANDIDATE" {...register('role')} />
+                <UserRound size={18} aria-hidden="true" />
+                <span><strong>Candidate</strong><small>Build your profile and apply for jobs.</small></span>
+              </label>
+              <label className={selectedRole === 'EMPLOYER' ? 'register-role__option register-role__option--selected' : 'register-role__option'}>
+                <input type="radio" value="EMPLOYER" {...register('role')} />
+                <BriefcaseBusiness size={18} aria-hidden="true" />
+                <span><strong>Employer</strong><small>Create your company after registration.</small></span>
+              </label>
+            </fieldset>
 
             <div className="register-field register-form__wide">
               <label htmlFor="fullName">Full name</label>

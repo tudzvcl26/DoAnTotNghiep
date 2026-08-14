@@ -1384,6 +1384,63 @@
   grid-column: 1 / -1;
 }
 
+.register-role {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  border: 0;
+}
+
+.register-role legend {
+  margin-bottom: 0.5rem;
+  color: rgb(243 250 247 / 78%);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.register-role__option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: center;
+  min-height: 4.25rem;
+  padding: 0.75rem;
+  color: var(--login-text-muted);
+  background: rgb(3 20 22 / 48%);
+  border: 1px solid rgb(167 243 208 / 13%);
+  border-radius: 0.78rem;
+  cursor: pointer;
+}
+
+.register-role__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.register-role__option strong,
+.register-role__option small {
+  display: block;
+}
+
+.register-role__option strong {
+  color: var(--login-text);
+  font-size: 0.8rem;
+}
+
+.register-role__option small {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+}
+
+.register-role__option--selected {
+  color: var(--color-primary-300);
+  background: rgb(16 185 129 / 12%);
+  border-color: rgb(52 211 153 / 65%);
+  box-shadow: 0 0 0 3px rgb(16 185 129 / 10%);
+}
+
 .register-field {
   display: grid;
   gap: 0.45rem;
@@ -1536,5 +1593,9 @@
 
   .register-form__wide {
     grid-column: auto;
+  }
+
+  .register-role {
+    grid-template-columns: 1fr;
   }
 }

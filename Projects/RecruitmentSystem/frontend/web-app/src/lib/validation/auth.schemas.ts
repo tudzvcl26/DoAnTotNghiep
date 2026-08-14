@@ -6,6 +6,7 @@ export const loginSchema = z.object({
 })
 
 export const registerSchema = z.object({
+  role: z.enum(['CANDIDATE', 'EMPLOYER']),
   fullName: z.string().trim().min(2, 'Họ tên cần ít nhất 2 ký tự.').max(150, 'Họ tên quá dài.'),
   email: z.email('Email không đúng định dạng.'),
   phone: z.string().trim().max(30, 'Số điện thoại quá dài.').optional(),

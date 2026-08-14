@@ -5,6 +5,7 @@ import com.recruitment.auth.dto.request.LoginRequest;
 import com.recruitment.auth.dto.request.LogoutRequest;
 import com.recruitment.auth.dto.request.RefreshTokenRequest;
 import com.recruitment.auth.dto.request.RegisterRequest;
+import com.recruitment.auth.dto.request.RegistrationRole;
 import com.recruitment.auth.dto.response.AuthResponse;
 import com.recruitment.auth.service.AuthenticationService;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +39,59 @@ public class AuthIntegrationTest {
 
     @Autowired
     private AuthenticationService authenticationService;
+
+    @Test
+    @DisplayName("Registration defaults to CANDIDATE when role is omitted")
+    void registrationDefaultsToCandidate() throws Exception {
+        String email = "candidate_" + System.currentTimeMillis() + "@example.com";
+
+        String response = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Password123!","fullName":"Candidate User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        AuthResponse auth = objectMapper.readTree(response).get("data").traverse(objectMapper)
+                .readValueAs(AuthResponse.class);
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + auth.getAccessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roles[0]").value("CANDIDATE"));
+    }
+
+    @Test
+    @DisplayName("Registration accepts the whitelisted EMPLOYER role")
+    void registrationAcceptsEmployer() throws Exception {
+        String email = "employer_" + System.currentTimeMillis() + "@example.com";
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail(email);
+        request.setPassword("Password123!");
+        request.setFullName("Employer User");
+        request.setRole(RegistrationRole.EMPLOYER);
+
+        AuthResponse auth = authenticationService.register(request);
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + auth.getAccessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roles[0]").value("EMPLOYER"));
+    }
+
+    @Test
+    @DisplayName("Registration rejects ADMIN and unknown roles")
+    void registrationRejectsNonPublicRoles() throws Exception {
+        for (String role : new String[]{"ADMIN", "SUPERUSER"}) {
+            mockMvc.perform(post("/api/v1/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email":"%s@example.com","password":"Password123!","fullName":"Invalid Role","role":"%s"}
+                                    """.formatted(role.toLowerCase(), role)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_400"));
+        }
+    }
 
     @Test
     @DisplayName("Task 1: Successful registration and login flow")

@@ -28,4 +28,5 @@ export type RegisterRequest = {
   password: string
   fullName: string
   phone?: string
+  role?: 'CANDIDATE' | 'EMPLOYER'
 }

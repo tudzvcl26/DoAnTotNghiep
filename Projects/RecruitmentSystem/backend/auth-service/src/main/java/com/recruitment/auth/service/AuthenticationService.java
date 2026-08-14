@@ -2,6 +2,7 @@ package com.recruitment.auth.service;
 
 import com.recruitment.auth.dto.request.LoginRequest;
 import com.recruitment.auth.dto.request.RegisterRequest;
+import com.recruitment.auth.dto.request.RegistrationRole;
 import com.recruitment.auth.dto.response.AuthResponse;
 import com.recruitment.auth.entity.RefreshToken;
 import com.recruitment.auth.entity.Role;
@@ -48,7 +49,10 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        Role candidateRole = roleRepository.findByName("CANDIDATE")
+        RegistrationRole registrationRole = request.getRole() == null
+                ? RegistrationRole.CANDIDATE
+                : request.getRole();
+        Role role = roleRepository.findByName(registrationRole.name())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROLE_NOT_FOUND));
 
         User user = User.builder()
@@ -61,7 +65,7 @@ public class AuthenticationService {
                 .roles(new HashSet<>())
                 .build();
 
-        user.getRoles().add(candidateRole);
+        user.getRoles().add(role);
 
         userRepository.save(user);
 
