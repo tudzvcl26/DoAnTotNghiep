@@ -9,21 +9,19 @@ import { Button, ButtonLink } from '../ui/Button'
 
 const menus: Record<UserRole, { label: string; to: string }[]> = {
   CANDIDATE: [
-    { label: 'Dashboard', to: '/candidate' }, { label: 'Hồ sơ', to: '/candidate' },
-    { label: 'CV của tôi', to: '/candidate' }, { label: 'Đơn ứng tuyển', to: '/candidate' },
-    { label: 'Việc đã lưu', to: '/candidate' }, { label: 'Thông báo', to: '/candidate/notifications' },
-    { label: 'Cài đặt', to: '/candidate' },
+    { label: 'Career dashboard', to: '/candidate' }, { label: 'Hồ sơ', to: '/candidate/profile' },
+    { label: 'CV của tôi', to: '/candidate/resumes' }, { label: 'Đơn ứng tuyển', to: '/candidate/applications' },
+    { label: 'AI Career', to: '/candidate/ai-career' }, { label: 'Thông báo', to: '/candidate/notifications' },
   ],
   EMPLOYER: [
-    { label: 'Dashboard', to: '/employer' }, { label: 'Công ty', to: '/employer' },
-    { label: 'Tin tuyển dụng', to: '/employer' }, { label: 'Ứng viên', to: '/employer' },
-    { label: 'Thông báo', to: '/employer' }, { label: 'Cài đặt', to: '/employer' },
+    { label: 'Recruitment dashboard', to: '/employer' }, { label: 'Công ty', to: '/employer/company' },
+    { label: 'Tin tuyển dụng', to: '/employer/jobs' }, { label: 'Ứng viên & đơn', to: '/employer/applications' },
   ],
   ADMIN: [
-    { label: 'Dashboard', to: '/admin' }, { label: 'Người dùng', to: '/admin' },
-    { label: 'Công ty', to: '/admin' }, { label: 'Việc làm', to: '/admin' },
-    { label: 'Danh mục', to: '/admin' }, { label: 'Kỹ năng', to: '/admin' },
-    { label: 'Thông báo', to: '/admin' }, { label: 'Cài đặt', to: '/admin' },
+    { label: 'Operations dashboard', to: '/admin' }, { label: 'Người dùng', to: '/admin/users' },
+    { label: 'Công ty', to: '/admin/companies' }, { label: 'Applications', to: '/admin/applications' },
+    { label: 'Danh mục', to: '/admin/catalog/categories' }, { label: 'Thông báo', to: '/admin/notifications' },
+    { label: 'Delivery logs', to: '/admin/notification-delivery-logs' }, { label: 'AI Provider', to: '/admin/ai-provider' },
   ],
 }
 
@@ -82,7 +80,7 @@ export function UserMenu() {
 
   return (
     <div className="user-menu" ref={wrapperRef}>
-      <NotificationLink role={role} userId={currentUser.id} />
+      {role === 'CANDIDATE' && <NotificationLink role={role} userId={currentUser.id} />}
       <button className="user-menu__trigger" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="user-menu__avatar">{initials || <UserRound size={18} />}</span>
         <span className="user-menu__identity"><strong>{currentUser.fullName}</strong><small>{role}</small></span>

@@ -25,6 +25,11 @@
   --color-danger: #dc3545;
   --color-danger-soft: #fff1f2;
   --color-warning: #b7791f;
+  --color-warning-soft: #fff8e7;
+  --color-success: #16845b;
+  --color-success-soft: #eaf8f1;
+  --color-info: #2563eb;
+  --color-info-soft: #eff6ff;
   --color-white: #ffffff;
   --color-overlay: rgb(15 35 39 / 48%);
 
@@ -54,6 +59,6 @@
   --shadow-md: 0 18px 50px rgb(16 42 46 / 12%);
   --header-height: 4.75rem;
   --container-width: 76rem;
-  --transition-fast: 160ms ease;
-  --transition-base: 220ms ease;
+  --transition-fast: 160ms ease-out;
+  --transition-base: 220ms ease-out;
 }

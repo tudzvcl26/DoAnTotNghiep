@@ -197,7 +197,7 @@ function RecentApplications({ applications }: { applications: ApplicationSummary
 
 const quickActions = [
   { label: 'Tìm việc', description: 'Khám phá cơ hội mới', to: '/jobs', icon: Search },
-  { label: 'Cập nhật hồ sơ', description: 'Chuẩn bị cho Phase 4B', to: profileRoute, icon: UserRound },
+  { label: 'Cập nhật hồ sơ', description: 'Hoàn thiện thông tin nghề nghiệp', to: profileRoute, icon: UserRound },
   { label: 'Quản lý CV', description: 'Tải lên và quản lý CV', to: resumeRoute, icon: FileText },
   { label: 'Đơn ứng tuyển', description: 'Theo dõi hành trình', to: applicationsRoute, icon: Workflow },
 ]
@@ -214,7 +214,7 @@ export function CandidateDashboardPage() {
   return (
     <div className="candidate-dashboard">
       <section className="candidate-greeting">
-        <div><span className="candidate-greeting__eyebrow"><Sparkles size={15} /> Candidate Dashboard</span><h1>Xin chào, {currentUser?.fullName}</h1><p>Quản lý hồ sơ và hành trình tìm việc của bạn.</p></div>
+        <div><span className="candidate-greeting__eyebrow"><Sparkles size={15} /> Career dashboard</span><h1>Xin chào, {currentUser?.fullName}</h1><p>Chuẩn bị hồ sơ, khám phá cơ hội và theo dõi hành trình ứng tuyển của bạn.</p></div>
         <NotificationSummary userId={userId} />
       </section>
 

@@ -9,9 +9,7 @@ export const megaMenus: MegaMenuDefinition[] = [
       { title: 'Khám phá', links: [
         { label: 'Tìm việc làm', to: '/jobs' },
         { label: 'Việc làm mới nhất', to: '/jobs?sort=publishedAt,desc' },
-        { label: 'Việc làm phù hợp', to: '/candidate' },
-        { label: 'Việc làm lương cao', to: '/jobs?focus=high-salary' },
-        { label: 'Việc làm Remote', to: '/jobs?remote=true' },
+        { label: 'Đơn ứng tuyển của tôi', to: '/candidate/applications' },
       ] },
       { title: 'Theo ngành', links: ['IT', 'Marketing', 'Kinh doanh', 'Tài chính', 'Nhân sự', 'Logistics'].map((label) => ({ label, to: `/jobs?keyword=${encodeURIComponent(label)}` })) },
       { title: 'Theo địa điểm', links: ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Bình Dương', 'Đồng Nai'].map((label) => ({ label, to: `/jobs?location=${encodeURIComponent(label)}` })) },
@@ -21,14 +19,12 @@ export const megaMenus: MegaMenuDefinition[] = [
     label: 'Tạo CV',
     sections: [
       { title: 'CV của bạn', links: [
-        { label: 'Tạo CV', to: '/candidate' },
-        { label: 'Mẫu CV', to: '/candidate' },
-        { label: 'Quản lý CV', to: '/candidate' },
+        { label: 'Quản lý CV', to: '/candidate/resumes' },
+        { label: 'Hồ sơ nghề nghiệp', to: '/candidate/profile' },
       ] },
       { title: 'Trợ lý thông minh', links: [
-        { label: 'AI Resume Analysis', to: '/candidate' },
-        { label: 'AI CV Improvement', to: '/candidate' },
-        { label: 'Cover Letter', to: '/candidate' },
+        { label: 'AI Resume Analysis', to: '/candidate/ai-career' },
+        { label: 'Job Recommendations', to: '/candidate/ai-career' },
       ] },
     ],
   },
@@ -36,17 +32,19 @@ export const megaMenus: MegaMenuDefinition[] = [
     label: 'Công cụ',
     sections: [
       { title: 'AI nghề nghiệp', links: [
-        { label: 'AI Resume Analysis', to: '/candidate' },
-        { label: 'CV Matching', to: '/candidate' },
-        { label: 'AI Cover Letter', to: '/candidate' },
-        { label: 'Công cụ nghề nghiệp', to: '/' },
+        { label: 'AI Resume Analysis', to: '/candidate/ai-career' },
+        { label: 'CV Matching', to: '/candidate/ai-career' },
       ] },
     ],
   },
   {
     label: 'Cẩm nang',
     sections: [
-      { title: 'Phát triển sự nghiệp', links: ['Viết CV', 'Phỏng vấn', 'Tìm việc', 'Phát triển nghề nghiệp', 'Kỹ năng'].map((label) => ({ label, to: '/' })) },
+      { title: 'Phát triển sự nghiệp', links: [
+        { label: 'Hồ sơ nghề nghiệp', to: '/candidate/profile' },
+        { label: 'Quản lý CV', to: '/candidate/resumes' },
+        { label: 'Theo dõi ứng tuyển', to: '/candidate/applications' },
+      ] },
     ],
   },
   {
@@ -54,8 +52,7 @@ export const megaMenus: MegaMenuDefinition[] = [
     sections: [
       { title: 'Khám phá công ty', links: [
         { label: 'Danh sách công ty', to: '/companies' },
-        { label: 'Công ty nổi bật', to: '/companies?featured=true' },
-        { label: 'Công ty đang tuyển', to: '/companies?hiring=true' },
+        { label: 'Tìm công ty', to: '/companies' },
       ] },
     ],
   },

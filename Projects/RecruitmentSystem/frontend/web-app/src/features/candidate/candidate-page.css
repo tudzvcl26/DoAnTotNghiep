@@ -799,3 +799,22 @@ body.candidate-drawer-open {
     transform: none;
   }
 }
+
+/* Phase 6 product shell: consumer career experience. */
+.candidate-product-shell { --header-height:4.5rem;--product-accent:var(--color-primary-700);--product-border:var(--color-border);--product-surface-soft:var(--color-primary-50);min-width:0;min-height:100vh;background:var(--color-background) }
+.candidate-product-header { position:sticky;z-index:110;top:0;min-height:var(--header-height);border-bottom:1px solid var(--color-border);background:rgb(255 255 255 / 96%);box-shadow:var(--shadow-xs);backdrop-filter:blur(16px) }
+.candidate-product-header__inner { display:flex;align-items:center;gap:.65rem;width:min(calc(100% - 1.5rem),92rem);min-height:var(--header-height);margin-inline:auto }
+.candidate-product-header__menu { display:grid;flex:0 0 auto;width:2.5rem;height:2.5rem;place-items:center;border:1px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-navy-950);background:var(--color-surface-soft) }
+.candidate-product-header__menu svg { width:1.15rem }
+.candidate-product-header__brand { display:flex;align-items:center;gap:.65rem;min-width:0 }.candidate-product-header__brand>span { display:none;padding-left:.65rem;border-left:1px solid var(--color-border);color:var(--color-primary-700);font:800 .73rem var(--font-display);letter-spacing:.08em;text-transform:uppercase }
+.candidate-product-header__nav { display:none;align-items:center;gap:.25rem }.candidate-product-header__nav a { display:flex;align-items:center;gap:.4rem;min-height:2.5rem;padding-inline:.75rem;border-radius:var(--radius-md);color:var(--color-text-muted);font-size:.8rem;font-weight:700;transition:color var(--transition-fast),background var(--transition-fast) }.candidate-product-header__nav a:hover,.candidate-product-header__nav a.active { color:var(--color-primary-800);background:var(--color-primary-50) }
+.candidate-product-header__actions { display:flex;align-items:center;gap:.25rem;min-width:0;margin-left:auto }.candidate-product-header__search { display:none;align-items:center;gap:.4rem;min-height:2.4rem;padding-inline:.8rem;border-radius:var(--radius-pill);color:#fff;background:var(--color-primary-700);font-size:.76rem;font-weight:800;transition:background var(--transition-fast),transform var(--transition-fast) }.candidate-product-header__search:hover { background:var(--color-primary-800);transform:translateY(-1px) }
+.candidate-product-header__notification { position:relative;display:grid;flex:0 0 auto;width:2.4rem;height:2.4rem;place-items:center;border-radius:var(--radius-pill);color:var(--color-text-muted);transition:color var(--transition-fast),background var(--transition-fast) }.candidate-product-header__notification:hover { color:var(--color-primary-800);background:var(--color-primary-50) }.candidate-product-header__notification>span { position:absolute;top:-.1rem;right:-.1rem;display:grid;min-width:1.1rem;height:1.1rem;padding-inline:.16rem;place-items:center;border:2px solid #fff;border-radius:var(--radius-pill);color:#fff;background:var(--color-danger);font-size:.52rem;font-weight:800 }
+.candidate-sidebar nav { gap:0;padding-block:1rem }.candidate-sidebar__group { display:grid;gap:.18rem;padding-block:.55rem }.candidate-sidebar__group>strong { padding:.2rem .75rem;color:var(--color-text-subtle);font:800 .63rem var(--font-sans);letter-spacing:.08em;text-transform:uppercase }
+.candidate-sidebar__planned { display:flex;align-items:center;gap:.65rem;min-height:2.55rem;padding-inline:.75rem;border-radius:var(--radius-md);color:var(--color-text-subtle);font-size:.8rem;font-weight:650;cursor:not-allowed;opacity:.72 }.candidate-sidebar__planned svg { width:1.1rem }.candidate-sidebar__planned small { margin-left:auto;padding:.12rem .35rem;border-radius:var(--radius-pill);background:var(--color-surface-soft);font-size:.52rem;text-transform:uppercase }
+.candidate-drawer__overlay { z-index:130 }.candidate-drawer { z-index:140 }
+@media(min-width:600px){.candidate-product-header__brand>span,.candidate-product-header__search{display:flex}}
+@media(min-width:768px){.candidate-product-header__inner{width:min(calc(100% - 2.5rem),92rem)}.candidate-product-header__nav{display:flex}}
+@media(min-width:1024px){.candidate-product-header__menu{display:none}}
+@media(max-width:420px){.candidate-product-header .brand-logo__wordmark{display:none}.candidate-product-header__inner{width:calc(100% - 1rem)}.candidate-product-header__actions{gap:0}}
+@media(prefers-reduced-motion:reduce){.candidate-product-header__search:hover{transform:none}}

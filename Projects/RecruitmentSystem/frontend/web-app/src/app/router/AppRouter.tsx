@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AdminDashboardPage } from '../../features/admin/AdminDashboardPage'
 import { AdminAiProviderPage } from '../../features/admin/AdminAiProviderPage'
 import { AdminCatalogPage } from '../../features/admin/AdminCatalogPage'
@@ -58,40 +58,47 @@ export function AppRouter() {
           <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="verify-email" element={<VerifyEmailPage />} />
         </Route>
-        <Route element={<ProtectedRoute><RoleGuard roles={['CANDIDATE']}><CandidateLayout /></RoleGuard></ProtectedRoute>}>
-          <Route path="candidate" element={<CandidateDashboardPage />} />
-          <Route path="candidate/profile" element={<ProfilePage />} />
-          <Route path="candidate/resumes" element={<ResumePage />} />
-          <Route path="candidate/applications" element={<ApplicationListPage />} />
-          <Route path="candidate/applications/:applicationId" element={<ApplicationDetailPage />} />
-          <Route path="candidate/notifications" element={<NotificationPage />} />
-          <Route path="candidate/ai-career" element={<AiCareerPage />} />
-        </Route>
-        <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
-          <Route path="employer" element={<EmployerDashboardPage />} />
-          <Route path="employer/company" element={<EmployerCompanyPage />} />
-          <Route path="employer/jobs" element={<EmployerJobsPage />} />
-          <Route path="employer/jobs/new" element={<EmployerJobFormPage />} />
-          <Route path="employer/jobs/:jobId" element={<EmployerJobDetailPage />} />
-          <Route path="employer/jobs/:jobId/edit" element={<EmployerJobFormPage />} />
-          <Route path="employer/applications" element={<EmployerApplicationsPage />} />
-          <Route path="employer/applications/:applicationId" element={<EmployerApplicationDetailPage />} />
-        </Route>
-        <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
-          <Route path="admin" element={<AdminDashboardPage />} />
-          <Route path="admin/users" element={<AdminUsersPage />} />
-          <Route path="admin/companies" element={<AdminCompaniesPage />} />
-          <Route path="admin/applications" element={<AdminApplicationsPage />} />
-          <Route path="admin/applications/:applicationId" element={<AdminApplicationDetailPage />} />
-          <Route path="admin/catalog/categories" element={<AdminCatalogPage kind="categories" />} />
-          <Route path="admin/catalog/skills" element={<AdminCatalogPage kind="skills" />} />
-          <Route path="admin/catalog/benefits" element={<AdminCatalogPage kind="benefits" />} />
-          <Route path="admin/notifications" element={<AdminNotificationsPage />} />
-          <Route path="admin/notification-templates" element={<AdminNotificationTemplatesPage />} />
-          <Route path="admin/notification-delivery-logs" element={<AdminDeliveryLogsPage />} />
-          <Route path="admin/ai-provider" element={<AdminAiProviderPage />} />
-        </Route>
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      <Route element={<ProtectedRoute><RoleGuard roles={['CANDIDATE']}><CandidateLayout /></RoleGuard></ProtectedRoute>}>
+        <Route path="candidate" element={<CandidateDashboardPage />} />
+        <Route path="candidate/dashboard" element={<Navigate to="/candidate" replace />} />
+        <Route path="candidate/profile" element={<ProfilePage />} />
+        <Route path="candidate/resumes" element={<ResumePage />} />
+        <Route path="candidate/applications" element={<ApplicationListPage />} />
+        <Route path="candidate/applications/:applicationId" element={<ApplicationDetailPage />} />
+        <Route path="candidate/notifications" element={<NotificationPage />} />
+        <Route path="candidate/ai-career" element={<AiCareerPage />} />
+      </Route>
+      <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
+        <Route path="employer" element={<EmployerDashboardPage />} />
+        <Route path="employer/dashboard" element={<Navigate to="/employer" replace />} />
+        <Route path="employer/company" element={<EmployerCompanyPage />} />
+        <Route path="employer/jobs" element={<EmployerJobsPage />} />
+        <Route path="employer/jobs/new" element={<EmployerJobFormPage />} />
+        <Route path="employer/jobs/:jobId" element={<EmployerJobDetailPage />} />
+        <Route path="employer/jobs/:jobId/edit" element={<EmployerJobFormPage />} />
+        <Route path="employer/applications" element={<EmployerApplicationsPage />} />
+        <Route path="employer/applications/:applicationId" element={<EmployerApplicationDetailPage />} />
+      </Route>
+      <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
+        <Route path="admin" element={<AdminDashboardPage />} />
+        <Route path="admin/dashboard" element={<Navigate to="/admin" replace />} />
+        <Route path="admin/users" element={<AdminUsersPage />} />
+        <Route path="admin/companies" element={<AdminCompaniesPage />} />
+        <Route path="admin/applications" element={<AdminApplicationsPage />} />
+        <Route path="admin/applications/:applicationId" element={<AdminApplicationDetailPage />} />
+        <Route path="admin/catalog" element={<Navigate to="/admin/catalog/categories" replace />} />
+        <Route path="admin/catalog/categories" element={<AdminCatalogPage kind="categories" />} />
+        <Route path="admin/catalog/skills" element={<AdminCatalogPage kind="skills" />} />
+        <Route path="admin/catalog/benefits" element={<AdminCatalogPage kind="benefits" />} />
+        <Route path="admin/notifications" element={<AdminNotificationsPage />} />
+        <Route path="admin/templates" element={<Navigate to="/admin/notification-templates" replace />} />
+        <Route path="admin/notification-templates" element={<AdminNotificationTemplatesPage />} />
+        <Route path="admin/delivery-logs" element={<Navigate to="/admin/notification-delivery-logs" replace />} />
+        <Route path="admin/notification-delivery-logs" element={<AdminDeliveryLogsPage />} />
+        <Route path="admin/ai" element={<Navigate to="/admin/ai-provider" replace />} />
+        <Route path="admin/ai-provider" element={<AdminAiProviderPage />} />
       </Route>
     </Routes>
   )
