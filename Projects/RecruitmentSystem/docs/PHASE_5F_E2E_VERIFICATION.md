@@ -79,4 +79,3 @@ Both migrations were additive; no existing migration or Flyway history was edite
 - Saved Jobs/Favorites remains P2 and was not implemented before core E2E completion.
 - WebSocket notifications, real-time recommendation streaming, API Gateway business aggregation, and bulk synchronous LLM generation remain explicitly deferred.
 - The frontend production bundle is functional but the main JavaScript chunk remains a future code-splitting optimization.
-
