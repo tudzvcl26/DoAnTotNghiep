@@ -5,16 +5,19 @@ import com.recruitment.recruitmentservice.client.CompanyClientDto;
 import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
+import com.recruitment.recruitmentservice.dto.job.JobSearchRequest;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.Job;
 import com.recruitment.recruitmentservice.entity.JobCategory;
+import com.recruitment.recruitmentservice.entity.JobLocation;
 import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.exception.BusinessException;
 import com.recruitment.recruitmentservice.exception.ErrorCode;
 import com.recruitment.recruitmentservice.mapper.JobMapper;
 import com.recruitment.recruitmentservice.repository.JobCategoryRepository;
+import com.recruitment.recruitmentservice.repository.JobLocationRepository;
 import com.recruitment.recruitmentservice.repository.JobRepository;
 import com.recruitment.recruitmentservice.security.CurrentUser;
 import com.recruitment.recruitmentservice.security.SecurityUtils;
@@ -22,6 +25,7 @@ import com.recruitment.recruitmentservice.service.JobService;
 import com.recruitment.recruitmentservice.specification.JobSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,8 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +47,8 @@ public class JobServiceImpl implements JobService {
     private final JobRepository jobRepository;
 
     private final JobCategoryRepository jobCategoryRepository;
+
+    private final JobLocationRepository jobLocationRepository;
 
     private final JobMapper jobMapper;
 
@@ -71,7 +79,7 @@ public class JobServiceImpl implements JobService {
 
         Job savedJob = jobRepository.save(job);
 
-        return jobMapper.toResponse(savedJob);
+        return toJobResponse(savedJob);
     }
 
     @Override
@@ -116,7 +124,7 @@ public class JobServiceImpl implements JobService {
 
         Job updatedJob = jobRepository.save(job);
 
-        return jobMapper.toResponse(updatedJob);
+        return toJobResponse(updatedJob);
     }
 
     @Override
@@ -137,7 +145,7 @@ public class JobServiceImpl implements JobService {
         job.setStatus(JobStatus.PUBLISHED);
         job.setPublishedAt(LocalDateTime.now());
 
-        return jobMapper.toResponse(jobRepository.save(job));
+        return toJobResponse(jobRepository.save(job));
     }
 
     @Override
@@ -157,7 +165,7 @@ public class JobServiceImpl implements JobService {
 
         job.setStatus(JobStatus.CLOSED);
 
-        return jobMapper.toResponse(jobRepository.save(job));
+        return toJobResponse(jobRepository.save(job));
     }
 
     @Override
@@ -195,7 +203,7 @@ public class JobServiceImpl implements JobService {
             throw new BusinessException(ErrorCode.JOB_NOT_FOUND);
         }
 
-        return jobMapper.toResponse(job);
+        return toJobResponse(job);
     }
 
     @Override
@@ -204,51 +212,44 @@ public class JobServiceImpl implements JobService {
             Pageable pageable
     ) {
 
-        return PageResponse.from(
+        return toSummaryPage(
                 isCurrentUserAdmin()
                         ? jobRepository.findByActiveTrue(pageable)
-                        : jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
-                jobMapper::toSummaryResponse
+                        : jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable)
         );
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<JobResponse> getRecommendationFeed(Pageable pageable) {
-        return PageResponse.from(
-                jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
-                jobMapper::toResponse
-        );
+        return toResponsePage(jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<JobSummaryResponse> search(
-            String keyword,
+            JobSearchRequest request,
             Pageable pageable
     ) {
+        return toSummaryPage(
+                jobRepository.findAll(
+                        JobSpecification.publicSearch(request, isCurrentUserAdmin()),
+                        pageable
+                )
+        );
+    }
 
-        if (keyword == null || keyword.isBlank()) {
-            return PageResponse.from(
-                    isCurrentUserAdmin()
-                            ? jobRepository.findByActiveTrue(pageable)
-                            : jobRepository.findByActiveTrueAndStatus(JobStatus.PUBLISHED, pageable),
-                    jobMapper::toSummaryResponse
-            );
-        }
-
-        return PageResponse.from(
-                isCurrentUserAdmin()
-                        ? jobRepository.findByActiveTrueAndTitleContainingIgnoreCase(
-                                keyword.trim(),
-                                pageable
-                        )
-                        : jobRepository.findByActiveTrueAndStatusAndTitleContainingIgnoreCase(
-                                JobStatus.PUBLISHED,
-                                keyword.trim(),
-                                pageable
-                        ),
-                jobMapper::toSummaryResponse
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<JobSummaryResponse> publicSearch(
+            JobSearchRequest request,
+            Pageable pageable
+    ) {
+        return toSummaryPage(
+                jobRepository.findAll(
+                        JobSpecification.publicSearch(request, false),
+                        pageable
+                )
         );
     }
 
@@ -272,12 +273,11 @@ public class JobServiceImpl implements JobService {
             throw new AccessDeniedException("You do not have permission to view jobs for this company.");
         }
 
-        return PageResponse.from(
+        return toSummaryPage(
                 jobRepository.findAll(
                         JobSpecification.employerJobs(ownedCompanyIds, companyId, status, keyword, admin),
                         pageable
-                ),
-                jobMapper::toSummaryResponse
+                )
         );
     }
 
@@ -381,6 +381,53 @@ public class JobServiceImpl implements JobService {
             throw new AccessDeniedException("Access token is unavailable.");
         }
         return authentication.getCredentials().toString();
+    }
+
+    private PageResponse<JobSummaryResponse> toSummaryPage(Page<Job> page) {
+        Map<UUID, JobLocation> locations = primaryLocations(page.getContent());
+        return PageResponse.from(page, job -> {
+            JobSummaryResponse response = jobMapper.toSummaryResponse(job);
+            response.setLocation(formatLocation(locations.get(job.getId())));
+            return response;
+        });
+    }
+
+    private PageResponse<JobResponse> toResponsePage(Page<Job> page) {
+        Map<UUID, JobLocation> locations = primaryLocations(page.getContent());
+        return PageResponse.from(page, job -> {
+            JobResponse response = jobMapper.toResponse(job);
+            response.setLocation(formatLocation(locations.get(job.getId())));
+            return response;
+        });
+    }
+
+    private JobResponse toJobResponse(Job job) {
+        JobResponse response = jobMapper.toResponse(job);
+        Map<UUID, JobLocation> locations = primaryLocations(List.of(job));
+        response.setLocation(formatLocation(locations.get(job.getId())));
+        return response;
+    }
+
+    private Map<UUID, JobLocation> primaryLocations(List<Job> jobs) {
+        if (jobs.isEmpty()) {
+            return Map.of();
+        }
+        return jobLocationRepository.findByJob_IdIn(jobs.stream().map(Job::getId).toList()).stream()
+                .collect(Collectors.toMap(
+                        location -> location.getJob().getId(),
+                        location -> location,
+                        (left, right) -> Boolean.TRUE.equals(left.getPrimaryLocation()) ? left : right
+                ));
+    }
+
+    private String formatLocation(JobLocation location) {
+        if (location == null) {
+            return null;
+        }
+        if (location.getDistrict() == null || location.getDistrict().isBlank()) {
+            return location.getProvince();
+        }
+        return location.getDistrict() + ", " + location.getProvince();
     }
 
 }

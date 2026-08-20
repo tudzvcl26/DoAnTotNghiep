@@ -35,6 +35,8 @@ public class JobSummaryResponse {
 
     private Boolean remoteAllowed;
 
+    private String location;
+
     private Integer quantity;
 
     private UUID companyId;

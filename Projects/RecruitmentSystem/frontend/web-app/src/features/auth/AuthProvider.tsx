@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef } from 'react'
 import { authApi } from './auth.api'
+import { normalizeApiError } from '../../lib/api/error-adapter'
 import { AuthContext, type AuthContextValue } from './auth-context'
 import { useAuthStore } from './auth.store'
 
@@ -49,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const refreshToken = useAuthStore.getState().tokens?.refreshToken
       try {
         if (refreshToken) await authApi.logout(refreshToken)
+      } catch (error) {
+        const code = normalizeApiError(error).code
+        if (!code || !['AUTH_008', 'AUTH_009', 'AUTH_010'].includes(code)) throw error
       } finally {
         clearSession()
       }

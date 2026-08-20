@@ -22,6 +22,8 @@ public class ApplicationSummaryResponse {
 
     private CandidateProfileSnapshotResponse candidateProfileSnapshot;
 
+    private JobSnapshotResponse jobSnapshot;
+
     private ApplicationStatus status;
 
     private BigDecimal matchingScore;

@@ -17,6 +17,7 @@ export type JobSummary = {
   experienceLevel: ExperienceLevel | null
   status: JobStatus
   remoteAllowed: boolean
+  location: string | null
   quantity: number | null
   companyId: string
   categoryId: string | null

@@ -452,15 +452,24 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     private PageResponse<ApplicationSummaryResponse> buildApplicationSummaryPage(Page<Application> page) {
+        List<UUID> applicationIds = page.getContent().stream().map(Application::getId).toList();
         Map<UUID, CandidateProfileSnapshot> snapshots = candidateProfileSnapshotRepository
-                .findByApplicationIdIn(page.getContent().stream().map(Application::getId).toList())
+                .findByApplicationIdIn(applicationIds)
                 .stream()
                 .collect(Collectors.toMap(CandidateProfileSnapshot::getApplicationId, Function.identity()));
+        Map<UUID, JobSnapshot> jobSnapshots = jobSnapshotRepository
+                .findByApplicationIdIn(applicationIds)
+                .stream()
+                .collect(Collectors.toMap(JobSnapshot::getApplicationId, Function.identity()));
         List<ApplicationSummaryResponse> content = page.getContent().stream().map(application -> {
             ApplicationSummaryResponse response = applicationMapper.toSummaryResponse(application);
             CandidateProfileSnapshot snapshot = snapshots.get(application.getId());
             if (snapshot != null) {
                 response.setCandidateProfileSnapshot(candidateProfileSnapshotMapper.toResponse(snapshot));
+            }
+            JobSnapshot jobSnapshot = jobSnapshots.get(application.getId());
+            if (jobSnapshot != null) {
+                response.setJobSnapshot(jobSnapshotMapper.toResponse(jobSnapshot));
             }
             return response;
         }).toList();

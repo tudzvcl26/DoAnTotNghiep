@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, CheckCircle2, FileText, LoaderCircle, LogIn, Send, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -25,6 +25,10 @@ type JobApplyCardProps = {
 
 export function JobApplyCard({ jobId, jobTitle, currentUser, currentResume, resumePending, resumeError, isAuthenticated, isPending, applied, error, onApply }: JobApplyCardProps) {
   const [open, setOpen] = useState(false)
+  const applyTriggerRef = useRef<HTMLButtonElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const pendingRef = useRef(isPending)
+  pendingRef.current = isPending
   const isCandidate = currentUser?.roles.some((role) => ['CANDIDATE', 'ADMIN'].includes(normalizeRole(role))) ?? false
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<ApplyJobFormValues>({
     resolver: zodResolver(applyJobSchema),
@@ -35,6 +39,20 @@ export function JobApplyCard({ jobId, jobTitle, currentUser, currentResume, resu
   useEffect(() => {
     if (!open) reset()
   }, [open, reset])
+
+  useEffect(() => {
+    if (!open) return
+    const trigger = applyTriggerRef.current
+    closeButtonRef.current?.focus()
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !pendingRef.current) setOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      trigger?.focus()
+    }
+  }, [open])
 
   useEffect(() => {
     if (applied) setOpen(false)
@@ -48,7 +66,7 @@ export function JobApplyCard({ jobId, jobTitle, currentUser, currentResume, resu
     <p>Hệ thống sử dụng hồ sơ ứng viên và CV hiện tại của bạn để tạo đơn ứng tuyển.</p>
     {!isAuthenticated && <Link className="job-apply-login" to={`/login?returnTo=${encodeURIComponent(`/jobs/${jobId}`)}`}><LogIn /> Đăng nhập để ứng tuyển</Link>}
     {isAuthenticated && !isCandidate && <div className="job-apply-message"><AlertCircle /> Chỉ tài khoản ứng viên mới có thể ứng tuyển.</div>}
-    {isAuthenticated && isCandidate && !applied && <Button type="button" size="lg" fullWidth onClick={() => setOpen(true)} disabled={resumePending || Boolean(resumeError)}>{resumePending ? 'Đang kiểm tra CV...' : 'Ứng tuyển ngay'} <Send size={17} /></Button>}
+    {isAuthenticated && isCandidate && !applied && <Button type="button" size="lg" fullWidth onClick={(event) => { applyTriggerRef.current = event.currentTarget; setOpen(true) }} disabled={resumePending || Boolean(resumeError)}>{resumePending ? 'Đang kiểm tra CV...' : 'Ứng tuyển ngay'} <Send size={17} /></Button>}
     {resumeError && isCandidate && <div className="job-apply-message job-apply-message--error" role="alert"><AlertCircle /> {resumeError}</div>}
     {applied && <div className="job-apply-success" role="status"><CheckCircle2 /><div><strong>Đã ứng tuyển</strong><span>Theo dõi trạng thái trong mục Đơn ứng tuyển.</span></div></div>}
     <small className="job-apply-card__note">Yêu cầu hồ sơ ứng viên và CV hiện tại hợp lệ.</small>
@@ -57,7 +75,7 @@ export function JobApplyCard({ jobId, jobTitle, currentUser, currentResume, resu
       <section role="dialog" aria-modal="true" aria-labelledby="apply-dialog-title">
         <div className="job-apply-modal__heading">
           <div><span>Đơn ứng tuyển</span><h2 id="apply-dialog-title">{jobTitle}</h2></div>
-          <button type="button" onClick={() => setOpen(false)} disabled={isPending} aria-label="Đóng"><X /></button>
+          <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} disabled={isPending} aria-label="Đóng"><X /></button>
         </div>
         <div className="job-apply-resume"><FileText /><div><small>CV hiện tại</small><strong>{currentResume?.originalFilename}</strong><span>Phiên bản {currentResume?.assetVersion}</span></div></div>
         <form className="job-apply-form" onSubmit={handleSubmit(submit)} noValidate>

@@ -201,7 +201,9 @@ public class ApplicationAuthorizationIntegrationTest {
         // 4. Candidate get own applications list -> 200 OK
         mockMvc.perform(get("/api/v1/applications/my")
                         .header("Authorization", "Bearer " + candidateToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].jobSnapshot.jobId").value(jobId.toString()))
+                .andExpect(jsonPath("$.data.content[0].jobSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("Senior Backend Engineer")));
 
         // 5. Candidate get application detail -> 200 OK
         mockMvc.perform(get("/api/v1/applications/" + applicationId)

@@ -1,16 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   ArrowRight, Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, CircleAlert,
   Clock3, FileText, RefreshCw, Search, Sparkles, UserRound, Workflow,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { type FormEvent, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { ButtonLink } from '../../components/ui/Button'
 import { getMyApplications } from '../applications/applications.api'
 import { useAuth } from '../auth/auth-context'
 import { AppError, getErrorMessage } from '../../lib/api/error-adapter'
 import type { ApplicationStatus, ApplicationSummary } from '../../types/models/application'
 import { getUnreadNotificationCount } from '../notifications/notifications.api'
+import { getCompanyById } from '../companies/companies.api'
+import { getFeaturedJobs } from '../jobs/jobs.api'
+import { JobCard } from '../jobs/components/JobCard'
 import { getCandidateProfile, getCurrentResume } from './candidate.api'
+import '../jobs/jobs-page.css'
 
 const profileRoute = '/candidate/profile'
 const resumeRoute = '/candidate/resumes'
@@ -156,6 +161,39 @@ function NotificationSummary({ userId }: { userId: string }) {
   )
 }
 
+function CandidateJobDiscovery() {
+  const navigate = useNavigate()
+  const [keyword, setKeyword] = useState('')
+  const [location, setLocation] = useState('')
+  const jobs = useQuery({ queryKey: ['jobs', 'candidate-dashboard', 'latest'], queryFn: getFeaturedJobs })
+  const companyIds = useMemo(() => [...new Set(jobs.data?.content.map((job) => job.companyId) ?? [])], [jobs.data?.content])
+  const companyQueries = useQueries({ queries: companyIds.map((companyId) => ({ queryKey: ['company', companyId], queryFn: () => getCompanyById(companyId), staleTime: 5 * 60_000 })) })
+  const companies = new Map(companyQueries.flatMap((query, index) => query.data ? [[companyIds[index], query.data] as const] : []))
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    const params = new URLSearchParams()
+    if (keyword.trim()) params.set('keyword', keyword.trim())
+    if (location.trim()) params.set('location', location.trim())
+    navigate(`/jobs${params.size ? `?${params}` : ''}`)
+  }
+
+  return <>
+    <section className="candidate-job-search" aria-labelledby="candidate-job-search-title">
+      <div><span><Search size={16} /> Tìm cơ hội tiếp theo</span><h2 id="candidate-job-search-title">Bắt đầu từ công việc bạn muốn</h2><p>Tìm theo vị trí và địa điểm trên danh sách tuyển dụng đang công khai.</p></div>
+      <form onSubmit={submit} role="search"><label><span>Vị trí hoặc kỹ năng</span><input maxLength={120} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Ví dụ: Java Developer" /></label><label><span>Địa điểm</span><input maxLength={100} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Ví dụ: Hồ Chí Minh" /></label><button type="submit"><Search size={17} /> Tìm việc</button></form>
+    </section>
+    <section className="candidate-dashboard-section candidate-latest-jobs">
+      <div className="candidate-section-heading"><div><span>Cơ hội mới</span><h2>Việc làm mới đăng</h2></div><Link to="/jobs">Xem tất cả <ArrowRight size={16} /></Link></div>
+      {jobs.isPending && <CardSkeleton />}
+      {jobs.isError && <SectionError message={getErrorMessage(jobs.error)} onRetry={() => void jobs.refetch()} />}
+      {jobs.data?.content.length === 0 && <div className="candidate-applications-empty"><span><BriefcaseBusiness size={28} /></span><div><h3>Chưa có việc làm công khai.</h3><p>Quay lại sau để xem các cơ hội mới.</p></div></div>}
+      {jobs.data && jobs.data.content.length > 0 && <div className="candidate-latest-jobs__grid">{jobs.data.content.slice(0, 4).map((job) => <JobCard key={job.id} job={job} company={companies.get(job.companyId)} />)}</div>}
+      <div className="candidate-ai-recommendation"><Sparkles size={18} /><div><strong>Cần gợi ý cá nhân hóa?</strong><p>AI Career dùng CV đã phân tích và consent của bạn để tạo Job Recommendations có lưu trữ.</p></div><Link to="/candidate/ai-career">Mở AI Career <ArrowRight size={15} /></Link></div>
+    </section>
+  </>
+}
+
 function ApplicationOverview({ applications, total }: { applications: ApplicationSummary[]; total: number }) {
   const count = (statuses: ApplicationStatus[]) => applications.filter((application) => statuses.includes(application.status)).length
   const hasCompleteDataset = total <= applications.length
@@ -200,6 +238,7 @@ const quickActions = [
   { label: 'Cập nhật hồ sơ', description: 'Hoàn thiện thông tin nghề nghiệp', to: profileRoute, icon: UserRound },
   { label: 'Quản lý CV', description: 'Tải lên và quản lý CV', to: resumeRoute, icon: FileText },
   { label: 'Đơn ứng tuyển', description: 'Theo dõi hành trình', to: applicationsRoute, icon: Workflow },
+  { label: 'AI Career', description: 'Phân tích CV và gợi ý nghề nghiệp', to: '/candidate/ai-career', icon: Sparkles },
 ]
 
 export function CandidateDashboardPage() {
@@ -217,6 +256,8 @@ export function CandidateDashboardPage() {
         <div><span className="candidate-greeting__eyebrow"><Sparkles size={15} /> Career dashboard</span><h1>Xin chào, {currentUser?.fullName}</h1><p>Chuẩn bị hồ sơ, khám phá cơ hội và theo dõi hành trình ứng tuyển của bạn.</p></div>
         <NotificationSummary userId={userId} />
       </section>
+
+      <CandidateJobDiscovery />
 
       <section className="candidate-primary-grid" aria-label="Trạng thái hồ sơ và CV">
         <ProfileCard />

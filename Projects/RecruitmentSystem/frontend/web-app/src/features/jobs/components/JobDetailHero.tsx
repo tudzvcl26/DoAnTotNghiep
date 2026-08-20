@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, RadioTower, UsersRound, WalletCards } from 'lucide-react'
+import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, MapPin, RadioTower, UsersRound, WalletCards } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Company } from '../../../types/models/company'
 import type { JobDetail } from '../../../types/models/job'
@@ -28,6 +28,7 @@ export function JobDetailHero({ job, company }: { job: JobDetail; company?: Comp
               <span><WalletCards /> <small>Mức lương</small><strong>{salary(job)}</strong></span>
               {job.employmentType && <span><Clock3 /> <small>Hình thức</small><strong>{job.employmentType.replaceAll('_', ' ')}</strong></span>}
               <span><RadioTower /> <small>Cách thức làm việc</small><strong>{job.remoteAllowed ? 'Có thể làm từ xa' : 'Tại văn phòng'}</strong></span>
+              {job.location && <span><MapPin /> <small>Địa điểm</small><strong>{job.location}</strong></span>}
               {job.quantity != null && <span><UsersRound /> <small>Số lượng</small><strong>{job.quantity} vị trí</strong></span>}
               {job.publishedAt && <span><CalendarDays /> <small>Ngày đăng</small><strong>{date.format(new Date(job.publishedAt))}</strong></span>}
             </div>

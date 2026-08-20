@@ -50,11 +50,13 @@ public interface JobMapper {
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "categorySlug", source = "category.slug")
+    @Mapping(target = "location", ignore = true)
     JobResponse toResponse(Job job);
 
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "categorySlug", source = "category.slug")
+    @Mapping(target = "location", ignore = true)
     JobSummaryResponse toSummaryResponse(Job job);
 
 }

@@ -8,10 +8,12 @@ import com.recruitment.recruitmentservice.dto.job.JobResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
 import com.recruitment.recruitmentservice.entity.JobCategory;
 import com.recruitment.recruitmentservice.entity.Job;
+import com.recruitment.recruitmentservice.entity.JobLocation;
 import com.recruitment.recruitmentservice.entity.enums.EmploymentType;
 import com.recruitment.recruitmentservice.entity.enums.ExperienceLevel;
 import com.recruitment.recruitmentservice.entity.enums.JobStatus;
 import com.recruitment.recruitmentservice.repository.JobCategoryRepository;
+import com.recruitment.recruitmentservice.repository.JobLocationRepository;
 import com.recruitment.recruitmentservice.repository.JobRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -32,6 +34,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -56,6 +59,9 @@ public class JobAuthorizationIntegrationTest {
 
     @Autowired
     private JobRepository jobRepository;
+
+    @Autowired
+    private JobLocationRepository jobLocationRepository;
 
     @MockBean
     private CompanyClient companyClient;
@@ -398,6 +404,71 @@ public class JobAuthorizationIntegrationTest {
                 .andExpect(jsonPath("$.data.draft").value(1))
                 .andExpect(jsonPath("$.data.published").value(1))
                 .andExpect(jsonPath("$.data.closed").value(0));
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    @DisplayName("Public job search combines candidate filters, validates input and hides drafts")
+    void publicJobSearchSupportsCandidateFilters() throws Exception {
+        String marker = Long.toString(System.nanoTime());
+        UUID companyId = UUID.randomUUID();
+
+        Job matching = job("Phase Seven Java " + marker, "PHASE7_MATCH_" + marker, companyId, JobStatus.PUBLISHED);
+        matching.setEmploymentType(EmploymentType.FULL_TIME);
+        matching.setExperienceLevel(ExperienceLevel.SENIOR);
+        matching.setRemoteAllowed(true);
+        matching.setSalaryMin(new BigDecimal("20000000"));
+        matching.setSalaryMax(new BigDecimal("40000000"));
+
+        Job nonMatching = job("Phase Seven Java " + marker, "PHASE7_OTHER_" + marker, UUID.randomUUID(), JobStatus.PUBLISHED);
+        nonMatching.setEmploymentType(EmploymentType.PART_TIME);
+        nonMatching.setExperienceLevel(ExperienceLevel.JUNIOR);
+        nonMatching.setSalaryMin(new BigDecimal("8000000"));
+        nonMatching.setSalaryMax(new BigDecimal("15000000"));
+
+        Job draft = job("Phase Seven Draft " + marker, "PHASE7_DRAFT_" + marker, companyId, JobStatus.DRAFT);
+        jobRepository.saveAllAndFlush(List.of(matching, nonMatching, draft));
+
+        JobLocation matchingLocation = new JobLocation();
+        matchingLocation.setJob(matching);
+        matchingLocation.setProvince("Hồ Chí Minh");
+        matchingLocation.setDistrict("Quận 1");
+        matchingLocation.setAddress("Nguyễn Huệ");
+        matchingLocation.setPrimaryLocation(true);
+        jobLocationRepository.saveAndFlush(matchingLocation);
+
+        mockMvc.perform(get("/api/v1/jobs/public-search")
+                        .param("keyword", marker)
+                        .param("categoryId", testCategory.getId().toString())
+                        .param("companyId", companyId.toString())
+                        .param("employmentType", "FULL_TIME")
+                        .param("experienceLevel", "SENIOR")
+                        .param("remoteAllowed", "true")
+                        .param("location", "Hồ Chí")
+                        .param("minSalary", "30000000")
+                        .param("maxSalary", "50000000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(matching.getId().toString()))
+                .andExpect(jsonPath("$.data.content[0].location").value("Quận 1, Hồ Chí Minh"));
+
+        mockMvc.perform(get("/api/v1/jobs/public-search").param("keyword", "Phase Seven Draft " + marker))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
+
+        String adminToken = generateToken(UUID.randomUUID(), "phase7-admin@test.com", List.of("ADMIN"));
+        mockMvc.perform(get("/api/v1/jobs/search")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("keyword", "Phase Seven Draft " + marker))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(draft.getId().toString()));
+
+        mockMvc.perform(get("/api/v1/jobs/public-search").param("minSalary", "50000000").param("maxSalary", "20000000"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/jobs/public-search").param("keyword", "x".repeat(121)))
+                .andExpect(status().isBadRequest());
     }
 
     private Job job(String title, String code, UUID companyId, JobStatus status) {

@@ -3,6 +3,7 @@ package com.recruitment.recruitmentservice.service;
 import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
+import com.recruitment.recruitmentservice.dto.job.JobSearchRequest;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
@@ -35,7 +36,12 @@ public interface JobService {
     PageResponse<JobResponse> getRecommendationFeed(Pageable pageable);
 
     PageResponse<JobSummaryResponse> search(
-            String keyword,
+            JobSearchRequest request,
+            Pageable pageable
+    );
+
+    PageResponse<JobSummaryResponse> publicSearch(
+            JobSearchRequest request,
             Pageable pageable
     );
 

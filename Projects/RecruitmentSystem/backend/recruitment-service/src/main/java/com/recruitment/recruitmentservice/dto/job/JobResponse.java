@@ -49,6 +49,8 @@ public class JobResponse {
 
     private Boolean remoteAllowed;
 
+    private String location;
+
     private Boolean active;
 
     private UUID companyId;

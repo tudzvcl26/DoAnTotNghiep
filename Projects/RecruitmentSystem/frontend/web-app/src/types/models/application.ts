@@ -89,6 +89,7 @@ export type ApplicationSummary = {
   companyId: string
   jobId: string
   candidateProfileSnapshot: CandidateProfileSnapshot | null
+  jobSnapshot: JobSnapshot | null
   status: ApplicationStatus
   matchingScore: number | null
   matchingVersion: string | null

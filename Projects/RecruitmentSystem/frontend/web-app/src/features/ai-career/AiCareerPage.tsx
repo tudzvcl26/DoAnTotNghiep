@@ -114,6 +114,7 @@ export function AiCareerPage() {
     queryKey: ['jobs', 'ai-career-selector'],
     queryFn: () => getJobs({ keyword: '', page: 0, size: 24, sort: 'publishedAt,desc' }),
   })
+  const jobsById = useMemo(() => new Map((jobs.data?.content ?? []).map((job) => [job.id, job])), [jobs.data?.content])
 
   useEffect(() => {
     if (!activeMatch && matches.data?.content[0]) setActiveMatch(matches.data.content[0])
@@ -201,7 +202,7 @@ export function AiCareerPage() {
       <div className="ai-career-hero__model"><BrainCircuit /><span>AI đang sử dụng</span><strong>Qwen2.5:3B-Instruct</strong><small>Chạy cục bộ qua hệ thống bảo mật</small></div>
     </header>
 
-    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">CV cho AI</a><a href="#job-recommendations">Job Recommendations</a><a href="#career-assistant">Career Assistant</a><a href="#job-matching">Job Matching</a><a href="#ai-history">Lịch sử</a></nav>
+    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">Phân tích CV</a><a href="#job-recommendations">Gợi ý việc làm</a><a href="#career-assistant">Lộ trình nghề nghiệp</a><a href="#job-matching">Độ phù hợp</a><a href="#ai-history">Lịch sử</a></nav>
 
     {notice && <div className="ai-success" role="status"><CheckCircle2 /> {notice}</div>}
     {mutationError && <ErrorNotice error={mutationError} />}
@@ -238,17 +239,17 @@ export function AiCareerPage() {
     </section>
 
     <section className="ai-section" id="job-recommendations" aria-labelledby="recommendations-title">
-      <div className="ai-section__heading"><div><span>Hybrid · Bất đồng bộ</span><h2 id="recommendations-title">Job Recommendations</h2><p>GET chỉ đọc kết quả đã lưu. Nút làm mới tạo task nền và không giữ trang chờ mô hình AI.</p></div><BriefcaseBusiness /></div>
-      <div className="ai-analysis__action"><div><strong>{recommendationTask ? `Trạng thái: ${recommendationTask.status}` : 'Chưa có task làm mới'}</strong><p>{recommendationTask?.status === 'FAILED' ? recommendationTask.errorMessage : 'Cần bật recommendation consent trong Candidate Profile trước khi tạo gợi ý.'}</p></div><button type="button" className="ai-primary" disabled={!analysis.data || refreshRecommendations.isPending || recommendationTask?.status === 'PENDING' || recommendationTask?.status === 'RUNNING'} onClick={() => refreshRecommendations.mutate(selectedResumeId)}>{refreshRecommendations.isPending ? <><LoaderCircle className="ai-spin" /> Đang xếp hàng...</> : <><RefreshCw /> Làm mới gợi ý</>}</button></div>
+      <div className="ai-section__heading"><div><span>Gợi ý cá nhân hóa</span><h2 id="recommendations-title">Việc làm phù hợp với CV</h2><p>Kết quả đã tạo được lưu an toàn; yêu cầu làm mới chạy nền để bạn có thể tiếp tục sử dụng trang.</p></div><BriefcaseBusiness /></div>
+      <div className="ai-analysis__action"><div><strong>{recommendationTask ? `Trạng thái cập nhật: ${recommendationTask.status}` : 'Chưa yêu cầu cập nhật gợi ý'}</strong><p>{recommendationTask?.status === 'FAILED' ? recommendationTask.errorMessage : 'Bật quyền dùng dữ liệu cho gợi ý trong Hồ sơ ứng viên trước khi yêu cầu kết quả mới.'}</p></div><button type="button" className="ai-primary" disabled={!analysis.data || refreshRecommendations.isPending || recommendationTask?.status === 'PENDING' || recommendationTask?.status === 'RUNNING'} onClick={() => refreshRecommendations.mutate(selectedResumeId)}>{refreshRecommendations.isPending ? <><LoaderCircle className="ai-spin" /> Đang gửi yêu cầu...</> : <><RefreshCw /> Cập nhật gợi ý</>}</button></div>
       {refreshRecommendations.isError && <ErrorNotice error={refreshRecommendations.error} onRetry={() => selectedResumeId && refreshRecommendations.mutate(selectedResumeId)} />}
       {recommendations.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang đọc gợi ý đã lưu...</p>}
       {recommendations.isError && <ErrorNotice error={recommendations.error} onRetry={() => void recommendations.refetch()} />}
       {recommendations.data?.content.length === 0 && <div className="ai-empty"><BriefcaseBusiness /><strong>Chưa có gợi ý đã lưu</strong><p>Bật consent, chọn CV đã phân tích rồi yêu cầu làm mới.</p></div>}
-      {recommendations.data && recommendations.data.content.length > 0 && <div className="ai-task-grid">{recommendations.data.content.map((item) => <article key={item.id}><span><strong>{item.overallScore}/100</strong></span><h3>Job {item.jobId.slice(0, 8)}</h3><JsonResult value={item.recommendation} /><Link to={`/jobs/${item.jobId}`}>Xem việc làm <ArrowRight /></Link></article>)}</div>}
+      {recommendations.data && recommendations.data.content.length > 0 && <div className="ai-task-grid">{recommendations.data.content.map((item) => <article key={item.id}><span><strong>{item.overallScore}/100</strong></span><h3>{jobsById.get(item.jobId)?.title ?? `Việc làm ${item.jobId.slice(0, 8)}`}</h3><JsonResult value={item.recommendation} /><Link to={`/jobs/${item.jobId}`}>Xem việc làm <ArrowRight /></Link></article>)}</div>}
     </section>
 
     <section className="ai-section" id="career-assistant" aria-labelledby="assistant-title">
-      <div className="ai-section__heading"><div><span>Bước 2 · Phát triển sự nghiệp</span><h2 id="assistant-title">Career Assistant</h2><p>Chọn một tác vụ cụ thể. AI chỉ chạy khi bạn bấm tạo kết quả.</p></div><GraduationCap /></div>
+      <div className="ai-section__heading"><div><span>Bước 2 · Phát triển sự nghiệp</span><h2 id="assistant-title">Trợ lý lộ trình nghề nghiệp</h2><p>Chọn mục tiêu bạn cần. AI chỉ xử lý khi bạn chủ động yêu cầu.</p></div><GraduationCap /></div>
       {!analysis.data && <div className="ai-prerequisite"><AlertCircle /><div><strong>Cần CV đã phân tích</strong><p>Chọn CV trạng thái ANALYZED hoặc hoàn tất phân tích ở bước 1.</p></div><a href="#ai-resume">Đi đến CV cho AI <ArrowRight /></a></div>}
       <div className="ai-task-grid">{candidateAssistantTasks.map((task) => <article key={task} className={assistantTask === task ? 'is-active' : ''}><span><Target /></span><h3>{taskContent[task].title}</h3><p>{taskContent[task].description}</p><button type="button" onClick={() => runTask(task)} disabled={!analysis.data || assistant.isPending}>{assistant.isPending && assistantTask === task ? <><LoaderCircle className="ai-spin" /> Đang tạo...</> : <>Tạo kết quả <ArrowRight /></>}</button></article>)}</div>
       {assistant.isError && <ErrorNotice error={assistant.error} onRetry={() => assistantTask && runTask(assistantTask)} />}
@@ -256,7 +257,7 @@ export function AiCareerPage() {
     </section>
 
     <section className="ai-section" id="job-matching" aria-labelledby="matching-title">
-      <div className="ai-section__heading"><div><span>Bước 3 · Đánh giá cơ hội</span><h2 id="matching-title">Job Matching</h2><p>Điểm được tính hoàn toàn tại backend từ một việc làm thật và CV AI đã phân tích.</p></div><BriefcaseBusiness /></div>
+      <div className="ai-section__heading"><div><span>Bước 3 · Đánh giá cơ hội</span><h2 id="matching-title">Đánh giá độ phù hợp</h2><p>So sánh một việc làm đang tuyển với CV đã phân tích để nhận điểm mạnh, khoảng trống và gợi ý chuẩn bị.</p></div><BriefcaseBusiness /></div>
       <div className="ai-match-form"><label>Việc làm đang tuyển<select value={jobId} onChange={(event) => setJobId(event.target.value)}><option value="">Chọn một việc làm</option>{jobs.data?.content.map((job) => <option key={job.id} value={job.id}>{job.title} · {job.jobCode}</option>)}</select></label><label>CV dùng để đánh giá<select value={selectedResumeId} onChange={(event) => setSelectedResumeId(event.target.value)}><option value="">Chọn CV</option>{resumeItems.filter((resume) => resume.status === 'ANALYZED').map((resume) => <option key={resume.id} value={resume.id}>{resume.originalFilename}</option>)}</select></label><button className="ai-primary" type="button" disabled={!jobId || !analysis.data || matching.isPending} onClick={() => matching.mutate({ selectedJob: jobId, resumeId: selectedResumeId })}>{matching.isPending ? <><LoaderCircle className="ai-spin" /> Đang đánh giá...</> : <><Target /> Phân tích độ phù hợp</>}</button></div>
       {jobs.isError && <ErrorNotice error={jobs.error} onRetry={() => void jobs.refetch()} />}
       {matching.isError && <ErrorNotice error={matching.error} onRetry={() => jobId && matching.mutate({ selectedJob: jobId, resumeId: selectedResumeId })} />}

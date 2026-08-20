@@ -18,6 +18,7 @@ public interface ApplicationMapper {
 
     @BeanMapping(ignoreUnmappedSourceProperties = "coverLetter")
     @Mapping(target = "candidateProfileSnapshot", ignore = true)
+    @Mapping(target = "jobSnapshot", ignore = true)
     ApplicationSummaryResponse toSummaryResponse(Application application);
 
 }

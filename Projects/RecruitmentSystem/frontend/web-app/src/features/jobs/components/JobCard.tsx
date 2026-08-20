@@ -1,5 +1,6 @@
-import { ArrowUpRight, CalendarClock, CircleDollarSign, Clock3, RadioTower } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, CircleDollarSign, Clock3, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import type { Company } from '../../../types/models/company'
 import type { JobSummary } from '../../../types/models/job'
 
 const formatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
@@ -17,12 +18,14 @@ function formatPublished(value: string | null) {
   return days === 0 ? 'Hôm nay' : `${days} ngày trước`
 }
 
-export function JobCard({ job }: { job: JobSummary }) {
+export function JobCard({ job, company }: { job: JobSummary; company?: Company }) {
+  const brandName = company?.name ?? 'Doanh nghiệp đang tuyển'
+  const initial = brandName.trim().charAt(0).toUpperCase() || 'R'
   return (
-    <Link className="jobs-card" to={`/jobs/${job.id}`}>
-      <div className="jobs-card__brand"><span>{(job.categoryName ?? job.title).slice(0, 2).toUpperCase()}</span><div><small>{job.jobCode}</small><strong>{job.categoryName ?? 'Việc làm đang tuyển'}</strong></div><ArrowUpRight aria-hidden="true" /></div>
-      <div className="jobs-card__title"><h2>{job.title}</h2><p>Mã doanh nghiệp: {job.companyId.slice(0, 8)}</p></div>
-      <div className="jobs-card__meta"><span><CircleDollarSign size={17} /> {formatSalary(job)}</span><span><RadioTower size={17} /> {job.remoteAllowed ? 'Hỗ trợ làm việc từ xa' : 'Làm việc tại văn phòng'}</span>{job.applicationDeadline && <span><CalendarClock size={17} /> Hạn nộp {new Intl.DateTimeFormat('vi-VN').format(new Date(job.applicationDeadline))}</span>}</div>
+    <Link className="jobs-card" to={`/jobs/${job.id}`} aria-label={`${job.title} tại ${brandName}`}>
+      <div className="jobs-card__brand"><span>{company?.logoUrl ? <img src={company.logoUrl} alt="" /> : initial}</span><div><small>{brandName}</small><strong>{job.categoryName ?? 'Việc làm đang tuyển'}</strong></div><ArrowUpRight aria-hidden="true" /></div>
+      <div className="jobs-card__title"><h2>{job.title}</h2><p>Mã tuyển dụng: {job.jobCode}</p></div>
+      <div className="jobs-card__meta"><span><CircleDollarSign size={17} /> {formatSalary(job)}</span><span><MapPin size={17} /> {job.location ?? (job.remoteAllowed ? 'Có hỗ trợ làm việc từ xa' : 'Địa điểm chưa cập nhật')}</span>{job.applicationDeadline && <span><CalendarClock size={17} /> Hạn nộp {new Intl.DateTimeFormat('vi-VN').format(new Date(job.applicationDeadline))}</span>}</div>
       <div className="jobs-card__bottom"><div>{job.employmentType && <span>{job.employmentType.replaceAll('_', ' ')}</span>}{job.experienceLevel && <span>{job.experienceLevel.replaceAll('_', ' ')}</span>}{job.quantity != null && <span>{job.quantity} vị trí</span>}</div><time dateTime={job.publishedAt ?? undefined}><Clock3 size={15} /> {formatPublished(job.publishedAt)}</time></div>
     </Link>
   )

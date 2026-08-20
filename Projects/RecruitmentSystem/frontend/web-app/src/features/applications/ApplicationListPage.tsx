@@ -14,14 +14,22 @@ import './applications-page.css'
 const allowedSizes = [10, 20, 30]
 
 function ApplicationRow({ application }: { application: ApplicationSummary }) {
-  const job = useQuery({ queryKey: ['job', application.jobId], queryFn: () => getJobById(application.jobId), retry: false })
-  const company = useQuery({ queryKey: ['company', job.data?.companyId], queryFn: () => getCompanyById(job.data!.companyId), enabled: Boolean(job.data?.companyId), retry: false })
+  let snapshotTitle = ''
+  try {
+    const snapshot = JSON.parse(application.jobSnapshot?.snapshotData ?? '{}') as { title?: unknown }
+    snapshotTitle = typeof snapshot.title === 'string' ? snapshot.title : ''
+  } catch {
+    snapshotTitle = ''
+  }
+  const job = useQuery({ queryKey: ['job', application.jobId], queryFn: () => getJobById(application.jobId), enabled: !snapshotTitle, retry: false })
+  const company = useQuery({ queryKey: ['company', application.companyId], queryFn: () => getCompanyById(application.companyId), retry: false })
+  const jobTitle = snapshotTitle || job.data?.title
 
   return <article className="applications-list__item">
     <span className="applications-list__icon"><BriefcaseBusiness /></span>
     <div className="applications-list__main">
-      {job.data ? <><h2>{job.data.title}</h2>{company.data && <p>{company.data.name}</p>}</> : <><h2>Đơn ứng tuyển {application.id.slice(0, 8)}</h2><p>Mã công việc: {application.jobId}</p></>}
-      <small>Ứng tuyển: {formatApplicationDate(application.appliedAt)}</small>
+      {jobTitle ? <><h2>{jobTitle}</h2><p>{company.data?.name ?? 'Doanh nghiệp đang tuyển'}</p></> : <><h2>Đơn ứng tuyển {application.id.slice(0, 8)}</h2><p>Mã công việc: {application.jobId}</p></>}
+      <small>Ứng tuyển: {formatApplicationDate(application.appliedAt)} · Cập nhật: {formatApplicationDate(application.updatedAt)}</small>
     </div>
     <span className={`candidate-status-chip candidate-status-chip--${application.status.toLowerCase()}`}>{applicationStatusLabels[application.status]}</span>
     <Link to={`/candidate/applications/${application.id}`}>Xem <ArrowRight /></Link>

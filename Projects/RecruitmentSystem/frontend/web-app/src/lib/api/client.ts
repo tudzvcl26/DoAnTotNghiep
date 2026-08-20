@@ -51,8 +51,8 @@ apiClient.interceptors.response.use(
 
     const original = error.config as RetryableRequest | undefined
     const url = original?.url ?? ''
-    const publicAuthRequest = ['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/refresh'].some((path) => url.includes(path))
-    const canRefresh = error.response?.status === 401 && original && !original._retry && !publicAuthRequest && Boolean(authStore.getState().tokens?.refreshToken)
+    const nonRefreshableAuthRequest = ['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/refresh', '/api/v1/auth/logout'].some((path) => url.includes(path))
+    const canRefresh = error.response?.status === 401 && original && !original._retry && !nonRefreshableAuthRequest && Boolean(authStore.getState().tokens?.refreshToken)
 
     if (!canRefresh) return Promise.reject(normalizeApiError(error))
 

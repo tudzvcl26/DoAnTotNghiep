@@ -4,6 +4,7 @@ import com.recruitment.recruitmentservice.common.ApiResponse;
 import com.recruitment.recruitmentservice.common.PageResponse;
 import com.recruitment.recruitmentservice.dto.job.CreateJobRequest;
 import com.recruitment.recruitmentservice.dto.job.JobResponse;
+import com.recruitment.recruitmentservice.dto.job.JobSearchRequest;
 import com.recruitment.recruitmentservice.dto.job.JobSummaryResponse;
 import com.recruitment.recruitmentservice.dto.job.EmployerJobStatisticsResponse;
 import com.recruitment.recruitmentservice.dto.job.UpdateJobRequest;
@@ -164,14 +165,12 @@ public class JobController {
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Search jobs by keyword")
+    @Operation(summary = "Search and filter jobs")
     public ApiResponse<PageResponse<JobSummaryResponse>> search(
 
-            @Parameter(
-                    description = "Keyword to search by job title"
-            )
-            @RequestParam(required = false)
-            String keyword,
+            @Valid
+            @ParameterObject
+            JobSearchRequest request,
 
             @ParameterObject
             Pageable pageable
@@ -179,10 +178,24 @@ public class JobController {
 
         return ApiResponse.success(
                 jobService.search(
-                        keyword,
+                        request,
                         pageable
                 )
         );
+    }
+
+    @GetMapping("/public-search")
+    @Operation(summary = "Search published jobs for the public job seeker experience")
+    public ApiResponse<PageResponse<JobSummaryResponse>> publicSearch(
+
+            @Valid
+            @ParameterObject
+            JobSearchRequest request,
+
+            @ParameterObject
+            Pageable pageable
+    ) {
+        return ApiResponse.success(jobService.publicSearch(request, pageable));
     }
 
 }
