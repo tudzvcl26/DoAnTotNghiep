@@ -1,6 +1,7 @@
 import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse } from '../../types/api/common'
 import type { Notification, NotificationEventType } from '../../types/models/notification'
+import type { JobStatus, JobSummary } from '../../types/models/job'
 import type {
   AdminNotificationRequest, AiProviderInfo, BroadcastNotificationRequest, CatalogCreateRequest, CatalogItem,
   CatalogKind, CatalogUpdateRequest, NotificationDeliveryLog, NotificationDeliveryStatus, NotificationTemplate,
@@ -89,6 +90,14 @@ export async function getAiProviderInfo(): Promise<AiProviderInfo> {
 export const adminUsersKey = ['admin-users'] as const
 export const adminCompaniesKey = ['admin-companies'] as const
 export const adminApplicationsKey = ['admin-applications'] as const
+export const adminJobsKey = ['admin-jobs'] as const
+
+export type AdminJobsParams = { page: number; size: number; sort: string; keyword?: string; status?: JobStatus; companyId?: string }
+
+export async function getAdminJobs(params: AdminJobsParams): Promise<PageResponse<JobSummary>> {
+  const response = await apiClient.get<ApiResponse<PageResponse<JobSummary>>>('/api/v1/jobs/employer', { params })
+  return response.data.data
+}
 
 export async function getAdminUsers(params: { page: number; size: number; sort: string; keyword?: string; role?: string; enabled?: boolean }): Promise<SpringPage<AdminUser>> {
   const response = await apiClient.get<ApiResponse<SpringPage<AdminUser>>>('/api/v1/admin/users', { params })

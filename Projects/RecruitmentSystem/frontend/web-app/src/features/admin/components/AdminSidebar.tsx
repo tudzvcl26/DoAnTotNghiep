@@ -9,7 +9,7 @@ const groups: { label: string; items: AdminItem[] }[] = [
     { label: 'Dashboard', to: '/admin', icon: CircleGauge, end: true },
     { label: 'Người dùng', to: '/admin/users', icon: UsersRound },
     { label: 'Công ty', to: '/admin/companies', icon: Building2 },
-    { label: 'Việc làm', icon: ClipboardList, planned: true },
+    { label: 'Việc làm', to: '/admin/jobs', icon: ClipboardList },
     { label: 'Applications', to: '/admin/applications', icon: FileUser },
   ] },
   { label: 'Platform', items: [

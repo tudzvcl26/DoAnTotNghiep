@@ -9,6 +9,7 @@ import { AdminUsersPage } from '../../features/admin/AdminUsersPage'
 import { AdminCompaniesPage } from '../../features/admin/AdminCompaniesPage'
 import { AdminApplicationsPage } from '../../features/admin/AdminApplicationsPage'
 import { AdminApplicationDetailPage } from '../../features/admin/AdminApplicationDetailPage'
+import { AdminJobsPage } from '../../features/admin/AdminJobsPage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
 import { RegisterPage } from '../../features/auth/pages/RegisterPage'
 import { ForgotPasswordPage } from '../../features/auth/pages/ForgotPasswordPage'
@@ -86,6 +87,7 @@ export function AppRouter() {
         <Route path="admin/dashboard" element={<Navigate to="/admin" replace />} />
         <Route path="admin/users" element={<AdminUsersPage />} />
         <Route path="admin/companies" element={<AdminCompaniesPage />} />
+        <Route path="admin/jobs" element={<AdminJobsPage />} />
         <Route path="admin/applications" element={<AdminApplicationsPage />} />
         <Route path="admin/applications/:applicationId" element={<AdminApplicationDetailPage />} />
         <Route path="admin/catalog" element={<Navigate to="/admin/catalog/categories" replace />} />
