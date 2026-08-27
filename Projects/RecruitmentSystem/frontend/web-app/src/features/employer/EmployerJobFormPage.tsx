@@ -7,7 +7,8 @@ import type { JobMutationRequest } from '../../types/models/job'
 import { useAuth } from '../auth/auth-context'
 import { EmployerJobForm } from './components/EmployerJobForm'
 import {
-  createEmployerJob, employerCompanyKey, employerJobKey, getEmployerCompanies, getEmployerJob, getJobCategories, updateEmployerJob,
+  createEmployerJob, employerCompanyKey, employerJobKey, employerJobsKey, employerJobStatisticsKey, employerPublishedJobsKey,
+  getEmployerCompanies, getEmployerJob, getJobCategories, updateEmployerJob,
 } from './employer.api'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -26,8 +27,9 @@ export function EmployerJobFormPage() {
   const selectedCompany = editing ? companies.data?.find((company) => company.id === job.data?.companyId) : companies.data?.[0]
   const complete = async (id: string) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['employer-jobs'] }),
-      queryClient.invalidateQueries({ queryKey: ['employer-published-jobs'] }),
+      queryClient.invalidateQueries({ queryKey: employerJobsKey }),
+      queryClient.invalidateQueries({ queryKey: employerPublishedJobsKey }),
+      queryClient.invalidateQueries({ queryKey: employerJobStatisticsKey }),
       queryClient.invalidateQueries({ queryKey: employerJobKey(id) }),
     ])
     navigate(`/employer/jobs/${id}`, { replace: true })

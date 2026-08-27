@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, Edit3, Eye, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-react'
+import { AlertCircle, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Edit3, Eye, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { ButtonLink } from '../../components/ui/Button'
 import { getErrorMessage } from '../../lib/api/error-adapter'
 import type { JobStatus, JobSummary } from '../../types/models/job'
@@ -16,6 +16,8 @@ function JobCard({ job }: { job: JobSummary }) {
 }
 
 export function EmployerJobsPage() {
+  const location = useLocation()
+  const success = (location.state as { success?: string } | null)?.success
   const { currentUser } = useAuth()
   const userId = currentUser?.id ?? ''
   const [searchParams, setSearchParams] = useSearchParams()
@@ -49,6 +51,7 @@ export function EmployerJobsPage() {
       <div><strong>{jobs.data?.totalElements ?? 0}</strong><span>việc làm thuộc sở hữu</span></div>
     </section>
     <aside className="employer-job-contract"><ShieldCheck /><p>Recruitment Service giới hạn danh sách theo ownership từ JWT; tìm kiếm, lọc và phân trang được thực hiện tại backend.</p></aside>
+    {success && <div className="employer-company-success" role="status"><CheckCircle2 /> {success}</div>}
     {companies.isPending && <div className="employer-job-skeleton" aria-label="Đang tải doanh nghiệp"><span /><span /><span /></div>}
     {companies.isError && <div className="employer-error" role="alert"><AlertCircle /><div><strong>Không thể xác định doanh nghiệp</strong><p>{getErrorMessage(companies.error)}</p></div><button type="button" onClick={() => void companies.refetch()}><RefreshCw /> Thử lại</button></div>}
     {companies.isSuccess && companyIds.length === 0 && <section className="employer-company-empty"><span><BriefcaseBusiness /></span><h2>Cần có doanh nghiệp trước</h2><p>Tạo Company hợp lệ để backend có thể xác minh ownership khi tạo việc làm.</p><ButtonLink to="/employer/company">Quản lý công ty</ButtonLink></section>}

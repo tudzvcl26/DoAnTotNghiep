@@ -56,6 +56,15 @@ public class JobController {
         return ApiResponse.success(jobService.getEmployerJobs(companyId, status, keyword, pageable));
     }
 
+    @GetMapping("/employer/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")
+    @Operation(summary = "Get an owner-scoped employer job by id")
+    public ApiResponse<JobResponse> getEmployerJob(
+            @Parameter(description = "Job ID") @PathVariable UUID id
+    ) {
+        return ApiResponse.success(jobService.getEmployerJob(id));
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('EMPLOYER', 'ADMIN')")

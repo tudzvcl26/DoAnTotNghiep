@@ -8,7 +8,11 @@ import { getErrorMessage } from '../../lib/api/error-adapter'
 import type { Notification } from '../../types/models/notification'
 import { useAuth } from '../auth/auth-context'
 import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../notifications/notifications.api'
-import { employerCompanyKey, getEmployerApplicationStatistics, getEmployerApplicationSummary, getEmployerCompanies, getEmployerJobs, getEmployerJobStatistics } from './employer.api'
+import {
+  employerApplicationStatisticsKey, employerApplicationSummaryKey, employerCompanyKey,
+  employerJobStatisticsKey, employerPublishedJobsKey, getEmployerApplicationStatistics,
+  getEmployerApplicationSummary, getEmployerCompanies, getEmployerJobs, getEmployerJobStatistics,
+} from './employer.api'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -38,10 +42,10 @@ export function EmployerDashboardPage() {
   const queryClient = useQueryClient()
   const companies = useQuery({ queryKey: employerCompanyKey(userId), queryFn: () => getEmployerCompanies(userId), enabled: Boolean(userId) })
   const companyIds = companies.data?.map((company) => company.id) ?? []
-  const jobStatistics = useQuery({ queryKey: ['employer-job-statistics'], queryFn: getEmployerJobStatistics })
-  const jobs = useQuery({ queryKey: ['employer-published-jobs'], queryFn: () => getEmployerJobs({ page: 0, size: 4, status: 'PUBLISHED', sort: 'publishedAt,desc' }) })
-  const applicationStatistics = useQuery({ queryKey: ['employer-application-statistics'], queryFn: getEmployerApplicationStatistics })
-  const applications = useQuery({ queryKey: ['employer-application-summary'], queryFn: getEmployerApplicationSummary })
+  const jobStatistics = useQuery({ queryKey: employerJobStatisticsKey, queryFn: getEmployerJobStatistics })
+  const jobs = useQuery({ queryKey: employerPublishedJobsKey, queryFn: () => getEmployerJobs({ page: 0, size: 4, status: 'PUBLISHED', sort: 'publishedAt,desc' }) })
+  const applicationStatistics = useQuery({ queryKey: employerApplicationStatisticsKey, queryFn: getEmployerApplicationStatistics })
+  const applications = useQuery({ queryKey: employerApplicationSummaryKey, queryFn: getEmployerApplicationSummary })
   const notifications = useQuery({ queryKey: ['employer-notifications', userId], queryFn: () => getNotifications({ page: 0, size: 5 }), enabled: Boolean(userId) })
   const unread = useQuery({ queryKey: ['employer-notification-unread', userId], queryFn: getUnreadNotificationCount, enabled: Boolean(userId) })
 

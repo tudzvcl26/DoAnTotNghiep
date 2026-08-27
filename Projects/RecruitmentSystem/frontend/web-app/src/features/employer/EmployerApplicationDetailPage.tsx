@@ -10,7 +10,9 @@ import {
   employerApplicationStatusLabels, employerTransitions, formatEmployerApplicationDate, parseSnapshot, snapshotNumber, snapshotText,
 } from './employer-application.presenter'
 import {
-  downloadEmployerApplicationResume, employerApplicationKey, employerApplicationsKey, employerCompanyKey, getEmployerApplication, getEmployerCompanies, updateEmployerApplicationStatus,
+  downloadEmployerApplicationResume, employerApplicationKey, employerApplicationsKey,
+  employerApplicationStatisticsKey, employerApplicationSummaryKey, employerCompanyKey,
+  getEmployerApplication, getEmployerCompanies, updateEmployerApplicationStatus,
 } from './employer.api'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -28,7 +30,16 @@ export function EmployerApplicationDetailPage() {
   const owned = companies.data?.some((company) => company.id === application.data?.companyId)
   const transition = useMutation({
     mutationFn: () => updateEmployerApplicationStatus(applicationId, { status: nextStatus as ApplicationStatus, ...(reasonDetail.trim() ? { reasonDetail: reasonDetail.trim() } : {}) }),
-    onSuccess: async (updated: Application) => { queryClient.setQueryData(employerApplicationKey(applicationId), updated); setNextStatus(''); setReasonDetail(''); await queryClient.invalidateQueries({ queryKey: employerApplicationsKey }) },
+    onSuccess: async (updated: Application) => {
+      queryClient.setQueryData(employerApplicationKey(applicationId), updated)
+      setNextStatus('')
+      setReasonDetail('')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: employerApplicationsKey }),
+        queryClient.invalidateQueries({ queryKey: employerApplicationStatisticsKey }),
+        queryClient.invalidateQueries({ queryKey: employerApplicationSummaryKey }),
+      ])
+    },
   })
   const resumeDownload = useMutation({
     mutationFn: () => downloadEmployerApplicationResume(applicationId),

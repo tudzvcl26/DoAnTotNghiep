@@ -283,6 +283,20 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional(readOnly = true)
+    public JobResponse getEmployerJob(UUID id) {
+        Job job = findActiveJob(id);
+        CurrentUser currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new AccessDeniedException("User is not authenticated.");
+        }
+        if (!currentUser.isAdmin()) {
+            assertJobOwner(job);
+        }
+        return toJobResponse(job);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public EmployerJobStatisticsResponse getEmployerStatistics() {
         CurrentUser currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null || currentUser.getUserId() == null) {

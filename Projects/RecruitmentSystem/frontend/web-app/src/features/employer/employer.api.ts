@@ -8,8 +8,12 @@ const PAGE_SIZE = 100
 export const employerCompanyKey = (ownerId: string) => ['employer-companies', ownerId] as const
 export const employerJobsKey = ['employer-jobs'] as const
 export const employerJobKey = (jobId: string) => ['employer-job', jobId] as const
+export const employerJobStatisticsKey = ['employer-job-statistics'] as const
+export const employerPublishedJobsKey = ['employer-published-jobs'] as const
 export const employerApplicationsKey = ['employer-applications'] as const
 export const employerApplicationKey = (applicationId: string) => ['employer-application', applicationId] as const
+export const employerApplicationStatisticsKey = ['employer-application-statistics'] as const
+export const employerApplicationSummaryKey = ['employer-application-summary'] as const
 
 export async function getEmployerCompanies(ownerId: string): Promise<Company[]> {
   const response = await apiClient.get<Company[]>(`/api/v1/companies/owner/${ownerId}`)
@@ -54,7 +58,7 @@ export async function getEmployerApplicationStatistics(): Promise<EmployerApplic
 }
 
 export async function getEmployerJob(jobId: string): Promise<JobDetail> {
-  const response = await apiClient.get<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}`)
+  const response = await apiClient.get<ApiResponse<JobDetail>>(`/api/v1/jobs/employer/${jobId}`)
   return response.data.data
 }
 
@@ -83,6 +87,10 @@ export async function publishEmployerJob(jobId: string): Promise<JobDetail> {
 export async function closeEmployerJob(jobId: string): Promise<JobDetail> {
   const response = await apiClient.patch<ApiResponse<JobDetail>>(`/api/v1/jobs/${jobId}/close`)
   return response.data.data
+}
+
+export async function deleteEmployerJob(jobId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/jobs/${jobId}`)
 }
 
 export type EmployerApplicationsParams = { page: number; size: number; sort: string; status?: ApplicationStatus; jobId?: string }

@@ -52,6 +52,8 @@ public interface JobService {
             Pageable pageable
     );
 
+    JobResponse getEmployerJob(UUID id);
+
     EmployerJobStatisticsResponse getEmployerStatistics();
 
 }

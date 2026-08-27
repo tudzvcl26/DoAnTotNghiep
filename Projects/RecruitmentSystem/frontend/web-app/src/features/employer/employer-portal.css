@@ -124,6 +124,7 @@ body.employer-drawer-open { overflow: hidden; }
 .employer-company-empty .button { margin-top: 1.1rem; }
 .employer-company-success { display: flex; align-items: center; gap: .55rem; padding: .85rem 1rem; border: 1px solid var(--color-primary-200); border-radius: var(--radius-md); color: var(--color-primary-800); background: var(--color-primary-50); font-weight: 700; }
 .employer-company-success svg { width: 1.1rem; }
+.employer-job-deactivate { border-color: var(--color-danger); color: var(--color-danger); background: var(--color-danger-soft); }
 .employer-company-profile { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: #fff; box-shadow: var(--shadow-xs); }
 .employer-company-profile__banner { height: clamp(8rem,20vw,13rem); background: var(--color-surface-soft); }
 .employer-company-profile__banner img { width: 100%; height: 100%; object-fit: cover; }
