@@ -38,7 +38,7 @@ public class GatewayRouteConfig {
                         .path("/api/v1/admin/applications/**")
                         .uri(services.application()))
                 .route("recruitment-service", route -> route
-                        .path("/api/v1/jobs/**", "/api/v1/job-categories/**", "/api/v1/skills/**", "/api/v1/benefits/**")
+                        .path("/api/v1/jobs/**", "/api/v1/admin/jobs/**", "/api/v1/job-categories/**", "/api/v1/skills/**", "/api/v1/benefits/**")
                         .uri(services.recruitment()))
                 .route("notification-service", route -> route
                         .path("/api/v1/notifications/**", "/api/v1/notification-templates/**",

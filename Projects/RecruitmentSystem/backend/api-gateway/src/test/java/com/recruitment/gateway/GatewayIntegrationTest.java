@@ -145,6 +145,7 @@ class GatewayIntegrationTest {
         expectService(authorizedGet("/api/v1/admin/users", token), "auth", true);
         expectService(authorizedGet("/api/v1/admin/companies", token), "company", true);
         expectService(authorizedGet("/api/v1/admin/applications", token), "application", true);
+        expectService(authorizedGet("/api/v1/admin/jobs", token), "recruitment", true);
         assertThat(AUTHORIZATIONS.get("/api/v1/users/me")).isEqualTo("Bearer " + token);
     }
 
