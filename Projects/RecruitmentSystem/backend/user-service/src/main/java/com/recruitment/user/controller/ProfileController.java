@@ -22,6 +22,7 @@ public class ProfileController {
     private final ProfileService profileService;
 
     @PostMapping("/initialize")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ProfileResponse> initializeProfile(
             @Valid @RequestBody InitializeProfileRequest body,
             HttpServletRequest request
@@ -43,6 +44,7 @@ public class ProfileController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ProfileResponse> getMyProfile(
             HttpServletRequest request
     ) {

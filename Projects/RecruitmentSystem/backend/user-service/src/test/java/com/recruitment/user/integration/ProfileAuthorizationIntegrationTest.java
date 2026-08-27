@@ -73,6 +73,53 @@ public class ProfileAuthorizationIntegrationTest {
     }
 
     @Test
+    @DisplayName("Candidate profile self-service enforces role and authenticated identity")
+    void candidateProfileSelfServiceAuthorization() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        UUID employerId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        String candidateToken = generateToken(candidateId, "profile-owner@example.test", List.of("CANDIDATE"));
+        String employerToken = generateToken(employerId, "profile-employer@example.test", List.of("EMPLOYER"));
+        String adminToken = generateToken(adminId, "profile-admin@example.test", List.of("ADMIN"));
+
+        mockMvc.perform(post("/api/v1/profiles/initialize")
+                        .header("Authorization", "Bearer " + candidateToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Candidate Owner\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(candidateId.toString()));
+
+        mockMvc.perform(get("/api/v1/profiles/me")
+                        .header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.displayName").value("Candidate Owner"));
+
+        mockMvc.perform(put("/api/v1/profiles/me")
+                        .header("Authorization", "Bearer " + candidateToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Candidate Updated\",\"profileVisibility\":\"PRIVATE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.displayName").value("Candidate Updated"));
+
+        mockMvc.perform(post("/api/v1/profiles/initialize")
+                        .header("Authorization", "Bearer " + employerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Employer Profile\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/profiles/me")
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/profiles/initialize")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Admin Profile\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/profiles/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("Task 3, 6, 7: Candidate Profile & Preference Ownership & IDOR Tests")
     void testProfilePreferenceOwnershipFlow() throws Exception {
         UUID candidate1UserId = UUID.randomUUID();
@@ -275,6 +322,12 @@ public class ProfileAuthorizationIntegrationTest {
         mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes/current")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
+        profileService.initialize(employer, "Employer Self Profile");
+        mockMvc.perform(get("/api/v1/users/" + employer + "/resumes")
+                        .header("Authorization", "Bearer " + employerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/users/" + candidate1 + "/resumes"))
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(delete("/api/v1/users/" + candidate1 + "/resumes/" + v2Id)
                         .header("Authorization", "Bearer " + candidate1Token))

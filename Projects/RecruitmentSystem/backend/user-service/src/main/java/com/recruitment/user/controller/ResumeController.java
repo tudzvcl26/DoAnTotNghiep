@@ -41,6 +41,7 @@ public class ResumeController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<Page<ProfileAssetResponse>> list(@PathVariable UUID userId,
                                                         Pageable pageable,
                                                         HttpServletRequest request) {
@@ -49,6 +50,7 @@ public class ResumeController {
     }
 
     @GetMapping("/current")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ApiResponse<ProfileAssetResponse> current(@PathVariable UUID userId,
                                                      HttpServletRequest request) {
         return ApiResponse.success("Current resume retrieved successfully",
@@ -56,6 +58,7 @@ public class ResumeController {
     }
 
     @GetMapping("/{assetId}/download")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public ResponseEntity<byte[]> download(@PathVariable UUID userId, @PathVariable UUID assetId) {
         ProfileAssetResponse asset = profileAssetService.getResumeById(userId, assetId);
         return ResponseEntity.ok()
