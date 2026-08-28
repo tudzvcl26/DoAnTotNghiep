@@ -24,4 +24,17 @@ public class MinioConfig {
 
     }
 
+    @Bean("minioPublicClient")
+    public MinioClient minioPublicClient() {
+        String endpoint = storageProperties.getPublicEndpoint();
+        if (endpoint == null || endpoint.isBlank()) {
+            endpoint = storageProperties.getEndpoint();
+        }
+        return MinioClient.builder()
+                .endpoint(endpoint)
+                .region("us-east-1")
+                .credentials(storageProperties.getAccessKey(), storageProperties.getSecretKey())
+                .build();
+    }
+
 }

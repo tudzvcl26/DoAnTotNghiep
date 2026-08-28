@@ -17,6 +17,9 @@ public class StorageProperties {
      */
     private String endpoint;
 
+    /** Browser-reachable endpoint used only when generating presigned URLs. */
+    private String publicEndpoint;
+
     /**
      * access key
      */

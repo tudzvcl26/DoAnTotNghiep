@@ -1,25 +1,67 @@
+name: compose
+
+x-backend-environment: &backend-environment
+  SPRING_PROFILES_ACTIVE: prod
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+  AUTH_SERVICE_URL: http://auth-service:8081
+  USER_SERVICE_URL: http://user-service:8082
+  COMPANY_SERVICE_URL: http://company-service:8083
+  RECRUITMENT_SERVICE_URL: http://recruitment-service:8084
+  APPLICATION_SERVICE_URL: http://application-service:8085
+  NOTIFICATION_SERVICE_URL: http://notification-service:8086
+  AI_SERVICE_URL: http://ai-service:8087
+  OLLAMA_BASE_URL: http://ollama:11434
+  SWAGGER_ENABLED: "false"
+  APP_CORS_ALLOWED_ORIGINS: http://localhost:5173
+  AUTH_ADMIN_BOOTSTRAP_ENABLED: ${AUTH_ADMIN_BOOTSTRAP_ENABLED:-false}
+  AUTH_ADMIN_BOOTSTRAP_EMAIL: ${AUTH_ADMIN_BOOTSTRAP_EMAIL:-}
+  AUTH_ADMIN_BOOTSTRAP_PASSWORD: ${AUTH_ADMIN_BOOTSTRAP_PASSWORD:-}
+  AUTH_ADMIN_BOOTSTRAP_FULL_NAME: ${AUTH_ADMIN_BOOTSTRAP_FULL_NAME:-System Administrator}
+  TEST_EMPLOYER_BOOTSTRAP_ENABLED: ${TEST_EMPLOYER_BOOTSTRAP_ENABLED:-false}
+  TEST_EMPLOYER_EMAIL: ${TEST_EMPLOYER_EMAIL:-}
+  TEST_EMPLOYER_PASSWORD: ${TEST_EMPLOYER_PASSWORD:-}
+  TEST_EMPLOYER_FULL_NAME: ${TEST_EMPLOYER_FULL_NAME:-Runtime Test Employer}
+
+x-service-base: &service-base
+  restart: unless-stopped
+  env_file: [../../.env]
+  environment: *backend-environment
+  networks: [recruitment-network]
+  security_opt: [no-new-privileges:true]
+
+x-service-healthcheck: &service-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 30s
+
 services:
   postgres:
     image: postgres:17
     container_name: recruitment-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
-    ports:
-      - "${DB_PORT}:5432"
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS:---encoding=UTF8 --locale=C}
+    ports: ["127.0.0.1:${DB_PORT:-5432}:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
-    networks:
-      - recruitment-network
+    networks: [recruitment-network]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 20s
 
   redis:
@@ -27,19 +69,16 @@ services:
     container_name: recruitment-redis
     restart: unless-stopped
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
-    ports:
-      - "${REDIS_PORT}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - recruitment-network
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: [sh, -c, 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
+    volumes: [redis_data:/data]
+    networks: [recruitment-network]
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      test: [CMD-SHELL, 'redis-cli --no-auth-warning -a "$${REDIS_PASSWORD}" ping | grep -q PONG']
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 10s
 
   rabbitmq:
@@ -47,21 +86,19 @@ services:
     container_name: recruitment-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:?Set RABBITMQ_VHOST in .env}
     ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - recruitment-network
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    networks: [recruitment-network]
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
       interval: 15s
       timeout: 10s
-      retries: 5
+      retries: 10
       start_period: 30s
 
   minio:
@@ -69,22 +106,182 @@ services:
     container_name: recruitment-minio
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
     command: server /data --console-address ":9001"
     ports:
-      - "${MINIO_API_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - recruitment-network
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes: [minio_data:/data]
+    networks: [recruitment-network]
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      test: [CMD-SHELL, 'curl -fsS http://localhost:9000/minio/health/live >/dev/null || exit 1']
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 20s
+
+  ollama:
+    image: ollama/ollama:0.11.10
+    container_name: recruitment-ollama
+    restart: unless-stopped
+    ports: ["127.0.0.1:11434:11434"]
+    volumes: [ollama_data:/root/.ollama]
+    networks: [recruitment-network]
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 20s
+
+  ollama-model:
+    image: ollama/ollama:0.11.10
+    container_name: recruitment-ollama-model
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: [pull, "${OLLAMA_MODEL:-Qwen2.5:3B-Instruct}"]
+    volumes: [ollama_data:/root/.ollama]
+    networks: [recruitment-network]
+    depends_on:
+      ollama: {condition: service_healthy}
+
+  auth-service:
+    <<: *service-base
+    container_name: recruitment-auth
+    image: recruitment-system/auth-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: auth-service}}
+    expose: ["8081"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8081/actuator/health >/dev/null"]
+
+  user-service:
+    <<: *service-base
+    container_name: recruitment-user
+    image: recruitment-system/user-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: user-service}}
+    expose: ["8082"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8082/actuator/health >/dev/null"]
+
+  company-service:
+    <<: *service-base
+    container_name: recruitment-company
+    image: recruitment-system/company-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: company-service}}
+    expose: ["8083"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8083/actuator/health >/dev/null"]
+
+  recruitment-service:
+    <<: *service-base
+    container_name: recruitment-recruitment
+    image: recruitment-system/recruitment-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: recruitment-service}}
+    expose: ["8084"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      company-service: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8084/actuator/health >/dev/null"]
+
+  application-service:
+    <<: *service-base
+    container_name: recruitment-application
+    image: recruitment-system/application-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: application-service}}
+    expose: ["8085"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      user-service: {condition: service_healthy}
+      company-service: {condition: service_healthy}
+      recruitment-service: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8085/actuator/health >/dev/null"]
+
+  notification-service:
+    <<: *service-base
+    container_name: recruitment-notification
+    image: recruitment-system/notification-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: notification-service}}
+    expose: ["8086"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8086/actuator/health >/dev/null"]
+
+  ai-service:
+    <<: *service-base
+    container_name: recruitment-ai
+    image: recruitment-system/ai-service:local
+    build: {context: ../../backend, dockerfile: Dockerfile, args: {SERVICE: ai-service}}
+    expose: ["8087"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      ollama-model: {condition: service_completed_successfully}
+    healthcheck:
+      <<: *service-healthcheck
+      start_period: 60s
+      test: [CMD-SHELL, "wget -qO- http://localhost:8087/actuator/health >/dev/null"]
+
+  api-gateway:
+    <<: *service-base
+    container_name: recruitment-gateway
+    image: recruitment-system/api-gateway:local
+    build: {context: ../../backend/api-gateway, dockerfile: Dockerfile}
+    ports: ["${API_GATEWAY_PORT:-8080}:8080"]
+    depends_on:
+      auth-service: {condition: service_healthy}
+      user-service: {condition: service_healthy}
+      company-service: {condition: service_healthy}
+      recruitment-service: {condition: service_healthy}
+      application-service: {condition: service_healthy}
+      notification-service: {condition: service_healthy}
+      ai-service: {condition: service_healthy}
+    healthcheck:
+      <<: *service-healthcheck
+      test: [CMD-SHELL, "wget -qO- http://localhost:8080/actuator/health >/dev/null"]
+
+  frontend:
+    container_name: recruitment-frontend
+    image: recruitment-system/frontend:local
+    build:
+      context: ../../frontend/web-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    restart: unless-stopped
+    ports: ["${FRONTEND_PORT:-5173}:5173"]
+    networks: [recruitment-network]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      api-gateway: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:5173/health | grep -q healthy']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 networks:
   recruitment-network:
@@ -92,11 +289,8 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
-    name: recruitment-postgres-data
-  redis_data:
-    name: recruitment-redis-data
-  rabbitmq_data:
-    name: recruitment-rabbitmq-data
-  minio_data:
-    name: recruitment-minio-data
+  postgres_data: {name: recruitment-postgres-data}
+  redis_data: {name: recruitment-redis-data}
+  rabbitmq_data: {name: recruitment-rabbitmq-data}
+  minio_data: {name: recruitment-minio-data}
+  ollama_data: {name: recruitment-ollama-data}
