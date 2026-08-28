@@ -18,6 +18,7 @@ public class OllamaProperties {
     private String model;
     private double temperature;
     private double topP;
+    private Duration connectTimeout = Duration.ofSeconds(3);
     private Duration timeout;
 
     public boolean isConfigured() {

@@ -27,7 +27,7 @@ public class RequestLoggingFilter implements WebFilter, Ordered {
             HttpStatusCode status = exchange.getResponse().getStatusCode();
             Route route = exchange.getAttribute(GATEWAY_ROUTE_ATTR);
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
-            log.info("gateway_request method={} path={} status={} durationMs={} correlationId={} route={}",
+            log.info("gateway_request method={} path={} status={} durationMs={} requestId={} route={}",
                     exchange.getRequest().getMethod(),
                     exchange.getRequest().getPath().value(),
                     status == null ? 0 : status.value(),

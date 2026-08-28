@@ -161,13 +161,14 @@ class GatewayIntegrationTest {
         webTestClient.options().uri("/api/v1/users/me")
                 .header(HttpHeaders.ORIGIN, "http://localhost:5173")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
-                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization,X-Correlation-ID")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization,X-Request-Id,X-Correlation-ID")
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
                 .expectHeader().value(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, value -> assertThat(value).contains("GET"))
                 .expectHeader().value(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
-                        value -> assertThat(value.toLowerCase()).contains("authorization").contains("x-correlation-id"));
+                        value -> assertThat(value.toLowerCase()).contains("authorization")
+                                .contains("x-request-id").contains("x-correlation-id"));
     }
 
     @Test
@@ -187,16 +188,30 @@ class GatewayIntegrationTest {
         String generatedPath = "/api/v1/jobs/generated-correlation";
         webTestClient.get().uri(generatedPath).exchange()
                 .expectStatus().isOk()
+                .expectHeader().exists("X-Request-Id")
                 .expectHeader().exists("X-Correlation-ID");
         assertThat(CORRELATION_IDS.get(generatedPath)).isNotBlank();
 
         String suppliedPath = "/api/v1/jobs/existing-correlation";
         webTestClient.get().uri(suppliedPath)
-                .header("X-Correlation-ID", "client-correlation-123")
+                .header("X-Request-Id", "client-request-123")
+                .header("X-Correlation-ID", "legacy-correlation-ignored")
                 .exchange()
                 .expectStatus().isOk()
-                .expectHeader().valueEquals("X-Correlation-ID", "client-correlation-123");
-        assertThat(CORRELATION_IDS.get(suppliedPath)).isEqualTo("client-correlation-123");
+                .expectHeader().valueEquals("X-Request-Id", "client-request-123")
+                .expectHeader().valueEquals("X-Correlation-ID", "client-request-123");
+        assertThat(CORRELATION_IDS.get(suppliedPath)).isEqualTo("client-request-123");
+
+        String invalidPath = "/api/v1/jobs/invalid-correlation";
+        webTestClient.get().uri(invalidPath)
+                .header("X-Request-Id", "invalid request id with spaces")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().value("X-Request-Id", value -> {
+                    assertThat(value).isNotEqualTo("invalid request id with spaces");
+                    assertThat(value).matches("[A-Za-z0-9._:-]{1,128}");
+                });
+        assertThat(CORRELATION_IDS.get(invalidPath)).matches("[A-Za-z0-9._:-]{1,128}");
     }
 
     @Test

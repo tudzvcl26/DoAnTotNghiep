@@ -11,7 +11,7 @@ public class OllamaConfiguration {
     @Bean("ollamaHttpClient")
     HttpClient ollamaHttpClient(OllamaProperties properties) {
         return HttpClient.newBuilder()
-                .connectTimeout(properties.getTimeout())
+                .connectTimeout(properties.getConnectTimeout())
                 .build();
     }
 

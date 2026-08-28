@@ -157,7 +157,7 @@ services:
       postgres: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8081/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8081/actuator/health/readiness >/dev/null"]
 
   user-service:
     <<: *service-base
@@ -170,7 +170,7 @@ services:
       minio: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8082/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8082/actuator/health/readiness >/dev/null"]
 
   company-service:
     <<: *service-base
@@ -182,7 +182,7 @@ services:
       postgres: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8083/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8083/actuator/health/readiness >/dev/null"]
 
   recruitment-service:
     <<: *service-base
@@ -195,7 +195,7 @@ services:
       company-service: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8084/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8084/actuator/health/readiness >/dev/null"]
 
   application-service:
     <<: *service-base
@@ -212,7 +212,7 @@ services:
       recruitment-service: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8085/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8085/actuator/health/readiness >/dev/null"]
 
   notification-service:
     <<: *service-base
@@ -225,7 +225,7 @@ services:
       rabbitmq: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8086/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8086/actuator/health/readiness >/dev/null"]
 
   ai-service:
     <<: *service-base
@@ -238,11 +238,11 @@ services:
       redis: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       minio: {condition: service_healthy}
-      ollama-model: {condition: service_completed_successfully}
+      ollama: {condition: service_started}
     healthcheck:
       <<: *service-healthcheck
       start_period: 60s
-      test: [CMD-SHELL, "wget -qO- http://localhost:8087/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8087/actuator/health/liveness >/dev/null"]
 
   api-gateway:
     <<: *service-base
@@ -260,7 +260,7 @@ services:
       ai-service: {condition: service_healthy}
     healthcheck:
       <<: *service-healthcheck
-      test: [CMD-SHELL, "wget -qO- http://localhost:8080/actuator/health >/dev/null"]
+      test: [CMD-SHELL, "wget -qO- http://localhost:8080/actuator/health/readiness >/dev/null"]
 
   frontend:
     container_name: recruitment-frontend

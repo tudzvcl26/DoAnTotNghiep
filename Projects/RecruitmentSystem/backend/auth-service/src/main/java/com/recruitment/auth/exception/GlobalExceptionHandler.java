@@ -11,7 +11,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.access.AccessDeniedException;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -109,6 +111,8 @@ public class GlobalExceptionHandler {
     ) {
 
         ErrorCode error = ErrorCode.INTERNAL_SERVER_ERROR;
+        log.error("unhandled_exception type={} method={} path={}", ex.getClass().getSimpleName(),
+                request.getMethod(), request.getRequestURI());
 
         return ResponseEntity
                 .status(error.getStatus())

@@ -167,6 +167,7 @@ ai:
       model: ${OLLAMA_MODEL}
       temperature: ${OLLAMA_TEMPERATURE}
       top-p: ${OLLAMA_TOP_P}
+      connect-timeout: ${OLLAMA_CONNECT_TIMEOUT:3s}
       timeout: ${OLLAMA_TIMEOUT}
     openai:
       enabled: ${OPENAI_ENABLED}

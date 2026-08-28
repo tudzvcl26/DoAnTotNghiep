@@ -35,6 +35,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 .message(ErrorCode.UNAUTHORIZED.getMessage())
                 .retryable(false)
                 .correlationId(CorrelationIds.current(request))
+                .traceId(CorrelationIds.current(request))
                 .path(request.getRequestURI())
                 .timestamp(LocalDateTime.now())
                 .build());

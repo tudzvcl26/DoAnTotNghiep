@@ -58,6 +58,7 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpoint())
                     .timeout(properties.getReadTimeout())
                     .header("Content-Type", "application/json")
+                    .header("X-Request-Id", request.correlationId())
                     .header("X-Correlation-Id", request.correlationId())
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)));
             if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
@@ -95,7 +96,8 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             Thread.currentThread().interrupt();
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
         } catch (Exception exception) {
-            log.error("OpenAI-compatible provider call failed correlationId={}", request.correlationId(), exception);
+            log.error("OpenAI-compatible provider call failed type={} correlationId={}",
+                    exception.getClass().getSimpleName(), request.correlationId());
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
         }
     }

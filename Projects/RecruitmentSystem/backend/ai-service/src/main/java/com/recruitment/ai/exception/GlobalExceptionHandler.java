@@ -81,7 +81,8 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        log.error("Unhandled {} for {}", exception.getClass().getSimpleName(), request.getRequestURI(), exception);
+        log.error("unhandled_exception type={} method={} path={}", exception.getClass().getSimpleName(),
+                request.getMethod(), request.getRequestURI());
         return response(ErrorCode.INTERNAL_SERVER_ERROR,
                 ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null, request);
     }
@@ -98,6 +99,7 @@ public class GlobalExceptionHandler {
                 .message(message)
                 .retryable(errorCode.isRetryable())
                 .correlationId(CorrelationIds.current(request))
+                .traceId(CorrelationIds.current(request))
                 .path(request.getRequestURI())
                 .details(details)
                 .timestamp(LocalDateTime.now())

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
     private boolean success;
@@ -21,6 +24,7 @@ public class ApiResponse<T> {
     private T data;
     private String path;
     private LocalDateTime timestamp;
+    private String traceId;
 
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
@@ -37,7 +41,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(String code, String message, String path) {
         return ApiResponse.<T>builder()
                 .success(false).code(code).message(message).path(path)
-                .timestamp(LocalDateTime.now()).build();
+                .timestamp(LocalDateTime.now()).traceId(MDC.get("correlationId")).build();
     }
 
 }

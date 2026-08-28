@@ -10,11 +10,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,6 +29,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.FORBIDDEN.value())
+                        .code(ErrorCode.FORBIDDEN.getCode())
                         .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                         .message("Access denied.")
                         .path(request.getRequestURI())
@@ -44,6 +47,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.NOT_FOUND.value())
+                        .code("COMPANY_NOT_FOUND")
                         .error(HttpStatus.NOT_FOUND.getReasonPhrase())
                         .message(ex.getMessage())
                         .path(request.getRequestURI())
@@ -61,6 +65,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.CONFLICT.value())
+                        .code("COMPANY_ALREADY_EXISTS")
                         .error(HttpStatus.CONFLICT.getReasonPhrase())
                         .message(ex.getMessage())
                         .path(request.getRequestURI())
@@ -84,6 +89,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
+                        .code(ErrorCode.VALIDATION_ERROR.getCode())
                         .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                         .message("Validation failed.")
                         .errors(errors)
@@ -102,6 +108,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
+                        .code(ErrorCode.BAD_REQUEST.getCode())
                         .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                         .message(ex.getMessage())
                         .path(request.getRequestURI())
@@ -119,6 +126,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
+                        .code(ErrorCode.BAD_REQUEST.getCode())
                         .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                         .message("Malformed or invalid request.")
                         .path(request.getRequestURI())
@@ -133,9 +141,13 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
 
+        log.error("unhandled_exception type={} method={} path={}", ex.getClass().getSimpleName(),
+                request.getMethod(), request.getRequestURI());
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.builder()
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .code(ErrorCode.INTERNAL_SERVER_ERROR.getCode())
                         .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
                         .message("Internal server error.")
                         .path(request.getRequestURI())

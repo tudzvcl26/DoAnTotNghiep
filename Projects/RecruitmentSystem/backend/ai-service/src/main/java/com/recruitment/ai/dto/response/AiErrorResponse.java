@@ -19,6 +19,7 @@ public class AiErrorResponse {
     private String message;
     private boolean retryable;
     private String correlationId;
+    private String traceId;
     private String path;
     private Map<String, String> details;
     private LocalDateTime timestamp;

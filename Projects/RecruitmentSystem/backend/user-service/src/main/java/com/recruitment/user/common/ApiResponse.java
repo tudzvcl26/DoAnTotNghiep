@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 
@@ -25,6 +26,8 @@ public class ApiResponse<T> {
     private final LocalDateTime timestamp = LocalDateTime.now();
 
     private final String path;
+
+    private final String traceId;
 
     public static <T> ApiResponse<T> success(
             String message,
@@ -65,6 +68,7 @@ public class ApiResponse<T> {
                 .code(code)
                 .message(message)
                 .path(path)
+                .traceId(MDC.get("correlationId"))
                 .build();
     }
 

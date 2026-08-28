@@ -86,6 +86,7 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
             HttpRequest httpRequest = HttpRequest.newBuilder(endpoint("/api/chat"))
                     .timeout(properties.getTimeout())
                     .header("Content-Type", "application/json")
+                    .header("X-Request-Id", request.correlationId())
                     .header("X-Correlation-Id", request.correlationId())
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
@@ -120,7 +121,8 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
             Thread.currentThread().interrupt();
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
         } catch (Exception exception) {
-            log.error("Ollama provider call failed correlationId={}", request.correlationId(), exception);
+            log.error("Ollama provider call failed type={} correlationId={}",
+                    exception.getClass().getSimpleName(), request.correlationId());
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
         }
     }

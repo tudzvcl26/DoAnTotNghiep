@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 
@@ -47,6 +48,8 @@ public class ApiResponse<T> {
      * Đường dẫn API
      */
     private final String path;
+
+    private final String traceId;
 
     /**
      * Response thành công có dữ liệu
@@ -96,6 +99,7 @@ public class ApiResponse<T> {
                 .code(code)
                 .message(message)
                 .path(path)
+                .traceId(MDC.get("correlationId"))
                 .build();
     }
 

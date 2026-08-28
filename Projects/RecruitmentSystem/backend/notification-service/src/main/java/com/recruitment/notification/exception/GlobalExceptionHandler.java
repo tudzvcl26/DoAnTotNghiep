@@ -41,13 +41,15 @@ public class GlobalExceptionHandler {
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.put(error.getField(), error.getDefaultMessage());
         }
-        return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST, "Validation failed.", errors, request));
+        return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST, "COMMON_001",
+                "Validation failed.", errors, request));
     }
 
     @ExceptionHandler({ConstraintViolationException.class, IllegalArgumentException.class,
             HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
-        return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST, "Malformed or invalid request.", null, request));
+        return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST, ErrorCode.BAD_REQUEST.getCode(),
+                "Malformed or invalid request.", null, request));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -65,8 +67,10 @@ public class GlobalExceptionHandler {
                         ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), request.getRequestURI()));
     }
 
-    private ErrorResponse error(HttpStatus status, String message, Map<String, String> errors, HttpServletRequest request) {
-        return ErrorResponse.builder().status(status.value()).error(status.getReasonPhrase()).message(message)
+    private ErrorResponse error(HttpStatus status, String code, String message,
+                                Map<String, String> errors, HttpServletRequest request) {
+        return ErrorResponse.builder().status(status.value()).code(code)
+                .error(status.getReasonPhrase()).message(message)
                 .errors(errors).path(request.getRequestURI()).timestamp(LocalDateTime.now()).build();
     }
 

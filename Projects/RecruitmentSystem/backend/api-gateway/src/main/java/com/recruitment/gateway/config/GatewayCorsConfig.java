@@ -20,8 +20,9 @@ public class GatewayCorsConfig {
         configuration.setAllowedOrigins(properties.allowedOrigins());
         configuration.setAllowCredentials(properties.allowCredentials());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Correlation-ID"));
-        configuration.setExposedHeaders(List.of("X-Correlation-ID"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization", "Content-Type", "Accept", "X-Request-Id", "X-Correlation-ID"));
+        configuration.setExposedHeaders(List.of("X-Request-Id", "X-Correlation-ID"));
         configuration.setMaxAge(Duration.ofHours(1));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -33,7 +34,8 @@ public class GatewayCorsConfig {
     GlobalFilter corsResponseHeaderDeduplicationFilter() {
         DedupeResponseHeaderGatewayFilterFactory.Config config =
                 new DedupeResponseHeaderGatewayFilterFactory.Config();
-        config.setName("Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers");
+        config.setName("Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers "
+                + "X-Request-Id X-Correlation-ID");
         config.setStrategy(DedupeResponseHeaderGatewayFilterFactory.Strategy.RETAIN_FIRST);
 
         return new DedupeResponseHeaderGatewayFilterFactory().apply(config)::filter;

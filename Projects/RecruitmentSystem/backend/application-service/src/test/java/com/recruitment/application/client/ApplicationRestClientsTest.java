@@ -7,11 +7,13 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,7 +22,10 @@ class ApplicationRestClientsTest {
     private HttpServer server;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    @AfterEach void stop() { if (server != null) server.stop(0); }
+    @AfterEach void stop() {
+        MDC.clear();
+        if (server != null) server.stop(0);
+    }
 
     @Test void allClientsHandleNormalResponses() throws Exception {
         UUID id = UUID.randomUUID();
@@ -46,6 +51,22 @@ class ApplicationRestClientsTest {
         assertThatThrownBy(() -> timeoutClient.getJobById(id))
                 .isInstanceOfSatisfying(BusinessException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.DOWNSTREAM_TIMEOUT));
+    }
+
+    @Test void propagatesRequestIdToDownstreamServices() throws Exception {
+        AtomicReference<String> requestId = new AtomicReference<>();
+        AtomicReference<String> legacyCorrelationId = new AtomicReference<>();
+        start(exchange -> {
+            requestId.set(exchange.getRequestHeaders().getFirst("X-Request-Id"));
+            legacyCorrelationId.set(exchange.getRequestHeaders().getFirst("X-Correlation-Id"));
+            respond(exchange, 404, "{}");
+        });
+        MDC.put("correlationId", "application-client-test");
+
+        new JobClientImpl(baseUrl(), 200, 200, mapper).getJobById(UUID.randomUUID());
+
+        assertThat(requestId.get()).isEqualTo("application-client-test");
+        assertThat(legacyCorrelationId.get()).isEqualTo("application-client-test");
     }
 
     private void assertStatus(UUID id, int status, ErrorCode expected) throws Exception {

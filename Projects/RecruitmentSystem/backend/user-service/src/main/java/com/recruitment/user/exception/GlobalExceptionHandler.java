@@ -4,6 +4,7 @@ import com.recruitment.user.common.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -77,10 +78,12 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
 
         body.put("success", false);
+        body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("code", "VALIDATION_ERROR");
         body.put("message", "Validation failed");
         body.put("timestamp", LocalDateTime.now());
         body.put("path", request.getRequestURI());
+        body.put("traceId", MDC.get("correlationId"));
         body.put("errors", validationErrors);
 
         return ResponseEntity.badRequest().body(body);
@@ -178,7 +181,8 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
 
-        log.error("Unhandled exception", ex);
+        log.error("unhandled_exception type={} method={} path={}", ex.getClass().getSimpleName(),
+                request.getMethod(), request.getRequestURI());
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(
