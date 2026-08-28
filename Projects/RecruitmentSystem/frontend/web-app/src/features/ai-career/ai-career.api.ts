@@ -1,7 +1,7 @@
 import { apiClient } from '../../lib/api/client'
 import type { ApiResponse, PageResponse } from '../../types/api/common'
 import type {
-  AiResume, AiTask, AssistantResponse, CandidateAssistantTask, InterviewPreparation,
+  AiResume, AiTask, AssistantResponse, CandidateAssistantTask, CareerChatResponse, InterviewPreparation,
   MatchExplanation, MatchingResult, ResumeAnalysis,
   JobRecommendation,
 } from './ai-career.types'
@@ -40,6 +40,15 @@ export async function runCandidateAssistant(task: CandidateAssistantTask, resume
   const response = await apiClient.post<ApiResponse<AssistantResponse>>(`${AI}/assistant/candidate`, {
     task, resumeId, ...(matchId ? { matchId } : {}),
   })
+  return response.data.data
+}
+
+export async function chatWithCareerCompanion(payload: {
+  message: string
+  resumeId?: string
+  jobId?: string
+}): Promise<CareerChatResponse> {
+  const response = await apiClient.post<ApiResponse<CareerChatResponse>>(`${AI}/career/chat`, payload)
   return response.data.data
 }
 

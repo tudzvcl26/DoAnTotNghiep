@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, ArrowRight, BrainCircuit, BriefcaseBusiness, CheckCircle2, FileSearch,
-  FileText, GraduationCap, History, LoaderCircle, RefreshCw, ShieldCheck, Sparkles,
-  Target, Trash2, UploadCloud,
+  FileText, GraduationCap, History, LoaderCircle, MessageCircle, RefreshCw, Send,
+  ShieldCheck, Sparkles, Target, Trash2, UploadCloud, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -12,9 +12,10 @@ import {
   analyzeAiResume, deleteAiResume, generateInterviewPreparation, generateMatchExplanation,
   getAiResumeAnalysis, getAiResumes, getAiTasks, getResumeMatches, matchJob,
   runCandidateAssistant, uploadAiResume, getJobRecommendations, refreshJobRecommendations,
+  chatWithCareerCompanion,
 } from './ai-career.api'
 import {
-  candidateAssistantTasks, type AssistantResponse, type CandidateAssistantTask,
+  candidateAssistantTasks, type AssistantResponse, type CandidateAssistantTask, type CareerChatResponse,
   type InterviewPreparation, type JsonValue, type MatchExplanation, type MatchingResult,
 } from './ai-career.types'
 import './ai-career.css'
@@ -84,6 +85,9 @@ export function AiCareerPage() {
   const [activeMatch, setActiveMatch] = useState<MatchingResult | null>(null)
   const [explanation, setExplanation] = useState<MatchExplanation | null>(null)
   const [interview, setInterview] = useState<InterviewPreparation | null>(null)
+  const [chatMessage, setChatMessage] = useState('')
+  const [lastChatMessage, setLastChatMessage] = useState('')
+  const [chatResult, setChatResult] = useState<CareerChatResponse | null>(null)
 
   const resumes = useQuery({ queryKey: ['ai-resumes'], queryFn: getAiResumes })
   const resumeItems = useMemo(() => resumes.data?.content ?? [], [resumes.data])
@@ -148,6 +152,14 @@ export function AiCareerPage() {
     mutationFn: ({ task, resumeId, matchId }: { task: CandidateAssistantTask; resumeId: string; matchId?: string }) => runCandidateAssistant(task, resumeId, matchId),
     onSuccess: async (result) => { setAssistantResult(result); await queryClient.invalidateQueries({ queryKey: ['ai-tasks'] }) },
   })
+  const careerChat = useMutation({
+    mutationFn: (message: string) => chatWithCareerCompanion({
+      message,
+      ...(selectedResume?.status === 'ANALYZED' ? { resumeId: selectedResume.id } : {}),
+      ...(jobId ? { jobId } : {}),
+    }),
+    onSuccess: (result) => setChatResult(result),
+  })
   const matching = useMutation({
     mutationFn: ({ selectedJob, resumeId }: { selectedJob: string; resumeId: string }) => matchJob(selectedJob, resumeId),
     onSuccess: async (result) => {
@@ -194,6 +206,13 @@ export function AiCareerPage() {
     assistant.mutate({ task, resumeId: selectedResumeId, matchId: activeMatch?.id })
   }
 
+  const sendChat = () => {
+    const message = chatMessage.trim()
+    if (message.length < 3 || careerChat.isPending) return
+    setLastChatMessage(message); setChatResult(null)
+    careerChat.mutate(message)
+  }
+
   const mutationError = upload.error ?? remove.error
 
   return <main className="ai-career-page">
@@ -202,10 +221,27 @@ export function AiCareerPage() {
       <div className="ai-career-hero__model"><BrainCircuit /><span>AI đang sử dụng</span><strong>Qwen2.5:3B-Instruct</strong><small>Chạy cục bộ qua hệ thống bảo mật</small></div>
     </header>
 
-    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#ai-resume">Phân tích CV</a><a href="#job-recommendations">Gợi ý việc làm</a><a href="#career-assistant">Lộ trình nghề nghiệp</a><a href="#job-matching">Độ phù hợp</a><a href="#ai-history">Lịch sử</a></nav>
+    <nav className="ai-career-nav" aria-label="Đi đến khu vực AI Career"><a href="#career-chat">Hỏi trợ lý</a><a href="#ai-resume">Phân tích CV</a><a href="#job-recommendations">Gợi ý việc làm</a><a href="#career-assistant">Lộ trình nghề nghiệp</a><a href="#job-matching">Độ phù hợp</a><a href="#ai-history">Lịch sử</a></nav>
 
     {notice && <div className="ai-success" role="status"><CheckCircle2 /> {notice}</div>}
     {mutationError && <ErrorNotice error={mutationError} />}
+
+    <section className="ai-section" id="career-chat" aria-labelledby="career-chat-title">
+      <div className="ai-section__heading"><div><span>AI Career Companion</span><h2 id="career-chat-title">Hỏi trợ lý nghề nghiệp</h2><p>Đặt câu hỏi bằng bất kỳ ngôn ngữ nào; câu trả lời luôn bằng tiếng Việt và chỉ dùng dữ liệu thuộc về bạn.</p></div><MessageCircle /></div>
+      <div className="ai-chat-context" aria-label="Ngữ cảnh trợ lý đang sử dụng">
+        <span>Hồ sơ Candidate hiện tại</span>
+        <span>{selectedResume?.status === 'ANALYZED' ? `CV: ${selectedResume.originalFilename}` : 'Chưa chọn CV đã phân tích'}</span>
+        <span>{jobId ? `Việc làm: ${jobsById.get(jobId)?.title ?? 'đang chọn'}` : 'Không chọn việc làm cụ thể'}</span>
+      </div>
+      <div className="ai-chat-compose">
+        <label htmlFor="career-chat-message">Câu hỏi của bạn</label>
+        <textarea id="career-chat-message" rows={4} maxLength={2000} value={chatMessage} onChange={(event) => setChatMessage(event.target.value)} placeholder="Ví dụ: What skills should I improve for a Java Developer role?" disabled={careerChat.isPending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) sendChat() }} />
+        <div><small>{chatMessage.length}/2000 · Ctrl/⌘ + Enter để gửi</small><span><button type="button" className="ai-chat-clear" onClick={() => { setChatMessage(''); setChatResult(null); careerChat.reset() }} disabled={careerChat.isPending || (!chatMessage && !chatResult)}><X /> Xóa</button><button type="button" className="ai-primary" onClick={sendChat} disabled={chatMessage.trim().length < 3 || careerChat.isPending}>{careerChat.isPending ? <><LoaderCircle className="ai-spin" /> Đang suy nghĩ...</> : <><Send /> Gửi câu hỏi</>}</button></span></div>
+      </div>
+      {careerChat.isError && <ErrorNotice error={careerChat.error} onRetry={() => lastChatMessage && careerChat.mutate(lastChatMessage)} />}
+      {!careerChat.isPending && !careerChat.isError && !chatResult && <div className="ai-empty ai-chat-empty"><MessageCircle /><strong>Chưa có câu trả lời</strong><p>Trợ lý không dùng phản hồi mẫu và chỉ gọi mô hình khi bạn gửi câu hỏi.</p></div>}
+      {chatResult && <article className="ai-generated-result ai-chat-answer" aria-live="polite"><header><div><span>Câu trả lời tiếng Việt</span><h3>Trợ lý nghề nghiệp</h3></div><Sparkles /></header><p>{chatResult.answer}</p><ResultMeta provider={chatResult.providerName} model={chatResult.modelName} duration={chatResult.generationDurationMs} /></article>}
+    </section>
 
     <section className="ai-section" id="ai-resume" aria-labelledby="ai-resume-title">
       <div className="ai-section__heading"><div><span>Bước 1 · Dữ liệu đầu vào</span><h2 id="ai-resume-title">CV dùng cho AI</h2><p>AI Service có kho CV riêng. Bạn cần tải CV lên đây dù đã có CV ứng tuyển trong hồ sơ Candidate.</p></div><FileSearch /></div>

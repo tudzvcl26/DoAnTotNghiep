@@ -64,6 +64,16 @@ export type AssistantResponse = {
   createdAt: string
 }
 
+export type CareerChatResponse = {
+  answer: string
+  language: 'vi'
+  providerName: string
+  modelName: string
+  correctionAttempts: number
+  generationDurationMs: number
+  correlationId: string
+}
+
 export type MatchBreakdown = { dimension: string; maximumScore: number; actualScore: number; reason: string }
 
 export type MatchingResult = {

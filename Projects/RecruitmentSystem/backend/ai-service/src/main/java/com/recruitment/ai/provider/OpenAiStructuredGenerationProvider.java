@@ -16,7 +16,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Slf4j
@@ -42,15 +44,17 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(properties.getConnectTimeout())
                     .build();
-            Map<String, Object> payload = Map.of(
-                    "model", request.model(),
-                    "temperature", 0,
-                    "messages", List.of(
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", request.model());
+            payload.put("temperature", 0);
+            payload.put("messages", List.of(
                             Map.of("role", "system", "content", request.systemPrompt()),
                             Map.of("role", "user", "content", request.userPrompt())
-                    ),
-                    "response_format", Map.of("type", "json_object")
-            );
+                    ));
+            payload.put("response_format", Map.of("type", "json_object"));
+            if (request.maxOutputTokens() > 0) {
+                payload.put("max_completion_tokens", request.maxOutputTokens());
+            }
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpoint())
                     .timeout(properties.getReadTimeout())
                     .header("Content-Type", "application/json")
@@ -61,6 +65,10 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             }
             HttpRequest httpRequest = requestBuilder.build();
             HttpResponse<String> response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 404 && response.body() != null
+                    && response.body().toLowerCase().contains("model")) {
+                throw new BusinessException(ErrorCode.PROVIDER_MODEL_UNAVAILABLE);
+            }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.error("OpenAI-compatible provider returned HTTP {} correlationId={}",
                         response.statusCode(), request.correlationId());
@@ -70,7 +78,7 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             JsonNode root = objectMapper.readTree(response.body());
             String content = root.path("choices").path(0).path("message").path("content").asText(null);
             if (content == null || content.isBlank()) {
-                throw new BusinessException(ErrorCode.RESUME_ANALYSIS_INVALID);
+                throw new BusinessException(ErrorCode.PROVIDER_EMPTY_RESPONSE);
             }
             return new StructuredGenerationResult(
                     "openai",
@@ -81,6 +89,8 @@ public class OpenAiStructuredGenerationProvider implements StructuredGenerationP
             );
         } catch (BusinessException exception) {
             throw exception;
+        } catch (HttpTimeoutException exception) {
+            throw new BusinessException(ErrorCode.PROVIDER_TIMEOUT);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);

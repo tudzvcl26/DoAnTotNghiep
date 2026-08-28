@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
             AccessDeniedException exception,
             HttpServletRequest request
     ) {
-        return response(ErrorCode.FORBIDDEN, exception.getMessage(), null, request);
+        return response(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.getMessage(), null, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

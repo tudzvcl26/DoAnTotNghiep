@@ -30,26 +30,26 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
         Throwable cause = rootCause(Exceptions.unwrap(error));
         if (isTimeout(cause)) {
             return responseWriter.write(exchange, HttpStatus.GATEWAY_TIMEOUT,
-                    "GATEWAY_TIMEOUT", "The upstream service did not respond in time");
+                    "GATEWAY_TIMEOUT", "Dịch vụ phía sau không phản hồi kịp thời.");
         }
         if (cause instanceof ConnectException || cause instanceof ConnectTimeoutException
                 || cause instanceof UnknownHostException) {
             return responseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE,
-                    "GATEWAY_UPSTREAM_UNAVAILABLE", "The upstream service is unavailable");
+                    "GATEWAY_UPSTREAM_UNAVAILABLE", "Dịch vụ phía sau hiện không khả dụng.");
         }
         if (cause instanceof ResponseStatusException responseStatusException) {
             HttpStatus status = HttpStatus.resolve(responseStatusException.getStatusCode().value());
             if (status != null) {
                 return responseWriter.write(exchange, status, "GATEWAY_REQUEST_REJECTED",
-                        "The gateway could not process the request");
+                        "Gateway không thể xử lý yêu cầu này.");
             }
         }
         if (cause instanceof PrematureCloseException) {
             return responseWriter.write(exchange, HttpStatus.BAD_GATEWAY,
-                    "GATEWAY_BAD_RESPONSE", "The upstream service closed the connection unexpectedly");
+                    "GATEWAY_BAD_RESPONSE", "Dịch vụ phía sau đã đóng kết nối ngoài dự kiến.");
         }
         return responseWriter.write(exchange, HttpStatus.BAD_GATEWAY,
-                "GATEWAY_ERROR", "The gateway could not complete the upstream request");
+                "GATEWAY_ERROR", "Gateway không thể hoàn tất yêu cầu đến dịch vụ phía sau.");
     }
 
     private boolean isTimeout(Throwable error) {

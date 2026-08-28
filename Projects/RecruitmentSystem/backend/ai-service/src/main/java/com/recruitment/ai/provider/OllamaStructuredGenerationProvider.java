@@ -18,7 +18,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -65,6 +67,12 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
 
         try {
             JsonNode responseFormat = ollamaResponseFormat(request.outputSchema());
+            Map<String, Object> options = new LinkedHashMap<>();
+            options.put("temperature", properties.getTemperature());
+            options.put("top_p", properties.getTopP());
+            if (request.maxOutputTokens() > 0) {
+                options.put("num_predict", request.maxOutputTokens());
+            }
             Map<String, Object> payload = Map.of(
                     "model", properties.getModel(),
                     "messages", List.of(
@@ -73,10 +81,7 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
                     ),
                     "stream", false,
                     "format", responseFormat,
-                    "options", Map.of(
-                            "temperature", properties.getTemperature(),
-                            "top_p", properties.getTopP()
-                    )
+                    "options", options
             );
             HttpRequest httpRequest = HttpRequest.newBuilder(endpoint("/api/chat"))
                     .timeout(properties.getTimeout())
@@ -85,6 +90,11 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 404 && response.body() != null
+                    && response.body().toLowerCase().contains("model")) {
+                log.warn("Ollama model is unavailable correlationId={}", request.correlationId());
+                throw new BusinessException(ErrorCode.PROVIDER_MODEL_UNAVAILABLE);
+            }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.error("Ollama returned HTTP {} correlationId={}", response.statusCode(), request.correlationId());
                 throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
@@ -93,7 +103,7 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
             JsonNode root = objectMapper.readTree(response.body());
             String content = root.path("message").path("content").asText(null);
             if (content == null || content.isBlank()) {
-                throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);
+                throw new BusinessException(ErrorCode.PROVIDER_EMPTY_RESPONSE);
             }
             return new StructuredGenerationResult(
                     "ollama",
@@ -104,6 +114,8 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
             );
         } catch (BusinessException exception) {
             throw exception;
+        } catch (HttpTimeoutException exception) {
+            throw new BusinessException(ErrorCode.PROVIDER_TIMEOUT);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new BusinessException(ErrorCode.PROVIDER_UNAVAILABLE);

@@ -73,6 +73,7 @@ ai:
     recruitment-service-url: ${RECRUITMENT_SERVICE_URL}
     company-service-url: ${COMPANY_SERVICE_URL}
     user-service-url: ${USER_SERVICE_URL:http://localhost:8082}
+    application-service-url: ${APPLICATION_SERVICE_URL:http://localhost:8085}
     connect-timeout: ${AI_CLIENT_CONNECT_TIMEOUT}
     read-timeout: ${AI_CLIENT_READ_TIMEOUT}
   matching:

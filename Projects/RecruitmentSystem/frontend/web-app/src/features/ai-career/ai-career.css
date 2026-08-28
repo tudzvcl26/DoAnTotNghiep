@@ -133,6 +133,20 @@
 .ai-task-history p { margin: .2rem 0 0; color: var(--color-text-muted); font-size: .75rem; }
 .ai-task-history time { color: var(--color-text-muted); font-size: .75rem; }
 .ai-loading { display: flex; align-items: center; gap: .5rem; color: var(--color-text-muted); }
+.ai-chat-context { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
+.ai-chat-context span { padding: .35rem .65rem; border-radius: 999px; color: var(--color-primary-800); background: var(--color-primary-50); font-size: .76rem; font-weight: 700; }
+.ai-chat-compose { margin-top: 1rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: .9rem; background: var(--color-surface-soft); }
+.ai-chat-compose label { display: block; margin-bottom: .45rem; color: var(--color-navy-950); font-weight: 750; }
+.ai-chat-compose textarea { display: block; width: 100%; resize: vertical; min-height: 7rem; padding: .8rem; border: 1px solid var(--color-border-strong); border-radius: .7rem; color: var(--color-text); background: #fff; font: inherit; line-height: 1.55; }
+.ai-chat-compose textarea:focus { border-color: var(--color-primary-500); outline: 3px solid var(--color-primary-50); }
+.ai-chat-compose > div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; }
+.ai-chat-compose > div > small { color: var(--color-text-muted); }
+.ai-chat-compose > div > span { display: flex; gap: .5rem; }
+.ai-chat-clear { display: inline-flex; align-items: center; gap: .35rem; padding: .68rem .9rem; border: 1px solid var(--color-border-strong); border-radius: .7rem; color: var(--color-text-muted); background: #fff; font-weight: 750; cursor: pointer; }
+.ai-chat-clear:disabled { opacity: .55; cursor: not-allowed; }
+.ai-chat-clear svg, .ai-chat-compose .ai-primary svg { width: 1rem; }
+.ai-chat-empty { margin-top: .75rem; padding-bottom: .25rem; }
+.ai-chat-answer > p { margin: 1rem 0 0; white-space: pre-wrap; line-height: 1.75; }
 .ai-empty { padding: 1.5rem; color: var(--color-text-muted); text-align: center; }
 .ai-empty > svg { width: 2rem; height: 2rem; color: var(--color-primary-500); }
 .ai-empty strong, .ai-empty p { display: block; margin: .4rem 0; }
@@ -162,4 +176,6 @@
   .ai-task-history article { grid-template-columns: 1fr auto; }
   .ai-task-history article > .ai-status { grid-column: 1/-1; }
   .ai-prerequisite { align-items: flex-start; flex-wrap: wrap; }
+  .ai-chat-compose > div { align-items: stretch; flex-direction: column; }
+  .ai-chat-compose > div > span, .ai-chat-compose button { flex: 1; }
 }

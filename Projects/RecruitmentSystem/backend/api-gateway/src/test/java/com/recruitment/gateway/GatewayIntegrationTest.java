@@ -220,6 +220,7 @@ class GatewayIntegrationTest {
                 .expectBody()
                 .jsonPath("$.status").isEqualTo(504)
                 .jsonPath("$.code").isEqualTo("GATEWAY_TIMEOUT")
+                .jsonPath("$.message").isEqualTo("Dịch vụ phía sau không phản hồi kịp thời.")
                 .jsonPath("$.traceId").isNotEmpty();
     }
 
@@ -255,7 +256,7 @@ class GatewayIntegrationTest {
                 .expectBody()
                 .jsonPath("$.status").isEqualTo(503)
                 .jsonPath("$.code").isEqualTo("GATEWAY_UPSTREAM_UNAVAILABLE")
-                .jsonPath("$.message").isEqualTo("The upstream service is unavailable");
+                .jsonPath("$.message").isEqualTo("Dịch vụ phía sau hiện không khả dụng.");
     }
 
     private static DisposableServer startUpstream(String service) {
@@ -320,7 +321,7 @@ class GatewayIntegrationTest {
         authorizedGet("/api/v1/users/me", token).exchange()
                 .expectStatus().isUnauthorized()
                 .expectBody().jsonPath("$.code").isEqualTo("GATEWAY_UNAUTHORIZED")
-                .jsonPath("$.message").isEqualTo("A valid access token is required");
+                .jsonPath("$.message").isEqualTo("Cần access token hợp lệ để truy cập.");
     }
 
     private static String validToken() {

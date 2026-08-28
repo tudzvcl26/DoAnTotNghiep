@@ -51,7 +51,7 @@ public class JwtAuthenticationFilter implements WebFilter, Ordered {
 
     private Mono<Void> unauthorized(ServerWebExchange exchange) {
         return responseWriter.write(exchange, HttpStatus.UNAUTHORIZED,
-                "GATEWAY_UNAUTHORIZED", "A valid access token is required");
+                "GATEWAY_UNAUTHORIZED", "Cần access token hợp lệ để truy cập.");
     }
 
     @Override
