@@ -39,6 +39,7 @@ export function CvEditorPage() {
   const [loadedId, setLoadedId] = useState<string | null>(null)
   const [historyRevision, setHistoryRevision] = useState(0)
   const profileImportStarted = useRef(false)
+  const attemptedAutosaveSignature = useRef<string | null>(null)
   const undoStack = useRef<EditorSnapshot[]>([])
   const redoStack = useRef<EditorSnapshot[]>([])
   const currentRef = useRef<EditorSnapshot>({ title, templateId, language, content })
@@ -85,8 +86,12 @@ export function CvEditorPage() {
 
   useEffect(() => { if (id || params.get('source') !== 'profile' || profileImportStarted.current) return; profileImportStarted.current = true; autofill.mutate() }, [id, params, autofill])
   useEffect(() => {
-    if (!dirty || save.isPending || autofill.isPending || params.get('source') === 'profile' || (id && loadedId !== id)) return
-    const timer = window.setTimeout(() => { const current = currentRef.current; persist({ title: current.title.trim() || 'CV tiếng Việt', templateId: current.templateId, language: current.language, content: current.content }) }, 900)
+    if (!dirty || attemptedAutosaveSignature.current === signature || save.isPending || autofill.isPending || params.get('source') === 'profile' || (id && loadedId !== id)) return
+    const timer = window.setTimeout(() => {
+      const current = currentRef.current
+      attemptedAutosaveSignature.current = snapshotSignature(current)
+      persist({ title: current.title.trim() || 'CV tiếng Việt', templateId: current.templateId, language: current.language, content: current.content })
+    }, 900)
     return () => window.clearTimeout(timer)
   }, [dirty, signature, id, loadedId, params, save.isPending, autofill.isPending, persist])
   useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault() }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn) }, [dirty])
