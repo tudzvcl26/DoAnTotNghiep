@@ -32,6 +32,7 @@ const lazyNamed = <T extends Record<string, unknown>>(loader: () => Promise<T>, 
 const AiCareerPage = lazyNamed(() => import('../../features/ai-career/AiCareerPage'), 'AiCareerPage')
 const CvListPage = lazyNamed(() => import('../../features/cv-builder/CvListPage'), 'CvListPage')
 const CvTemplatesPage = lazyNamed(() => import('../../features/cv-builder/CvTemplatesPage'), 'CvTemplatesPage')
+const CvTemplatePreviewPage = lazyNamed(() => import('../../features/cv-builder/CvTemplatePreviewPage'), 'CvTemplatePreviewPage')
 const CvEditorPage = lazyNamed(() => import('../../features/cv-builder/CvEditorPage'), 'CvEditorPage')
 const CvPreviewPage = lazyNamed(() => import('../../features/cv-builder/CvPreviewPage'), 'CvPreviewPage')
 const EmployerDashboardPage = lazyNamed(() => import('../../features/employer/EmployerDashboardPage'), 'EmployerDashboardPage')
@@ -82,6 +83,7 @@ export function AppRouter() {
         <Route path="candidate/ai-career" element={<AiCareerPage />} />
         <Route path="cv" element={<CvListPage />} />
         <Route path="cv/templates" element={<CvTemplatesPage />} />
+        <Route path="cv/templates/:templateId" element={<CvTemplatePreviewPage />} />
         <Route path="cv/new" element={<CvEditorPage />} />
         <Route path="cv/:id/edit" element={<CvEditorPage />} />
         <Route path="cv/:id/preview" element={<CvPreviewPage />} />

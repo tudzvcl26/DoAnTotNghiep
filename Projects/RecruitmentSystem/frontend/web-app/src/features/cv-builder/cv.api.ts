@@ -11,7 +11,7 @@ export const cvApi = {
   createFromProfile: async (title: string, templateId: CvTemplateId) => unwrap(await apiClient.post<ApiResponse<CandidateCv>>('/api/v1/cvs/from-profile', { title, templateId })),
   update: async (id: string, payload: SaveCvPayload) => unwrap(await apiClient.put<ApiResponse<CandidateCv>>(`/api/v1/cvs/${id}`, payload)),
   remove: async (id: string) => { await apiClient.delete(`/api/v1/cvs/${id}`) },
-  download: async (id: string) => (await apiClient.get<Blob>(`/api/v1/cvs/${id}/pdf`, { responseType: 'blob' })).data,
+  download: async (id: string) => (await apiClient.get<Blob>(`/api/v1/cvs/${id}/pdf`, { responseType: 'blob', headers: { Accept: 'application/pdf' } })).data,
 }
 
 export function saveBlob(blob: Blob, filename: string) {

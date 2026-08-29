@@ -3,6 +3,7 @@ import { Download, Eye, FilePlus2, Pencil, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cvApi, saveBlob } from './cv.api'
 import { cvTemplates } from './cv.templates'
+import { CvPreview } from './components/CvPreview'
 import './cv-builder.css'
 
 export function CvListPage() {
@@ -18,7 +19,7 @@ export function CvListPage() {
     {!cvs.isLoading && (cvs.data?.length ?? 0) === 0 && <div className="cv-empty"><FilePlus2 /><h2>Bắt đầu CV đầu tiên</h2><p>Chọn một mẫu, nhập nội dung và xem trước ngay khi chỉnh sửa.</p><Link className="cv-button cv-button--primary" to="/cv/templates">Khám phá mẫu CV</Link></div>}
     <section className="cv-list" aria-label="Danh sách CV đã tạo">
       {cvs.data?.map((cv) => <article className="cv-list-card" key={cv.id}>
-        <div className={`cv-list-card__thumb cv-list-card__thumb--${cv.templateId}`}><span>{cv.content.personalInfo.fullName || 'CV'}</span><small>{cv.content.personalInfo.headline || cv.title}</small></div>
+        <Link className="cv-list-card__thumb" to={`/cv/${cv.id}/preview`} aria-label={`Xem trước ${cv.title}`}><CvPreview compact content={cv.content} templateId={cv.templateId} /></Link>
         <div className="cv-list-card__body"><span>{cvTemplates.find((item) => item.id === cv.templateId)?.name}</span><h2>{cv.title}</h2><p>Cập nhật {new Date(cv.updatedAt).toLocaleString('vi-VN')}</p></div>
         <div className="cv-list-card__actions">
           <Link to={`/cv/${cv.id}/edit`}><Pencil /> Chỉnh sửa</Link><Link to={`/cv/${cv.id}/preview`}><Eye /> Xem</Link>
