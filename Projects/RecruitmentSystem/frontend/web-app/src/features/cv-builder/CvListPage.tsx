@@ -19,7 +19,7 @@ export function CvListPage() {
     {!cvs.isLoading && (cvs.data?.length ?? 0) === 0 && <div className="cv-empty"><FilePlus2 /><h2>Bắt đầu CV đầu tiên</h2><p>Chọn một mẫu, nhập nội dung và xem trước ngay khi chỉnh sửa.</p><Link className="cv-button cv-button--primary" to="/cv/templates">Khám phá mẫu CV</Link></div>}
     <section className="cv-list" aria-label="Danh sách CV đã tạo">
       {cvs.data?.map((cv) => <article className="cv-list-card" key={cv.id}>
-        <Link className="cv-list-card__thumb" to={`/cv/${cv.id}/preview`} aria-label={`Xem trước ${cv.title}`}><CvPreview compact content={cv.content} templateId={cv.templateId} /></Link>
+        <Link className="cv-list-card__thumb" to={`/cv/${cv.id}/preview`} aria-label={`Xem trước ${cv.title}`}><CvPreview compact content={cv.content} templateId={cv.templateId} language={cv.language} /></Link>
         <div className="cv-list-card__body"><span>{cvTemplates.find((item) => item.id === cv.templateId)?.name}</span><h2>{cv.title}</h2><p>Cập nhật {new Date(cv.updatedAt).toLocaleString('vi-VN')}</p></div>
         <div className="cv-list-card__actions">
           <Link to={`/cv/${cv.id}/edit`}><Pencil /> Chỉnh sửa</Link><Link to={`/cv/${cv.id}/preview`}><Eye /> Xem</Link>

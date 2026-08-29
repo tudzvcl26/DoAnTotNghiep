@@ -48,6 +48,9 @@ class CandidateCvIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.personalInfo.fullName").value("Nguyễn Văn An"))
+                .andExpect(jsonPath("$.data.content.designConfig.fontFamily").value("Inter"))
+                .andExpect(jsonPath("$.data.content.designConfig.layout").value("header"))
+                .andExpect(jsonPath("$.data.content.customSections").isEmpty())
                 .andExpect(jsonPath("$.data.candidateId").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         UUID cvId = UUID.fromString(objectMapper.readTree(response).path("data").path("id").asText());
@@ -98,6 +101,46 @@ class CandidateCvIntegrationTest {
                 .andExpect(jsonPath("$.data.content.personalInfo.email").value("profile-cv@example.test"))
                 .andReturn().getResponse().getContentAsString();
         UUID cvId = UUID.fromString(objectMapper.readTree(response).path("data").path("id").asText());
+        mockMvc.perform(delete("/api/v1/cvs/" + cvId).header("Authorization", auth)).andExpect(status().isOk());
+    }
+
+    @Test
+    void persistsProfessionalDesignSectionOrderVisibilityAndCustomSections() throws Exception {
+        UUID candidate = UUID.randomUUID();
+        String auth = "Bearer " + token(candidate, "design@cv.test", "CANDIDATE");
+        String body = """
+                {
+                  "title":"CV Thiết kế","templateId":"modern","language":"vi",
+                  "content":{
+                    "personalInfo":{"fullName":"Nguyễn Đình Tuấn Tú","headline":"Java Developer","email":"design@cv.test","phone":"","location":"Hà Nội","website":""},
+                    "summary":"Nội dung phải được ẩn trong PDF.","experiences":[],"education":[],"skills":["Java"],"projects":[],"certifications":[],"awards":[],"activities":[],
+                    "designConfig":{"fontFamily":"Georgia","fontScale":1.1,"theme":{"id":"navy","primaryColor":"#173B66","secondaryColor":"#E8EEF6","textColor":"#172033","mutedColor":"#667085","backgroundColor":"#FFFFFF"},"density":"comfortable","layout":"sidebar-right","sectionOrder":["skills","custom:hobbies","summary"],"sectionVisibility":{"summary":false}},
+                    "customSections":[{"id":"hobbies","title":"Sở thích","visible":true,"items":[{"name":"Đọc sách kỹ thuật","date":"Hàng tuần","description":"Chia sẻ kiến thức cùng cộng đồng."}]}]
+                  }
+                }
+                """;
+        String response = mockMvc.perform(post("/api/v1/cvs").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.designConfig.fontFamily").value("Georgia"))
+                .andExpect(jsonPath("$.data.content.designConfig.fontScale").value(1.1))
+                .andExpect(jsonPath("$.data.content.designConfig.layout").value("sidebar-right"))
+                .andExpect(jsonPath("$.data.content.designConfig.sectionOrder[0]").value("skills"))
+                .andExpect(jsonPath("$.data.content.designConfig.sectionVisibility.summary").value(false))
+                .andExpect(jsonPath("$.data.content.customSections[0].title").value("Sở thích"))
+                .andReturn().getResponse().getContentAsString();
+        UUID cvId = UUID.fromString(objectMapper.readTree(response).path("data").path("id").asText());
+
+        mockMvc.perform(get("/api/v1/cvs/" + cvId).header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.designConfig.theme.primaryColor").value("#173B66"))
+                .andExpect(jsonPath("$.data.content.customSections[0].items[0].name").value("Đọc sách kỹ thuật"));
+        byte[] pdf = mockMvc.perform(get("/api/v1/cvs/" + cvId + "/pdf").header("Authorization", auth))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.pdmodel.PDDocument.load(pdf)) {
+            String text = new org.apache.pdfbox.text.PDFTextStripper().getText(document);
+            assertThat(text).contains("SỞ THÍCH", "Đọc sách kỹ thuật", "KỸ NĂNG").doesNotContain("Nội dung phải được ẩn");
+        }
         mockMvc.perform(delete("/api/v1/cvs/" + cvId).header("Authorization", auth)).andExpect(status().isOk());
     }
 

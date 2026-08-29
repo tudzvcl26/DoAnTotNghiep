@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type FocusEvent, type FormEvent, useEffect, useRef } from 'react'
+import { type KeyboardEvent, type FocusEvent, type FormEvent, useCallback, useLayoutEffect, useRef } from 'react'
 
 type EditableTextProps = {
   value: string
@@ -14,8 +14,15 @@ type EditableTextProps = {
 export function EditableText({ value, placeholder, label, multiline = false, className = '', onChange, onEditStart, onEditEnd }: EditableTextProps) {
   const elementRef = useRef<HTMLElement | null>(null)
   const initialValue = useRef(value)
+  const latestValue = useRef(value)
+  latestValue.current = value
 
-  useEffect(() => {
+  const setElementRef = useCallback((element: HTMLElement | null) => {
+    elementRef.current = element
+    if (element) element.innerText = latestValue.current
+  }, [])
+
+  useLayoutEffect(() => {
     const element = elementRef.current
     if (!element || document.activeElement === element || element.innerText === value) return
     element.innerText = value
@@ -26,6 +33,7 @@ export function EditableText({ value, placeholder, label, multiline = false, cla
     if (event.key === 'Escape') {
       event.preventDefault()
       onChange(initialValue.current)
+      if (elementRef.current) elementRef.current.innerText = initialValue.current
       elementRef.current?.blur()
       return
     }
@@ -42,7 +50,7 @@ export function EditableText({ value, placeholder, label, multiline = false, cla
   const Tag = multiline ? 'div' : 'span'
 
   return <Tag
-    ref={(node) => { elementRef.current = node }}
+    ref={setElementRef}
     className={`cv-inline-text${multiline ? ' is-multiline' : ''}${className ? ` ${className}` : ''}`}
     contentEditable
     suppressContentEditableWarning
@@ -55,5 +63,5 @@ export function EditableText({ value, placeholder, label, multiline = false, cla
     onInput={input}
     onKeyDown={keyDown}
     onBlur={blur}
-  >{value}</Tag>
+  />
 }

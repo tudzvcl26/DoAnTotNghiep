@@ -1,4 +1,4 @@
-import type { CvContent, CvTemplateId } from './cv.types'
+import { defaultCvDesignConfig, type CvContent, type CvTemplateId } from './cv.types'
 
 export type CvTemplate = {
   id: CvTemplateId
@@ -23,5 +23,5 @@ export const sampleCv: CvContent = {
   experiences: [{ position: 'Product Executive', company: 'Công ty Công nghệ Việt', startDate: '2023', endDate: 'Hiện tại', description: 'Phối hợp cùng đội ngũ kỹ thuật để cải thiện trải nghiệm sản phẩm.' }],
   education: [{ school: 'Đại học Kinh tế', degree: 'Cử nhân Quản trị kinh doanh', startDate: '2019', endDate: '2023', description: '' }],
   skills: ['Phân tích dữ liệu', 'Quản lý dự án', 'Giao tiếp'],
-  projects: [], certifications: [], awards: [], activities: [],
+  projects: [], certifications: [], awards: [], activities: [], customSections: [], designConfig: defaultCvDesignConfig('modern'),
 }

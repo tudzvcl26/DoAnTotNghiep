@@ -6,6 +6,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +26,25 @@ class CvPdfServiceTest {
             assertThat(pdf.getPage(0).getMediaBox().getWidth()).isCloseTo(595.28f, within(0.2f));
             assertThat(pdf.getPage(0).getMediaBox().getHeight()).isCloseTo(841.89f, within(0.2f));
             assertThat(new PDFTextStripper().getText(pdf)).contains("Nguyễn Thị Ánh", "KỸ NĂNG", "Spring Boot");
+        }
+    }
+
+    @Test
+    void appliesDesignVisibilityOrderAndCustomSectionsToPdf() throws Exception {
+        CvDocument.CvDesignConfig design = new CvDocument.CvDesignConfig("Georgia", .9,
+                new CvDocument.CvThemeConfig("burgundy", "#7A1F3D", "#F7E9EE", "#21181B", "#75666B", "#FFFFFF"),
+                "compact", "sidebar-left", List.of("skills", "custom:references", "summary"), Map.of("summary", false));
+        CvDocument cv = new CvDocument(
+                new CvDocument.CvPersonalInfo("Nguyễn Đình Tuấn Tú", "Java Developer", "tu@example.test", "", "Hà Nội", ""),
+                "Mục này phải được ẩn", List.of(), List.of(), List.of("Spring Boot"), List.of(), List.of(), List.of(), List.of(), design,
+                List.of(new CvDocument.CvCustomSection("references", "Người tham chiếu",
+                        List.of(new CvDocument.CvNamedItem("Trần Minh Anh", "Tech Lead", "anh@example.test")), true)));
+
+        byte[] bytes = new CvPdfService().render("modern", "vi", cv);
+        try (PDDocument pdf = PDDocument.load(bytes)) {
+            String text = new PDFTextStripper().getText(pdf);
+            assertThat(text).contains("Nguyễn Đình Tuấn Tú", "KỸ NĂNG", "NGƯỜI THAM CHIẾU", "Trần Minh Anh")
+                    .doesNotContain("Mục này phải được ẩn");
         }
     }
 

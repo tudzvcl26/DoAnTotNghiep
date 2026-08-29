@@ -16,8 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -102,7 +106,7 @@ public class CandidateCvService {
     @Transactional(readOnly = true)
     public byte[] download(UUID candidateId, UUID cvId) {
         CandidateCv cv = findOwned(candidateId, cvId);
-        return pdfService.render(cv.getTemplateId(), read(cv.getContentJson()));
+        return pdfService.render(cv.getTemplateId(), cv.getLanguage(), read(cv.getContentJson()));
     }
 
     private CandidateCv findOwned(UUID candidateId, UUID cvId) {
@@ -137,9 +141,37 @@ public class CandidateCvService {
 
     private CvDocument normalize(CvDocument value) {
         if (value == null) return CvDocument.empty();
+        List<CvDocument.CvCustomSection> customSections = list(value.customSections()).stream()
+                .filter(Objects::nonNull)
+                .map(section -> new CvDocument.CvCustomSection(text(section.id()), text(section.title()),
+                        list(section.items()), section.visible()))
+                .toList();
         return new CvDocument(value.personalInfo() == null ? CvDocument.CvPersonalInfo.empty() : value.personalInfo(),
                 text(value.summary()), list(value.experiences()), list(value.education()), list(value.skills()),
-                list(value.projects()), list(value.certifications()), list(value.awards()), list(value.activities()));
+                list(value.projects()), list(value.certifications()), list(value.awards()), list(value.activities()),
+                normalizeDesign(value.designConfig(), customSections), customSections);
+    }
+
+    private CvDocument.CvDesignConfig normalizeDesign(CvDocument.CvDesignConfig value,
+                                                       List<CvDocument.CvCustomSection> customSections) {
+        CvDocument.CvDesignConfig defaults = CvDocument.CvDesignConfig.defaults();
+        if (value == null) value = defaults;
+        List<String> supported = new ArrayList<>(defaults.sectionOrder());
+        customSections.forEach(section -> supported.add("custom:" + section.id()));
+        Set<String> supportedSet = Set.copyOf(supported);
+        List<String> order = new ArrayList<>();
+        list(value.sectionOrder()).stream().filter(supportedSet::contains).distinct().forEach(order::add);
+        supported.stream().filter(section -> !order.contains(section)).forEach(order::add);
+        Map<String, Boolean> visibility = new LinkedHashMap<>();
+        if (value.sectionVisibility() != null) value.sectionVisibility().forEach((key, visible) -> {
+            if (supportedSet.contains(key) && visible != null) visibility.put(key, visible);
+        });
+        CvDocument.CvThemeConfig theme = value.theme() == null ? defaults.theme() : value.theme();
+        double scale = value.fontScale() < 0.85 || value.fontScale() > 1.15 ? defaults.fontScale() : value.fontScale();
+        return new CvDocument.CvDesignConfig(
+                firstNonBlank(value.fontFamily(), defaults.fontFamily()), scale, theme,
+                firstNonBlank(value.density(), defaults.density()), firstNonBlank(value.layout(), defaults.layout()),
+                List.copyOf(order), Map.copyOf(visibility));
     }
 
     private static <T> List<T> list(List<T> value) { return value == null ? List.of() : value; }
