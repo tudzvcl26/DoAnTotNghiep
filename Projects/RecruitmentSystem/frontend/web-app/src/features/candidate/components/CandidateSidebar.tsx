@@ -1,4 +1,4 @@
-import { Bell, BrainCircuit, BriefcaseBusiness, Building2, FileText, LayoutDashboard, Settings, UserRound, Workflow } from 'lucide-react'
+import { Bell, BrainCircuit, BriefcaseBusiness, Building2, FilePlus2, FileText, LayoutDashboard, Settings, UserRound, Workflow } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
@@ -12,7 +12,9 @@ const groups: { label: string; items: CandidateItem[] }[] = [
   { label: 'Sự nghiệp của tôi', items: [
     { label: 'Career dashboard', to: '/candidate', icon: LayoutDashboard, end: true },
     { label: 'Hồ sơ của tôi', to: '/candidate/profile', icon: UserRound },
-    { label: 'CV của tôi', to: '/candidate/resumes', icon: FileText },
+    { label: 'CV đã tạo', to: '/cv', icon: FileText },
+    { label: 'Tạo CV mới', to: '/cv/templates', icon: FilePlus2 },
+    { label: 'CV tải lên', to: '/candidate/resumes', icon: FileText },
     { label: 'Đơn ứng tuyển', to: '/candidate/applications', icon: Workflow },
     { label: 'AI Career', to: '/candidate/ai-career', icon: BrainCircuit },
   ] },

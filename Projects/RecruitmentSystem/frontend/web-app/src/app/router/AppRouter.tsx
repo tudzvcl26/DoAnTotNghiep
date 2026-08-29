@@ -1,15 +1,5 @@
+import { lazy, Suspense, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AdminDashboardPage } from '../../features/admin/AdminDashboardPage'
-import { AdminAiProviderPage } from '../../features/admin/AdminAiProviderPage'
-import { AdminCatalogPage } from '../../features/admin/AdminCatalogPage'
-import { AdminDeliveryLogsPage } from '../../features/admin/AdminDeliveryLogsPage'
-import { AdminNotificationsPage } from '../../features/admin/AdminNotificationsPage'
-import { AdminNotificationTemplatesPage } from '../../features/admin/AdminNotificationTemplatesPage'
-import { AdminUsersPage } from '../../features/admin/AdminUsersPage'
-import { AdminCompaniesPage } from '../../features/admin/AdminCompaniesPage'
-import { AdminApplicationsPage } from '../../features/admin/AdminApplicationsPage'
-import { AdminApplicationDetailPage } from '../../features/admin/AdminApplicationDetailPage'
-import { AdminJobsPage } from '../../features/admin/AdminJobsPage'
 import { LoginPage } from '../../features/auth/pages/LoginPage'
 import { RegisterPage } from '../../features/auth/pages/RegisterPage'
 import { ForgotPasswordPage } from '../../features/auth/pages/ForgotPasswordPage'
@@ -17,13 +7,6 @@ import { ResetPasswordPage } from '../../features/auth/pages/ResetPasswordPage'
 import { VerifyEmailPage } from '../../features/auth/pages/VerifyEmailPage'
 import { CompaniesPage } from '../../features/companies/CompaniesPage'
 import { CompanyDetailsPage } from '../../features/companies/CompanyDetailsPage'
-import { EmployerDashboardPage } from '../../features/employer/EmployerDashboardPage'
-import { EmployerCompanyPage } from '../../features/employer/EmployerCompanyPage'
-import { EmployerJobDetailPage } from '../../features/employer/EmployerJobDetailPage'
-import { EmployerJobFormPage } from '../../features/employer/EmployerJobFormPage'
-import { EmployerJobsPage } from '../../features/employer/EmployerJobsPage'
-import { EmployerApplicationDetailPage } from '../../features/employer/EmployerApplicationDetailPage'
-import { EmployerApplicationsPage } from '../../features/employer/EmployerApplicationsPage'
 import { HomePage } from '../../features/home/HomePage'
 import { NotFoundPage } from '../../features/home/NotFoundPage'
 import { JobDetailsPage } from '../../features/jobs/JobDetailsPage'
@@ -34,7 +17,7 @@ import { ApplicationListPage } from '../../features/applications/ApplicationList
 import { ProfilePage } from '../../features/profile/ProfilePage'
 import { ResumePage } from '../../features/resumes/ResumePage'
 import { NotificationPage } from '../../features/notifications/NotificationPage'
-import { AiCareerPage } from '../../features/ai-career/AiCareerPage'
+import { LoadingScreen } from '../../components/feedback/LoadingScreen'
 import { ProtectedRoute } from '../guards/ProtectedRoute'
 import { RoleGuard } from '../guards/RoleGuard'
 import { AdminLayout } from '../layouts/AdminLayout'
@@ -43,9 +26,36 @@ import { EmployerLayout } from '../layouts/EmployerLayout'
 import { MainLayout } from '../layouts/MainLayout'
 import { PublicLayout } from '../layouts/PublicLayout'
 
+const lazyNamed = <T extends Record<string, unknown>>(loader: () => Promise<T>, name: keyof T) =>
+  lazy(async () => ({ default: (await loader())[name] as ComponentType }))
+
+const AiCareerPage = lazyNamed(() => import('../../features/ai-career/AiCareerPage'), 'AiCareerPage')
+const CvListPage = lazyNamed(() => import('../../features/cv-builder/CvListPage'), 'CvListPage')
+const CvTemplatesPage = lazyNamed(() => import('../../features/cv-builder/CvTemplatesPage'), 'CvTemplatesPage')
+const CvEditorPage = lazyNamed(() => import('../../features/cv-builder/CvEditorPage'), 'CvEditorPage')
+const CvPreviewPage = lazyNamed(() => import('../../features/cv-builder/CvPreviewPage'), 'CvPreviewPage')
+const EmployerDashboardPage = lazyNamed(() => import('../../features/employer/EmployerDashboardPage'), 'EmployerDashboardPage')
+const EmployerCompanyPage = lazyNamed(() => import('../../features/employer/EmployerCompanyPage'), 'EmployerCompanyPage')
+const EmployerJobDetailPage = lazyNamed(() => import('../../features/employer/EmployerJobDetailPage'), 'EmployerJobDetailPage')
+const EmployerJobFormPage = lazyNamed(() => import('../../features/employer/EmployerJobFormPage'), 'EmployerJobFormPage')
+const EmployerJobsPage = lazyNamed(() => import('../../features/employer/EmployerJobsPage'), 'EmployerJobsPage')
+const EmployerApplicationDetailPage = lazyNamed(() => import('../../features/employer/EmployerApplicationDetailPage'), 'EmployerApplicationDetailPage')
+const EmployerApplicationsPage = lazyNamed(() => import('../../features/employer/EmployerApplicationsPage'), 'EmployerApplicationsPage')
+const AdminDashboardPage = lazyNamed(() => import('../../features/admin/AdminDashboardPage'), 'AdminDashboardPage')
+const AdminAiProviderPage = lazyNamed(() => import('../../features/admin/AdminAiProviderPage'), 'AdminAiProviderPage')
+const AdminCatalogPage = lazy(() => import('../../features/admin/AdminCatalogPage').then((module) => ({ default: module.AdminCatalogPage })))
+const AdminDeliveryLogsPage = lazyNamed(() => import('../../features/admin/AdminDeliveryLogsPage'), 'AdminDeliveryLogsPage')
+const AdminNotificationsPage = lazyNamed(() => import('../../features/admin/AdminNotificationsPage'), 'AdminNotificationsPage')
+const AdminNotificationTemplatesPage = lazyNamed(() => import('../../features/admin/AdminNotificationTemplatesPage'), 'AdminNotificationTemplatesPage')
+const AdminUsersPage = lazyNamed(() => import('../../features/admin/AdminUsersPage'), 'AdminUsersPage')
+const AdminCompaniesPage = lazyNamed(() => import('../../features/admin/AdminCompaniesPage'), 'AdminCompaniesPage')
+const AdminApplicationsPage = lazyNamed(() => import('../../features/admin/AdminApplicationsPage'), 'AdminApplicationsPage')
+const AdminApplicationDetailPage = lazyNamed(() => import('../../features/admin/AdminApplicationDetailPage'), 'AdminApplicationDetailPage')
+const AdminJobsPage = lazyNamed(() => import('../../features/admin/AdminJobsPage'), 'AdminJobsPage')
+
 export function AppRouter() {
   return (
-    <Routes>
+    <Suspense fallback={<LoadingScreen />}><Routes>
       <Route element={<MainLayout />}>
         <Route element={<PublicLayout />}>
           <Route index element={<HomePage />} />
@@ -70,6 +80,11 @@ export function AppRouter() {
         <Route path="candidate/applications/:applicationId" element={<ApplicationDetailPage />} />
         <Route path="candidate/notifications" element={<NotificationPage />} />
         <Route path="candidate/ai-career" element={<AiCareerPage />} />
+        <Route path="cv" element={<CvListPage />} />
+        <Route path="cv/templates" element={<CvTemplatesPage />} />
+        <Route path="cv/new" element={<CvEditorPage />} />
+        <Route path="cv/:id/edit" element={<CvEditorPage />} />
+        <Route path="cv/:id/preview" element={<CvPreviewPage />} />
       </Route>
       <Route element={<ProtectedRoute><RoleGuard roles={['EMPLOYER']}><EmployerLayout /></RoleGuard></ProtectedRoute>}>
         <Route path="employer" element={<EmployerDashboardPage />} />
@@ -102,6 +117,6 @@ export function AppRouter() {
         <Route path="admin/ai" element={<Navigate to="/admin/ai-provider" replace />} />
         <Route path="admin/ai-provider" element={<AdminAiProviderPage />} />
       </Route>
-    </Routes>
+    </Routes></Suspense>
   )
 }

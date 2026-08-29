@@ -14,6 +14,8 @@ class UserMigrationsPostgresIT {
         try(Connection connection=POSTGRES.createConnection("")){
             assertThat(columnExists(connection,"profile_assets","asset_version")).isTrue();
             assertThat(columnExists(connection,"profile_assets","is_current")).isTrue();
+            assertThat(columnExists(connection,"candidate_cvs","candidate_id")).isTrue();
+            assertThat(columnExists(connection,"candidate_cvs","content_json")).isTrue();
             try(ResultSet result=connection.createStatement().executeQuery("select count(*) from pg_indexes where schemaname='user_service' and indexname='uq_profile_assets_current_resume'")){
                 assertThat(result.next()).isTrue(); assertThat(result.getInt(1)).isEqualTo(1);
             }

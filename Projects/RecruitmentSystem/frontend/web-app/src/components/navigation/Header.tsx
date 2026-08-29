@@ -1,5 +1,5 @@
 import { BriefcaseBusiness, ChevronDown, Menu, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BrandLogo } from '../ui/BrandLogo'
 import { ButtonLink } from '../ui/Button'
@@ -12,12 +12,30 @@ export function Header() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
+  const headerRef = useRef<HTMLElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setActiveMenu(null)
     setMobileOpen(false)
     document.body.classList.remove('nav-open')
-  }, [location.pathname, location.search])
+  }, [location.hash, location.pathname, location.search])
+
+  useEffect(() => {
+    const closeOnOutside = (event: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) setActiveMenu(null)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveMenu(null)
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => { document.removeEventListener('pointerdown', closeOnOutside); document.removeEventListener('keydown', closeOnEscape) }
+  }, [])
+
+  const cancelClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
+  const scheduleClose = () => { cancelClose(); closeTimer.current = setTimeout(() => setActiveMenu(null), 180) }
+  const openMenu = (label: string) => { cancelClose(); setActiveMenu(label) }
 
   const toggleMobile = () => {
     setMobileOpen((value) => {
@@ -27,7 +45,7 @@ export function Header() {
   }
 
   return (
-    <header className="header">
+    <header className="header" ref={headerRef} onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
       <div className="container header__inner">
         <BrandLogo />
         <nav className="header__desktop-nav" aria-label="Điều hướng chính">
@@ -35,11 +53,19 @@ export function Header() {
             <button
               key={menu.label}
               type="button"
-              className={activeMenu === menu.label ? 'is-active' : ''}
-              onClick={() => setActiveMenu((current) => current === menu.label ? null : menu.label)}
+              className={`${activeMenu === menu.label ? 'is-open ' : ''}${menu.activePrefixes.some((prefix) => location.pathname.startsWith(prefix)) ? 'is-active' : ''}`.trim()}
+              onMouseEnter={() => openMenu(menu.label)}
+              onClick={() => openMenu(menu.label)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault(); openMenu(menu.label)
+                  requestAnimationFrame(() => headerRef.current?.querySelector<HTMLAnchorElement>('.mega-menu a')?.focus())
+                }
+              }}
               aria-expanded={activeMenu === menu.label}
+              aria-haspopup="true"
             >
-              {menu.label}<ChevronDown size={15} aria-hidden="true" />
+              {menu.label}<ChevronDown className="header__chevron" size={15} aria-hidden="true" />
             </button>
           ))}
         </nav>
@@ -68,7 +94,7 @@ export function Header() {
             <div className="mobile-nav__content">
               {megaMenus.map((menu) => (
                 <details key={menu.label}>
-                  <summary>{menu.label}<ChevronDown size={17} /></summary>
+                  <summary>{menu.label}<ChevronDown className="header__chevron" size={17} /></summary>
                   {menu.sections.map((section) => (
                     <div className="mobile-nav__section" key={section.title}>
                       <strong>{section.title}</strong>

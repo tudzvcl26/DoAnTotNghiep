@@ -137,6 +137,7 @@ class GatewayIntegrationTest {
         String token = validToken();
         expectService(authorizedGet("/api/v1/users/me", token), "user", true);
         expectService(authorizedGet("/api/v1/profiles/me", token), "user", true);
+        expectService(authorizedGet("/api/v1/cvs", token), "user", true);
         expectService(authorizedPost("/api/v1/companies", token), "company", true);
         expectService(authorizedPost("/api/v1/jobs", token), "recruitment", true);
         expectService(authorizedGet("/api/v1/applications/me", token), "application", true);

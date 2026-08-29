@@ -9,6 +9,10 @@
   backdrop-filter: blur(16px);
 }
 
+body.nav-open .header {
+  backdrop-filter: none;
+}
+
 .header__inner {
   height: 100%;
   display: flex;
@@ -50,13 +54,18 @@
 }
 
 .header__desktop-nav button:hover,
-.header__desktop-nav button.is-active {
+.header__desktop-nav button.is-active,
+.header__desktop-nav button.is-open {
   color: var(--color-primary-700);
 }
 
-.header__desktop-nav button.is-active::after {
+.header__desktop-nav button.is-active::after,
+.header__desktop-nav button.is-open::after {
   transform: scaleX(1);
 }
+
+.header__chevron { transition: transform 200ms ease; }
+.header__desktop-nav button.is-open .header__chevron { transform: rotate(180deg); }
 
 .header__desktop-actions {
   min-width: 0;
@@ -116,7 +125,11 @@
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
+  animation: mega-menu-enter 180ms ease both;
+  transform-origin: top center;
 }
+
+@keyframes mega-menu-enter { from { opacity:0; transform:translateY(-7px); } to { opacity:1; transform:translateY(0); } }
 
 .mega-menu__inner {
   display: grid;
@@ -377,6 +390,8 @@
   .mobile-nav details[open] summary svg {
     transform: rotate(180deg);
   }
+
+  .mobile-nav summary svg { transition: transform 200ms ease; }
 
   .mobile-nav__section {
     display: grid;

@@ -9,7 +9,8 @@ import { useAuth } from '../../auth/auth-context'
 const accountLinks = [
   { label: 'Career dashboard', to: '/candidate' },
   { label: 'Hồ sơ của tôi', to: '/candidate/profile' },
-  { label: 'CV của tôi', to: '/candidate/resumes' },
+  { label: 'CV đã tạo', to: '/cv' },
+  { label: 'CV tải lên', to: '/candidate/resumes' },
   { label: 'Đơn ứng tuyển', to: '/candidate/applications' },
   { label: 'AI Career', to: '/candidate/ai-career' },
 ]

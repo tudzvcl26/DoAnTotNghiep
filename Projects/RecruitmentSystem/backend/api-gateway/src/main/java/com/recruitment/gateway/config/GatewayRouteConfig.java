@@ -23,7 +23,7 @@ public class GatewayRouteConfig {
                         .path("/api/v1/admin/users/**")
                         .uri(services.auth()))
                 .route("user-service", route -> route
-                        .path("/api/v1/users/**", "/api/v1/profiles/**")
+                        .path("/api/v1/users/**", "/api/v1/profiles/**", "/api/v1/cvs/**")
                         .uri(services.user()))
                 .route("company-service", route -> route
                         .path("/api/v1/companies/**")
