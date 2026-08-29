@@ -3,6 +3,7 @@ package com.recruitment.ai.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.ai.dto.response.InterviewPreparationResponse;
+import com.recruitment.ai.assistant.VietnameseGenerationPolicy;
 import com.recruitment.ai.dto.response.MatchExplanationResponse;
 import com.recruitment.ai.entity.AiMatchExplanation;
 import com.recruitment.ai.entity.AiTask;
@@ -54,6 +55,12 @@ import java.util.UUID;
 public class ExplanationInterviewServiceImpl implements ExplanationInterviewService {
     private static final String EXPLANATION_PROMPT = "MATCH_EXPLANATION";
     private static final String INTERVIEW_PROMPT = "INTERVIEW_PREPARATION";
+    private static final String EXPLANATION_FALLBACK = """
+            {"overallEvaluation":"Mô hình chưa tạo được phần giải thích tiếng Việt đáng tin cậy. Điểm phù hợp theo quy tắc vẫn được giữ nguyên.","strengths":[],"weaknesses":[],"highScoreReasons":[],"lowScoreReasons":[],"missingTechnologies":[],"careerSuggestions":["Vui lòng thử lại sau để nhận gợi ý chi tiết hơn."],"resumeImprovementChecklist":[],"skillRecommendations":[],"projectRecommendations":[],"certificationSuggestions":[],"keywordImprovements":[],"experienceImprovements":[],"educationImprovements":[],"gapExplanations":[],"learningRoadmap":[],"recommendedTechnologies":[],"recommendedCertifications":[],"portfolioImprovements":[]}
+            """;
+    private static final String INTERVIEW_FALLBACK = """
+            {"technicalQuestions":[{"question":"Bạn đã vận dụng kỹ năng chuyên môn nổi bật trong CV như thế nào?","expectedAnswerOutline":"Nêu bối cảnh, hành động, công nghệ đã dùng và kết quả đo lường được.","whyInterviewerAsks":"Để xác minh năng lực được trình bày trong CV.","relatedResumeSection":"Kỹ năng chuyên môn","difficulty":"MEDIUM"}],"behavioralQuestions":[{"question":"Hãy kể về một tình huống bạn phối hợp với đồng đội để giải quyết vấn đề.","expectedAnswerOutline":"Trình bày theo bối cảnh, nhiệm vụ, hành động và kết quả.","whyInterviewerAsks":"Để đánh giá cách phối hợp và xử lý tình huống.","relatedResumeSection":"Kinh nghiệm","difficulty":"MEDIUM"}],"hrQuestions":[{"question":"Mục tiêu nghề nghiệp tiếp theo của bạn là gì?","expectedAnswerOutline":"Liên hệ mục tiêu với kinh nghiệm hiện có và vị trí ứng tuyển.","whyInterviewerAsks":"Để hiểu định hướng và mức độ phù hợp lâu dài.","relatedResumeSection":"Tóm tắt nghề nghiệp","difficulty":"EASY"}],"projectQuestions":[{"question":"Hãy mô tả dự án thể hiện rõ nhất năng lực của bạn.","expectedAnswerOutline":"Nêu vai trò, công nghệ, thách thức, cách giải quyết và kết quả.","whyInterviewerAsks":"Để làm rõ minh chứng thực tế trong dự án.","relatedResumeSection":"Dự án","difficulty":"MEDIUM"}]}
+            """;
 
     private final MatchingService matchingService;
     private final JobMatchResultRepository matchRepository;
@@ -66,6 +73,7 @@ public class ExplanationInterviewServiceImpl implements ExplanationInterviewServ
     private final GenerationContextBuilder contextBuilder;
     private final ExplanationJsonValidator explanationValidator;
     private final InterviewJsonValidator interviewValidator;
+    private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
     private final ObjectMapper objectMapper;
@@ -178,10 +186,13 @@ public class ExplanationInterviewServiceImpl implements ExplanationInterviewServ
     }
 
     private StructuredGenerationResult generate(StructuredGenerationProvider provider, GenerationSetup setup) {
-        return provider.generate(new StructuredGenerationRequest(setup.model().getModelName(),
-                setup.prompt().getSystemPrompt() + "\nRequired JSON Schema: " + setup.prompt().getOutputSchema(),
+        StructuredGenerationRequest request = new StructuredGenerationRequest(setup.model().getModelName(),
+                vietnameseGenerationPolicy.applyContract(setup.prompt().getSystemPrompt(), setup.prompt().getOutputSchema()),
                 setup.prompt().getUserPromptTemplate().replace("{{context}}", setup.context()),
-                setup.prompt().getOutputSchema(), setup.correlationId()));
+                setup.prompt().getOutputSchema(), setup.correlationId());
+        String fallback = EXPLANATION_PROMPT.equals(setup.prompt().getTemplateCode())
+                ? EXPLANATION_FALLBACK : INTERVIEW_FALLBACK;
+        return vietnameseGenerationPolicy.generate(provider, request, setup.prompt().getTemplateCode(), fallback);
     }
 
     private AiTask createTask(UUID matchId, String type, String correlationId) {
@@ -259,12 +270,12 @@ public class ExplanationInterviewServiceImpl implements ExplanationInterviewServ
 
     private CurrentUser currentUser() {
         CurrentUser user = SecurityUtils.getCurrentUser();
-        if (user == null || user.getUserId() == null) throw new AccessDeniedException("User is not authenticated.");
+        if (user == null || user.getUserId() == null) throw new AccessDeniedException("Bạn chưa đăng nhập.");
         return user;
     }
     private String accessToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Access token is unavailable.");
+        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Không thể xác thực phiên làm việc.");
         return authentication.getCredentials().toString();
     }
     private TransactionTemplate transaction() { return new TransactionTemplate(transactionManager); }

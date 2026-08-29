@@ -22,10 +22,10 @@ public class KeywordScorer implements MatchingScorer {
         Set<String> resume = MatchingText.normalized(resumeValues);
         List<String> job = context.requirements().keywords();
         if (job.isEmpty()) {
-            return new ScoreResult(dimension(), maximumScore, maximumScore, "No usable job keywords were found.");
+            return new ScoreResult(dimension(), maximumScore, maximumScore, "Chưa tìm thấy từ khóa công việc đủ rõ để đánh giá; ứng viên không bị trừ điểm ở tiêu chí này.");
         }
         long matched = job.stream().map(MatchingText::normalize).filter(resume::contains).count();
         int score = ScoringSupport.proportional(maximumScore, matched, job.size());
-        return new ScoreResult(dimension(), maximumScore, score, ScoringSupport.countReason("Job keywords", (int) matched, job.size()));
+        return new ScoreResult(dimension(), maximumScore, score, ScoringSupport.countReason("Từ khóa công việc", (int) matched, job.size()));
     }
 }

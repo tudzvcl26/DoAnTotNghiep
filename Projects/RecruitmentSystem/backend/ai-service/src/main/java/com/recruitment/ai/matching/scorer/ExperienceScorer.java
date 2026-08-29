@@ -20,6 +20,6 @@ public class ExperienceScorer implements MatchingScorer {
         }
         int score = required == 0 ? maximumScore : ScoringSupport.proportional(maximumScore, actual, required);
         return new ScoreResult(dimension(), maximumScore, score,
-                "Detected experience %d year(s); job threshold %d year(s).".formatted(actual, required));
+                "Kinh nghiệm nhận diện được: %d năm; yêu cầu của công việc: %d năm.".formatted(actual, required));
     }
 }

@@ -12,7 +12,7 @@ final class ScoringSupport {
     }
 
     static String countReason(String label, int matched, int required) {
-        return "%s: %d of %d matched.".formatted(label, matched, required);
+        return "%s: phù hợp %d/%d.".formatted(label, matched, required);
     }
 
     static boolean hasValues(Collection<String> values) {

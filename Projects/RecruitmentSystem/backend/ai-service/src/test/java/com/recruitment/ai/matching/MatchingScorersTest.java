@@ -42,11 +42,15 @@ class MatchingScorersTest {
     }
 
     @Test void scoresTechnicalSkills() {
-        assertThat(new SkillScorer().score(context, 40).actualScore()).isEqualTo(24);
+        var result = new SkillScorer().score(context, 40);
+        assertThat(result.actualScore()).isEqualTo(24);
+        assertThat(result.reason()).contains("Kỹ năng bắt buộc phù hợp").doesNotContain("Required skills");
     }
 
     @Test void scoresExperienceAgainstThreshold() {
-        assertThat(new ExperienceScorer().score(context, 20).actualScore()).isEqualTo(12);
+        var result = new ExperienceScorer().score(context, 20);
+        assertThat(result.actualScore()).isEqualTo(12);
+        assertThat(result.reason()).contains("Kinh nghiệm nhận diện được").doesNotContain("Detected experience");
     }
 
     @Test void scoresEducationRequirement() {

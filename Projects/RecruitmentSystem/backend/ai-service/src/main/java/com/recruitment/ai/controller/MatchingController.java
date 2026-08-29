@@ -30,7 +30,7 @@ public class MatchingController {
     @PostMapping("/jobs/{jobId}/resumes/{resumeId}")
     @Operation(summary = "Calculate and persist a deterministic job match")
     public ApiResponse<MatchingResultResponse> match(@PathVariable UUID jobId, @PathVariable UUID resumeId) {
-        return ApiResponse.success("Matching completed successfully.", matchingService.match(jobId, resumeId));
+        return ApiResponse.success("Đã đánh giá độ phù hợp thành công.", matchingService.match(jobId, resumeId));
     }
 
     @GetMapping("/{id}")

@@ -26,7 +26,7 @@ public class ExplanationInterviewController {
     @PostMapping("/explanation")
     @Operation(summary = "Generate an explanation and improvement plan without changing the deterministic score")
     public ApiResponse<MatchExplanationResponse> generateExplanation(@PathVariable UUID matchId) {
-        return ApiResponse.success("Matching explanation generated successfully.", service.generateExplanation(matchId));
+        return ApiResponse.success("Đã tạo phần giải thích độ phù hợp.", service.generateExplanation(matchId));
     }
 
     @GetMapping("/explanation")
@@ -38,7 +38,7 @@ public class ExplanationInterviewController {
     @PostMapping("/interview")
     @Operation(summary = "Generate grounded technical, behavioral, HR, and project interview preparation")
     public ApiResponse<InterviewPreparationResponse> generateInterview(@PathVariable UUID matchId) {
-        return ApiResponse.success("Interview preparation generated successfully.", service.generateInterview(matchId));
+        return ApiResponse.success("Đã tạo nội dung chuẩn bị phỏng vấn.", service.generateInterview(matchId));
     }
 
     @GetMapping("/interview")

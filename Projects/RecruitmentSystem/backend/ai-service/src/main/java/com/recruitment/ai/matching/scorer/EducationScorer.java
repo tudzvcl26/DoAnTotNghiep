@@ -16,9 +16,9 @@ public class EducationScorer implements MatchingScorer {
         boolean required = context.requirements().degreeRequired();
         int score = !required || present ? maximumScore : 0;
         String reason = required
-                ? (present ? "A degree requirement is declared and education evidence is present."
-                : "A degree requirement is declared but education evidence is absent.")
-                : "The job does not declare a minimum degree requirement.";
+                ? (present ? "Công việc có yêu cầu bằng cấp và CV đã cung cấp thông tin học vấn."
+                : "Công việc có yêu cầu bằng cấp nhưng CV chưa cung cấp thông tin học vấn.")
+                : "Công việc chưa nêu yêu cầu tối thiểu về bằng cấp; ứng viên không bị trừ điểm ở tiêu chí này.";
         return new ScoreResult(dimension(), maximumScore, score, reason);
     }
 }

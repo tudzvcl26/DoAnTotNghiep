@@ -50,5 +50,8 @@ class RuleBasedMatchingEngineTest {
         assertThat(result.missingSkills()).containsExactly("Spring Boot");
         assertThat(result.gapAnalysis()).anyMatch(item -> item.contains("Spring Boot"));
         assertThat(result.recommendations()).isNotEmpty();
+        assertThat(result.gapAnalysis()).allMatch(item -> !item.contains("Missing required skills")
+                && !item.contains("Score gap"));
+        assertThat(result.strengths()).allMatch(item -> !item.startsWith("technicalSkills:"));
     }
 }

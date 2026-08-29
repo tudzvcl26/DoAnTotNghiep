@@ -16,11 +16,11 @@ public class LanguageScorer implements MatchingScorer {
     public ScoreResult score(MatchingContext context, int maximumScore) {
         Set<String> resume = MatchingText.normalized(MatchingText.fieldValues(context.resumeFacts(), "languages"));
         if (context.requirements().languages().isEmpty()) {
-            return new ScoreResult(dimension(), maximumScore, maximumScore, "No language requirement is declared; this dimension is neutral.");
+            return new ScoreResult(dimension(), maximumScore, maximumScore, "Công việc chưa nêu yêu cầu ngoại ngữ; ứng viên không bị trừ điểm ở tiêu chí này.");
         }
         long matched = context.requirements().languages().stream().map(MatchingText::normalize).filter(resume::contains).count();
         int score = ScoringSupport.proportional(maximumScore, matched, context.requirements().languages().size());
         return new ScoreResult(dimension(), maximumScore, score,
-                ScoringSupport.countReason("Languages", (int) matched, context.requirements().languages().size()));
+                ScoringSupport.countReason("Ngoại ngữ", (int) matched, context.requirements().languages().size()));
     }
 }

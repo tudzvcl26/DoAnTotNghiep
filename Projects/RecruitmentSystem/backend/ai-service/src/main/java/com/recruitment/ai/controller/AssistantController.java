@@ -23,13 +23,13 @@ public class AssistantController {
     @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     @Operation(summary = "Run a constrained candidate assistant task")
     public ApiResponse<AssistantResponseDto> candidate(@Valid @RequestBody CandidateAssistantRequest request) {
-        return ApiResponse.success("Candidate assistance generated successfully.", assistantService.assistCandidate(request));
+        return ApiResponse.success("Đã tạo nội dung hỗ trợ ứng viên.", assistantService.assistCandidate(request));
     }
 
     @PostMapping("/recruiter")
     @PreAuthorize("hasAnyRole('EMPLOYER','ADMIN')")
     @Operation(summary = "Run a constrained recruiter assistant task")
     public ApiResponse<AssistantResponseDto> recruiter(@Valid @RequestBody RecruiterAssistantRequest request) {
-        return ApiResponse.success("Recruiter assistance generated successfully.", assistantService.assistRecruiter(request));
+        return ApiResponse.success("Đã tạo nội dung hỗ trợ nhà tuyển dụng.", assistantService.assistRecruiter(request));
     }
 }

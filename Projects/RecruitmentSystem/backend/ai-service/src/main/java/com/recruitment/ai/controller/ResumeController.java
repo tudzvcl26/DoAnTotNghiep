@@ -39,7 +39,7 @@ public class ResumeController {
             @Parameter(description = "PDF, DOCX, or UTF-8 TXT resume; maximum 10 MB")
             @RequestParam("file") MultipartFile file
     ) {
-        return ApiResponse.success("Resume uploaded successfully.", resumeService.upload(file));
+        return ApiResponse.success("Đã tải CV lên thành công.", resumeService.upload(file));
     }
 
     @GetMapping
@@ -60,7 +60,7 @@ public class ResumeController {
     @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     @Operation(summary = "Extract structured facts and calculate deterministic resume quality score")
     public ApiResponse<ResumeAnalysisResponse> analyze(@PathVariable UUID resumeId) {
-        return ApiResponse.success("Resume analyzed successfully.", resumeService.analyze(resumeId));
+        return ApiResponse.success("Đã phân tích CV thành công.", resumeService.analyze(resumeId));
     }
 
     @GetMapping("/{resumeId}/analysis")
@@ -75,6 +75,6 @@ public class ResumeController {
     @Operation(summary = "Delete a resume, its private object, and analysis")
     public ApiResponse<Void> delete(@PathVariable UUID resumeId) {
         resumeService.delete(resumeId);
-        return ApiResponse.success("Resume deleted successfully.", null);
+        return ApiResponse.success("Đã xóa CV thành công.", null);
     }
 }

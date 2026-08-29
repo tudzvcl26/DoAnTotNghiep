@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.recruitment.ai.assistant.AssistantJsonValidator;
+import com.recruitment.ai.assistant.VietnameseGenerationPolicy;
 import com.recruitment.ai.assistant.RecruiterAssistantTask;
 import com.recruitment.ai.dto.request.CandidateAssistantRequest;
 import com.recruitment.ai.dto.request.RecruiterAssistantRequest;
@@ -41,6 +42,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AssistantServiceImpl implements AssistantService {
+    private static final String VIETNAMESE_FALLBACK = """
+            {"summary":"Mô hình chưa tạo được nội dung tư vấn tiếng Việt đáng tin cậy.","recommendations":["Vui lòng thử lại sau hoặc bổ sung thông tin CV cụ thể hơn."],"risks":["Kết quả hiện tại chưa đáp ứng yêu cầu ngôn ngữ."],"nextSteps":["Kiểm tra dữ liệu CV rồi gửi lại yêu cầu."]}
+            """;
     private final AssistantSessionRepository sessionRepository;
     private final AssistantResponseRepository responseRepository;
     private final ResumeAnalysisResultRepository analysisRepository;
@@ -52,6 +56,7 @@ public class AssistantServiceImpl implements AssistantService {
     private final JobGateway jobGateway;
     private final GenerationContextBuilder contextBuilder;
     private final AssistantJsonValidator validator;
+    private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
     private final ObjectMapper objectMapper;
@@ -60,7 +65,7 @@ public class AssistantServiceImpl implements AssistantService {
     @Override
     public AssistantResponseDto assistCandidate(CandidateAssistantRequest request) {
         CurrentUser user = currentUser();
-        if (!user.isAdmin() && !user.hasRole("CANDIDATE")) throw new AccessDeniedException("Candidate access required.");
+        if (!user.isAdmin() && !user.hasRole("CANDIDATE")) throw new AccessDeniedException("Chức năng này chỉ dành cho ứng viên.");
         ResumeAnalysisResult analysis = analysisRepository.findByResumeDocumentId(request.resumeId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_ANALYSIS_NOT_FOUND));
         if (!user.isAdmin() && !analysis.getResumeDocument().getOwnerUserId().equals(user.getUserId())) {
@@ -76,13 +81,13 @@ public class AssistantServiceImpl implements AssistantService {
     @Override
     public AssistantResponseDto assistRecruiter(RecruiterAssistantRequest request) {
         CurrentUser user = currentUser();
-        if (!user.isAdmin() && !user.hasRole("EMPLOYER")) throw new AccessDeniedException("Employer access required.");
+        if (!user.isAdmin() && !user.hasRole("EMPLOYER")) throw new AccessDeniedException("Chức năng này chỉ dành cho nhà tuyển dụng.");
         JobSnapshot job = jobGateway.getJob(request.jobId(), accessToken());
         if (!job.active() || !"PUBLISHED".equalsIgnoreCase(job.status())) {
             throw new BusinessException(ErrorCode.MATCH_JOB_NOT_PUBLISHED);
         }
         if (!user.isAdmin() && !job.companyOwnerId().equals(user.getUserId())) {
-            throw new AccessDeniedException("You do not own this job.");
+            throw new AccessDeniedException("Bạn không có quyền quản lý việc làm này.");
         }
 
         JobMatchResult match = null;
@@ -147,10 +152,12 @@ public class AssistantServiceImpl implements AssistantService {
         StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
         long started = System.nanoTime();
         try {
-            StructuredGenerationResult generated = provider.generate(new StructuredGenerationRequest(
-                    model.getModelName(), prompt.getSystemPrompt() + "\nRequired JSON Schema: " + prompt.getOutputSchema(),
+            StructuredGenerationRequest generationRequest = new StructuredGenerationRequest(
+                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
                     prompt.getUserPromptTemplate().replace("{{task}}", taskType).replace("{{context}}", context),
-                    prompt.getOutputSchema(), correlationId));
+                    prompt.getOutputSchema(), correlationId);
+            StructuredGenerationResult generated = vietnameseGenerationPolicy.generate(
+                    provider, generationRequest, promptCode, VIETNAMESE_FALLBACK);
             JsonNode data = validator.validate(generated.structuredOutput());
             long duration = elapsed(started);
             AssistantResponse saved = transaction().execute(status -> {
@@ -222,12 +229,12 @@ public class AssistantServiceImpl implements AssistantService {
 
     private CurrentUser currentUser() {
         CurrentUser user = SecurityUtils.getCurrentUser();
-        if (user == null || user.getUserId() == null) throw new AccessDeniedException("User is not authenticated.");
+        if (user == null || user.getUserId() == null) throw new AccessDeniedException("Bạn chưa đăng nhập.");
         return user;
     }
     private String accessToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Access token is unavailable.");
+        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Không thể xác thực phiên làm việc.");
         return authentication.getCredentials().toString();
     }
     private TransactionTemplate transaction() { return new TransactionTemplate(transactionManager); }

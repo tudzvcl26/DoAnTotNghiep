@@ -41,8 +41,8 @@ export const megaMenus: MegaMenuDefinition[] = [
     activePrefixes: ['/candidate/ai-career', '/candidate/profile'],
     sections: [
       { title: 'AI nghề nghiệp', links: [
-        { label: 'AI Resume Analysis', to: '/candidate/ai-career' },
-        { label: 'CV Matching', to: '/candidate/ai-career' },
+        { label: 'Phân tích CV bằng AI', to: '/candidate/ai-career' },
+        { label: 'Đánh giá độ phù hợp CV', to: '/candidate/ai-career' },
       ] },
     ],
   },

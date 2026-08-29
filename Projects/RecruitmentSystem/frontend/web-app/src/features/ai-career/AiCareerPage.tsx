@@ -18,10 +18,16 @@ import {
   candidateAssistantTasks, type AssistantResponse, type CandidateAssistantTask, type CareerChatResponse,
   type InterviewPreparation, type JsonValue, type MatchExplanation, type MatchingResult,
 } from './ai-career.types'
+import { aiCareerLabels } from './ai-career.labels'
 import './ai-career.css'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const acceptedExtensions = new Set(['pdf', 'docx', 'txt'])
+
+const statusLabels: Record<string, string> = {
+  READY: 'Sẵn sàng', ANALYZED: 'Đã phân tích', FAILED: 'Thất bại', PENDING: 'Đang chờ',
+  RUNNING: 'Đang xử lý', COMPLETED: 'Hoàn tất', PARTIAL: 'Hoàn tất một phần', CANCELLED: 'Đã hủy',
+}
 
 const taskContent: Record<CandidateAssistantTask, { title: string; description: string }> = {
   CAREER_ROADMAP: { title: 'Lộ trình sự nghiệp', description: 'Xây dựng các bước phát triển nghề nghiệp từ dữ liệu CV đã phân tích.' },
@@ -49,7 +55,7 @@ function formatSize(bytes: number) {
 }
 
 function humanize(value: string) {
-  return value.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase())
+  return aiCareerLabels[value] ?? value.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase())
 }
 
 function JsonResult({ value }: { value: JsonValue }) {
@@ -229,13 +235,13 @@ export function AiCareerPage() {
     <section className="ai-section" id="career-chat" aria-labelledby="career-chat-title">
       <div className="ai-section__heading"><div><span>AI Career Companion</span><h2 id="career-chat-title">Hỏi trợ lý nghề nghiệp</h2><p>Đặt câu hỏi bằng bất kỳ ngôn ngữ nào; câu trả lời luôn bằng tiếng Việt và chỉ dùng dữ liệu thuộc về bạn.</p></div><MessageCircle /></div>
       <div className="ai-chat-context" aria-label="Ngữ cảnh trợ lý đang sử dụng">
-        <span>Hồ sơ Candidate hiện tại</span>
+        <span>Hồ sơ ứng viên hiện tại</span>
         <span>{selectedResume?.status === 'ANALYZED' ? `CV: ${selectedResume.originalFilename}` : 'Chưa chọn CV đã phân tích'}</span>
         <span>{jobId ? `Việc làm: ${jobsById.get(jobId)?.title ?? 'đang chọn'}` : 'Không chọn việc làm cụ thể'}</span>
       </div>
       <div className="ai-chat-compose">
         <label htmlFor="career-chat-message">Câu hỏi của bạn</label>
-        <textarea id="career-chat-message" rows={4} maxLength={2000} value={chatMessage} onChange={(event) => setChatMessage(event.target.value)} placeholder="Ví dụ: What skills should I improve for a Java Developer role?" disabled={careerChat.isPending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) sendChat() }} />
+        <textarea id="career-chat-message" rows={4} maxLength={2000} value={chatMessage} onChange={(event) => setChatMessage(event.target.value)} placeholder="Ví dụ: Tôi nên cải thiện kỹ năng nào cho vị trí Java Developer?" disabled={careerChat.isPending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) sendChat() }} />
         <div><small>{chatMessage.length}/2000 · Ctrl/⌘ + Enter để gửi</small><span><button type="button" className="ai-chat-clear" onClick={() => { setChatMessage(''); setChatResult(null); careerChat.reset() }} disabled={careerChat.isPending || (!chatMessage && !chatResult)}><X /> Xóa</button><button type="button" className="ai-primary" onClick={sendChat} disabled={chatMessage.trim().length < 3 || careerChat.isPending}>{careerChat.isPending ? <><LoaderCircle className="ai-spin" /> Đang suy nghĩ...</> : <><Send /> Gửi câu hỏi</>}</button></span></div>
       </div>
       {careerChat.isError && <ErrorNotice error={careerChat.error} onRetry={() => lastChatMessage && careerChat.mutate(lastChatMessage)} />}
@@ -244,7 +250,7 @@ export function AiCareerPage() {
     </section>
 
     <section className="ai-section" id="ai-resume" aria-labelledby="ai-resume-title">
-      <div className="ai-section__heading"><div><span>Bước 1 · Dữ liệu đầu vào</span><h2 id="ai-resume-title">CV dùng cho AI</h2><p>AI Service có kho CV riêng. Bạn cần tải CV lên đây dù đã có CV ứng tuyển trong hồ sơ Candidate.</p></div><FileSearch /></div>
+      <div className="ai-section__heading"><div><span>Bước 1 · Dữ liệu đầu vào</span><h2 id="ai-resume-title">CV dùng cho AI</h2><p>Dịch vụ AI có kho CV riêng. Bạn cần tải CV lên đây dù đã có CV ứng tuyển trong hồ sơ ứng viên.</p></div><FileSearch /></div>
       <div className="ai-resume-layout">
         <div className="ai-upload-card" aria-busy={upload.isPending}>
           <UploadCloud /><h3>Tải CV để phân tích</h3><p>PDF, DOCX hoặc TXT UTF-8 · tối đa 10 MB</p>
@@ -259,14 +265,14 @@ export function AiCareerPage() {
           {resumes.isError && <ErrorNotice error={resumes.error} onRetry={() => void resumes.refetch()} />}
           {resumes.isSuccess && resumeItems.length === 0 && <div className="ai-empty"><FileText /><strong>Chưa có CV dùng cho AI</strong><p>Tải một CV hợp lệ để bắt đầu phân tích.</p></div>}
           {resumeItems.map((resume) => <article key={resume.id} className={`ai-resume-item${selectedResumeId === resume.id ? ' is-selected' : ''}`}>
-            <button type="button" className="ai-resume-item__select" onClick={() => { setSelectedResumeId(resume.id); setActiveMatch(null); setAssistantResult(null) }}><FileText /><span><strong>{resume.originalFilename}</strong><small>{formatSize(resume.fileSize)} · {formatDate(resume.uploadTime)}</small></span><em className={`ai-status ai-status--${resume.status.toLowerCase()}`}>{resume.status}</em></button>
+            <button type="button" className="ai-resume-item__select" onClick={() => { setSelectedResumeId(resume.id); setActiveMatch(null); setAssistantResult(null) }}><FileText /><span><strong>{resume.originalFilename}</strong><small>{formatSize(resume.fileSize)} · {formatDate(resume.uploadTime)}</small></span><em className={`ai-status ai-status--${resume.status.toLowerCase()}`}>{statusLabels[resume.status] ?? resume.status}</em></button>
             <button type="button" className="ai-icon-button" aria-label={`Xóa ${resume.originalFilename}`} onClick={() => window.confirm(`Xóa “${resume.originalFilename}” khỏi AI Career Center?`) && remove.mutate(resume.id)} disabled={remove.isPending}><Trash2 /></button>
           </article>)}
         </div>
       </div>
 
       {selectedResume && <div className="ai-analysis" aria-busy={analyze.isPending}>
-        <div className="ai-analysis__action"><div><span>CV đang chọn</span><h3>{selectedResume.originalFilename}</h3><p>{selectedResume.status === 'ANALYZED' ? 'CV đã có kết quả phân tích được lưu trên máy chủ.' : 'Chạy phân tích trước khi dùng Career Assistant hoặc Job Matching.'}</p></div><button type="button" className="ai-primary" onClick={() => analyze.mutate(selectedResume.id)} disabled={analyze.isPending}>{analyze.isPending ? <><LoaderCircle className="ai-spin" /> AI đang phân tích...</> : <><Sparkles /> {selectedResume.status === 'ANALYZED' ? 'Phân tích lại' : 'Phân tích CV'}</>}</button></div>
+        <div className="ai-analysis__action"><div><span>CV đang chọn</span><h3>{selectedResume.originalFilename}</h3><p>{selectedResume.status === 'ANALYZED' ? 'CV đã có kết quả phân tích được lưu trên máy chủ.' : 'Chạy phân tích trước khi dùng trợ lý lộ trình nghề nghiệp hoặc đánh giá độ phù hợp.'}</p></div><button type="button" className="ai-primary" onClick={() => analyze.mutate(selectedResume.id)} disabled={analyze.isPending}>{analyze.isPending ? <><LoaderCircle className="ai-spin" /> AI đang phân tích...</> : <><Sparkles /> {selectedResume.status === 'ANALYZED' ? 'Phân tích lại' : 'Phân tích CV'}</>}</button></div>
         {analyze.isError && <ErrorNotice error={analyze.error} onRetry={() => analyze.mutate(selectedResume.id)} />}
         {analysis.isPending && selectedResume.status === 'ANALYZED' && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang lấy kết quả phân tích...</p>}
         {analysis.isError && <ErrorNotice error={analysis.error} onRetry={() => void analysis.refetch()} />}
@@ -276,7 +282,7 @@ export function AiCareerPage() {
 
     <section className="ai-section" id="job-recommendations" aria-labelledby="recommendations-title">
       <div className="ai-section__heading"><div><span>Gợi ý cá nhân hóa</span><h2 id="recommendations-title">Việc làm phù hợp với CV</h2><p>Kết quả đã tạo được lưu an toàn; yêu cầu làm mới chạy nền để bạn có thể tiếp tục sử dụng trang.</p></div><BriefcaseBusiness /></div>
-      <div className="ai-analysis__action"><div><strong>{recommendationTask ? `Trạng thái cập nhật: ${recommendationTask.status}` : 'Chưa yêu cầu cập nhật gợi ý'}</strong><p>{recommendationTask?.status === 'FAILED' ? recommendationTask.errorMessage : 'Bật quyền dùng dữ liệu cho gợi ý trong Hồ sơ ứng viên trước khi yêu cầu kết quả mới.'}</p></div><button type="button" className="ai-primary" disabled={!analysis.data || refreshRecommendations.isPending || recommendationTask?.status === 'PENDING' || recommendationTask?.status === 'RUNNING'} onClick={() => refreshRecommendations.mutate(selectedResumeId)}>{refreshRecommendations.isPending ? <><LoaderCircle className="ai-spin" /> Đang gửi yêu cầu...</> : <><RefreshCw /> Cập nhật gợi ý</>}</button></div>
+        <div className="ai-analysis__action"><div><strong>{recommendationTask ? `Trạng thái cập nhật: ${statusLabels[recommendationTask.status] ?? recommendationTask.status}` : 'Chưa yêu cầu cập nhật gợi ý'}</strong><p>{recommendationTask?.status === 'FAILED' ? recommendationTask.errorMessage : 'Bật quyền dùng dữ liệu cho gợi ý trong Hồ sơ ứng viên trước khi yêu cầu kết quả mới.'}</p></div><button type="button" className="ai-primary" disabled={!analysis.data || refreshRecommendations.isPending || recommendationTask?.status === 'PENDING' || recommendationTask?.status === 'RUNNING'} onClick={() => refreshRecommendations.mutate(selectedResumeId)}>{refreshRecommendations.isPending ? <><LoaderCircle className="ai-spin" /> Đang gửi yêu cầu...</> : <><RefreshCw /> Cập nhật gợi ý</>}</button></div>
       {refreshRecommendations.isError && <ErrorNotice error={refreshRecommendations.error} onRetry={() => selectedResumeId && refreshRecommendations.mutate(selectedResumeId)} />}
       {recommendations.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang đọc gợi ý đã lưu...</p>}
       {recommendations.isError && <ErrorNotice error={recommendations.error} onRetry={() => void recommendations.refetch()} />}
@@ -286,7 +292,7 @@ export function AiCareerPage() {
 
     <section className="ai-section" id="career-assistant" aria-labelledby="assistant-title">
       <div className="ai-section__heading"><div><span>Bước 2 · Phát triển sự nghiệp</span><h2 id="assistant-title">Trợ lý lộ trình nghề nghiệp</h2><p>Chọn mục tiêu bạn cần. AI chỉ xử lý khi bạn chủ động yêu cầu.</p></div><GraduationCap /></div>
-      {!analysis.data && <div className="ai-prerequisite"><AlertCircle /><div><strong>Cần CV đã phân tích</strong><p>Chọn CV trạng thái ANALYZED hoặc hoàn tất phân tích ở bước 1.</p></div><a href="#ai-resume">Đi đến CV cho AI <ArrowRight /></a></div>}
+      {!analysis.data && <div className="ai-prerequisite"><AlertCircle /><div><strong>Cần CV đã phân tích</strong><p>Chọn CV có trạng thái “Đã phân tích” hoặc hoàn tất phân tích ở bước 1.</p></div><a href="#ai-resume">Đi đến CV cho AI <ArrowRight /></a></div>}
       <div className="ai-task-grid">{candidateAssistantTasks.map((task) => <article key={task} className={assistantTask === task ? 'is-active' : ''}><span><Target /></span><h3>{taskContent[task].title}</h3><p>{taskContent[task].description}</p><button type="button" onClick={() => runTask(task)} disabled={!analysis.data || assistant.isPending}>{assistant.isPending && assistantTask === task ? <><LoaderCircle className="ai-spin" /> Đang tạo...</> : <>Tạo kết quả <ArrowRight /></>}</button></article>)}</div>
       {assistant.isError && <ErrorNotice error={assistant.error} onRetry={() => assistantTask && runTask(assistantTask)} />}
       {assistantResult && <article className="ai-generated-result" aria-live="polite"><header><div><span>Kết quả AI</span><h3>{taskContent[assistantResult.taskType].title}</h3></div><Sparkles /></header><JsonResult value={assistantResult.response} /><ResultMeta provider={assistantResult.providerName} model={assistantResult.modelName} duration={assistantResult.generationDurationMs} /></article>}
@@ -310,7 +316,7 @@ export function AiCareerPage() {
       {tasks.isPending && <p className="ai-loading"><LoaderCircle className="ai-spin" /> Đang tải lịch sử...</p>}
       {tasks.isError && <ErrorNotice error={tasks.error} onRetry={() => void tasks.refetch()} />}
       {tasks.data && tasks.data.content.length === 0 && <div className="ai-empty"><History /><strong>Chưa có tác vụ AI</strong><p>Các tác vụ sẽ xuất hiện sau khi bạn chủ động chạy.</p></div>}
-      {tasks.data && tasks.data.content.length > 0 && <div className="ai-task-history">{tasks.data.content.map((task) => <article key={task.id}><span className={`ai-status ai-status--${task.status.toLowerCase()}`}>{task.status}</span><div><h3>{taskLabels[task.taskType] ?? humanize(task.taskType)}</h3><p>{task.errorMessage ?? `${task.providerName ?? 'Hệ thống'} · ${task.modelName ?? 'Không dùng mô hình sinh'}`}</p></div><time dateTime={task.createdAt}>{formatDate(task.completedAt ?? task.createdAt)}</time></article>)}</div>}
+      {tasks.data && tasks.data.content.length > 0 && <div className="ai-task-history">{tasks.data.content.map((task) => <article key={task.id}><span className={`ai-status ai-status--${task.status.toLowerCase()}`}>{statusLabels[task.status] ?? task.status}</span><div><h3>{taskLabels[task.taskType] ?? humanize(task.taskType)}</h3><p>{task.errorMessage ?? `${task.providerName ?? 'Hệ thống'} · ${task.modelName ?? 'Không dùng mô hình sinh'}`}</p></div><time dateTime={task.createdAt}>{formatDate(task.completedAt ?? task.createdAt)}</time></article>)}</div>}
     </section>
   </main>
 }

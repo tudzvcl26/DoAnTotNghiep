@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.ai.common.PageResponse;
+import com.recruitment.ai.assistant.VietnameseGenerationPolicy;
 import com.recruitment.ai.config.RecommendationProperties;
 import com.recruitment.ai.config.MatchingProperties;
 import com.recruitment.ai.dto.response.*;
@@ -49,6 +50,12 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {
+    private static final String JOB_RECOMMENDATION_FALLBACK = """
+            {"recommendationSummary":"Mô hình chưa tạo được gợi ý việc làm bằng tiếng Việt đáng tin cậy.","gapSummary":"Vui lòng xem các kỹ năng còn thiếu trong kết quả đối chiếu theo quy tắc.","recommendationReason":"Kết quả gợi ý tạm thời dựa trên điểm phù hợp đã được hệ thống tính toán độc lập."}
+            """;
+    private static final String CANDIDATE_RECOMMENDATION_FALLBACK = """
+            {"recommendationSummary":"Mô hình chưa tạo được phần nhận xét ứng viên bằng tiếng Việt đáng tin cậy.","interviewRecommendation":"Có thể dùng kết quả đối chiếu theo quy tắc để chuẩn bị nội dung xác minh trong phỏng vấn.","recommendationReason":"Nhận xét tạm thời không thay đổi điểm phù hợp và không đưa ra quyết định tuyển dụng."}
+            """;
     private static final TypeReference<List<String>> STRINGS = new TypeReference<>() { };
     private final JobRecommendationRepository jobRecommendationRepository;
     private final CandidateRecommendationRepository candidateRecommendationRepository;
@@ -61,6 +68,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final JobGateway jobGateway;
     private final GenerationContextBuilder contextBuilder;
     private final RecommendationJsonValidator validator;
+    private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
     private final ObjectMapper objectMapper;
@@ -76,7 +84,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     public PageResponse<JobRecommendationResponse> recommendJobs(
             UUID resumeId, int minimumScore, int maximumScore, Pageable pageable) {
         CurrentUser user = currentUser();
-        if (!user.isAdmin() && !user.hasRole("CANDIDATE")) throw new AccessDeniedException("Candidate access required.");
+        if (!user.isAdmin() && !user.hasRole("CANDIDATE")) throw new AccessDeniedException("Chức năng này chỉ dành cho ứng viên.");
         ResumeAnalysisResult analysis = resolveCandidateAnalysis(user, resumeId);
         requireConsent(analysis.getResumeDocument().getOwnerUserId());
         PageResponse<JobRecommendationResponse> response = transaction().execute(status -> {
@@ -94,7 +102,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     public AiTaskResponse refreshJobs(UUID resumeId) {
         CurrentUser user = currentUser();
-        if (!user.hasRole("CANDIDATE")) throw new AccessDeniedException("Candidate access required.");
+        if (!user.hasRole("CANDIDATE")) throw new AccessDeniedException("Chức năng này chỉ dành cho ứng viên.");
         ResumeAnalysisResult analysis = resolveCandidateAnalysis(user, resumeId);
         requireConsent(user.getUserId());
         Optional<AiTask> active = taskRepository
@@ -185,7 +193,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     public PageResponse<CandidateRecommendationResponse> recommendCandidates(
             UUID jobId, int minimumScore, int maximumScore, Pageable pageable) {
         CurrentUser user = currentUser();
-        if (!user.isAdmin() && !user.hasRole("EMPLOYER")) throw new AccessDeniedException("Employer access required.");
+        if (!user.isAdmin() && !user.hasRole("EMPLOYER")) throw new AccessDeniedException("Chức năng này chỉ dành cho nhà tuyển dụng.");
         JobSnapshot job = ownedPublishedJob(jobId, user);
         for (ResumeAnalysisResult analysis : analysisRepository.findAllByOrderByUpdatedAtDesc()) {
             MatchingResultResponse matched = matchingService.match(jobId, analysis.getResumeDocument().getId());
@@ -232,7 +240,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new BusinessException(ErrorCode.MATCH_JOB_NOT_PUBLISHED);
         }
         if (!user.isAdmin() && !job.companyOwnerId().equals(user.getUserId())) {
-            throw new AccessDeniedException("You do not own this job.");
+            throw new AccessDeniedException("Bạn không có quyền quản lý việc làm này.");
         }
         return job;
     }
@@ -279,10 +287,12 @@ public class RecommendationServiceImpl implements RecommendationService {
         StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
         long started = System.nanoTime();
         try {
-            StructuredGenerationResult result = provider.generate(new StructuredGenerationRequest(
-                    model.getModelName(), prompt.getSystemPrompt() + "\nRequired JSON Schema: " + prompt.getOutputSchema(),
+            StructuredGenerationRequest request = new StructuredGenerationRequest(
+                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
                     prompt.getUserPromptTemplate().replace("{{context}}", contextBuilder.build(match, job)),
-                    prompt.getOutputSchema(), message.correlationId()));
+                    prompt.getOutputSchema(), message.correlationId());
+            StructuredGenerationResult result = vietnameseGenerationPolicy.generate(
+                    provider, request, "JOB_RECOMMENDATION_REFRESH", JOB_RECOMMENDATION_FALLBACK);
             Generated generated = new Generated(message.taskId(), prompt, model, result,
                     validator.validateJob(result.structuredOutput()), elapsed(started), message.correlationId());
             record(generated, "JOB_RECOMMENDATION_REFRESH", true);
@@ -292,9 +302,10 @@ public class RecommendationServiceImpl implements RecommendationService {
             usageRecorder.record(new ProviderUsage(provider.descriptor().providerName(), model.getModelName(),
                     "JOB_RECOMMENDATION_REFRESH", 0, 0, duration, false, message.correlationId()));
             JsonNode fallback = objectMapper.createObjectNode()
-                    .put("recommendationSummary", "Deterministic match score: " + match.getOverallScore() + "/100.")
-                    .put("gapSummary", String.join("; ", readList(match.getMissingSkills())))
-                    .put("recommendationReason", "Generated from the versioned rule-based match while the AI provider was unavailable.");
+                    .put("recommendationSummary", "Điểm phù hợp theo quy tắc: " + match.getOverallScore() + "/100.")
+                    .put("gapSummary", readList(match.getMissingSkills()).isEmpty()
+                            ? "Chưa ghi nhận kỹ năng bắt buộc còn thiếu." : String.join("; ", readList(match.getMissingSkills())))
+                    .put("recommendationReason", "Kết quả được tạo từ bộ quy tắc có phiên bản vì mô hình AI tạm thời chưa sẵn sàng.");
             StructuredGenerationResult result = new StructuredGenerationResult(
                     "deterministic-fallback", "rules", fallback.toString(), 0, 0);
             return new RefreshGenerated(new Generated(message.taskId(), prompt, model, result, fallback,
@@ -396,10 +407,13 @@ public class RecommendationServiceImpl implements RecommendationService {
         StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
         long started = System.nanoTime();
         try {
-            StructuredGenerationResult result = provider.generate(new StructuredGenerationRequest(
-                    model.getModelName(), prompt.getSystemPrompt() + "\nRequired JSON Schema: " + prompt.getOutputSchema(),
+            StructuredGenerationRequest request = new StructuredGenerationRequest(
+                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
                     prompt.getUserPromptTemplate().replace("{{context}}", contextBuilder.build(match, job)),
-                    prompt.getOutputSchema(), correlationId));
+                    prompt.getOutputSchema(), correlationId);
+            StructuredGenerationResult result = vietnameseGenerationPolicy.generate(
+                    provider, request, code,
+                    candidateFacing ? JOB_RECOMMENDATION_FALLBACK : CANDIDATE_RECOMMENDATION_FALLBACK);
             JsonNode data = candidateFacing ? validator.validateJob(result.structuredOutput())
                     : validator.validateCandidate(result.structuredOutput());
             return new Generated(task.getId(), prompt, model, result, data, elapsed(started), correlationId);
@@ -489,12 +503,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private CurrentUser currentUser() {
         CurrentUser user = SecurityUtils.getCurrentUser();
-        if (user == null || user.getUserId() == null) throw new AccessDeniedException("User is not authenticated.");
+        if (user == null || user.getUserId() == null) throw new AccessDeniedException("Bạn chưa đăng nhập.");
         return user;
     }
     private String accessToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Access token is unavailable.");
+        if (authentication == null || authentication.getCredentials() == null) throw new AccessDeniedException("Không thể xác thực phiên làm việc.");
         return authentication.getCredentials().toString();
     }
     private TransactionTemplate transaction() { return new TransactionTemplate(transactionManager); }

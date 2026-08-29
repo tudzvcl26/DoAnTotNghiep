@@ -117,14 +117,14 @@ class CareerCompanionServiceImplTest {
     }
 
     @Test
-    void returnsVietnameseFallbackAfterTwoCorrections() {
+    void returnsVietnameseFallbackAfterOneCorrection() {
         when(provider.generate(any())).thenReturn(result("You should improve your career skills."));
 
         var response = service.chat(new CareerChatRequest("Explain my resume.", null, null));
 
         assertThat(response.answer()).isEqualTo(CareerCompanionServiceImpl.SAFE_FALLBACK);
-        assertThat(response.correctionAttempts()).isEqualTo(2);
-        verify(provider, times(3)).generate(any());
+        assertThat(response.correctionAttempts()).isEqualTo(1);
+        verify(provider, times(2)).generate(any());
     }
 
     @Test

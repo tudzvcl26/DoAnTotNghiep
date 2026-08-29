@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.ai.common.PageResponse;
+import com.recruitment.ai.assistant.VietnameseGenerationPolicy;
 import com.recruitment.ai.dto.response.AnalysisKeywordItemResponse;
 import com.recruitment.ai.dto.response.AnalysisSkillItemResponse;
 import com.recruitment.ai.dto.response.ResumeAnalysisResponse;
@@ -87,6 +88,7 @@ public class ResumeServiceImpl implements ResumeService {
     private final DocumentExtractorFactory extractorFactory;
     private final ResumeAnalysisJsonValidator jsonValidator;
     private final ResumeQualityScorer qualityScorer;
+    private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final AiStorageService storageService;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
@@ -172,7 +174,7 @@ public class ResumeServiceImpl implements ResumeService {
         try {
             StructuredGenerationResult generated = provider.generate(new StructuredGenerationRequest(
                     model.getModelName(),
-                    prompt.getSystemPrompt() + "\nRequired JSON Schema: " + prompt.getOutputSchema(),
+                    vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
                     prompt.getUserPromptTemplate().replace("{{resumeText}}", document.getExtractedText()),
                     prompt.getOutputSchema(),
                     correlationId
@@ -415,7 +417,7 @@ public class ResumeServiceImpl implements ResumeService {
     private CurrentUser authenticatedUser() {
         CurrentUser currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null || currentUser.getUserId() == null) {
-            throw new AccessDeniedException("User is not authenticated.");
+            throw new AccessDeniedException("Bạn chưa đăng nhập.");
         }
         return currentUser;
     }

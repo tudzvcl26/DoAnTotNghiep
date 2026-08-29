@@ -37,5 +37,9 @@ class ResumeQualityScorerTest {
         assertThat(first.dimensions()).hasSize(9);
         assertThat(first.dimensions().values().stream().mapToInt(d -> d.score()).sum())
                 .isEqualTo(first.total());
+        assertThat(first.dimensions().get("resumeCompleteness").rationale())
+                .contains("mục thông tin cốt lõi").doesNotContain("core sections");
+        assertThat(first.dimensions().get("technicalSkills").rationale())
+                .contains("kỹ năng chuyên môn").doesNotContain("technical skills");
     }
 }

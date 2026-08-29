@@ -81,36 +81,36 @@ class MatchingIntegrationTest {
              "certificates":[],"achievements":[],"keywords":["Java","Spring Boot","Microservices","PostgreSQL"]}
             """;
     private static final String EXPLANATION = """
-            {"overallEvaluation":"Strong backend alignment grounded in the deterministic result.",
-             "strengths":["Java and Spring Boot align"],"weaknesses":["One missing technology"],
-             "highScoreReasons":["Required backend skills matched"],"lowScoreReasons":["A gap remains"],
-             "missingTechnologies":["Microservices"],"careerSuggestions":["Deepen distributed systems knowledge"],
-             "resumeImprovementChecklist":["Quantify project outcomes"],"skillRecommendations":["Practice Microservices patterns"],
-             "projectRecommendations":["Add resilience patterns"],"certificationSuggestions":["Consider a Java certification"],
-             "keywordImprovements":["Add truthful REST evidence"],"experienceImprovements":["Quantify three years of impact"],
-             "educationImprovements":["Clarify relevant coursework"],
-             "gapExplanations":[{"area":"Technical skills","gap":"Microservices","priority":"HIGH","explanation":"The job names this skill."}],
-             "learningRoadmap":["Study service boundaries","Build a production sample"],
+            {"overallEvaluation":"Hồ sơ có mức độ phù hợp tốt với Backend dựa trên kết quả theo quy tắc.",
+             "strengths":["Java và Spring Boot phù hợp"],"weaknesses":["Còn thiếu một công nghệ"],
+             "highScoreReasons":["Các kỹ năng Backend bắt buộc đã phù hợp"],"lowScoreReasons":["Vẫn còn một khoảng trống"],
+             "missingTechnologies":["Microservices"],"careerSuggestions":["Nâng cao kiến thức về hệ thống phân tán"],
+             "resumeImprovementChecklist":["Định lượng kết quả dự án"],"skillRecommendations":["Thực hành các mẫu thiết kế Microservices"],
+             "projectRecommendations":["Bổ sung các mẫu thiết kế tăng khả năng phục hồi"],"certificationSuggestions":["Cân nhắc chứng chỉ Java"],
+             "keywordImprovements":["Bổ sung minh chứng REST trung thực"],"experienceImprovements":["Định lượng tác động trong ba năm kinh nghiệm"],
+             "educationImprovements":["Làm rõ các học phần liên quan"],
+             "gapExplanations":[{"area":"Kỹ năng chuyên môn","gap":"Microservices","priority":"HIGH","explanation":"Công việc có nêu kỹ năng này."}],
+             "learningRoadmap":["Học cách xác định ranh giới dịch vụ","Xây dựng sản phẩm mẫu có thể vận hành"],
              "recommendedTechnologies":["Resilience4j"],"recommendedCertifications":["Oracle Java"],
-             "portfolioImprovements":["Document architecture decisions"]}
+             "portfolioImprovements":["Ghi lại các quyết định kiến trúc"]}
             """;
     private static final String INTERVIEW = """
-            {"technicalQuestions":[{"question":"Explain Spring transaction boundaries.","expectedAnswerOutline":"Propagation and rollback.","whyInterviewerAsks":"Tests backend depth.","relatedResumeSection":"Technical skills","difficulty":"HARD"}],
-             "behavioralQuestions":[{"question":"Describe a difficult team decision.","expectedAnswerOutline":"Situation, action, result.","whyInterviewerAsks":"Tests collaboration.","relatedResumeSection":"Soft skills","difficulty":"MEDIUM"}],
-             "hrQuestions":[{"question":"Why this role?","expectedAnswerOutline":"Role alignment and goals.","whyInterviewerAsks":"Tests motivation.","relatedResumeSection":"Summary","difficulty":"EASY"}],
-             "projectQuestions":[{"question":"How did you design RecruitmentSystem?","expectedAnswerOutline":"Boundaries and tradeoffs.","whyInterviewerAsks":"Validates project ownership.","relatedResumeSection":"Projects","difficulty":"MEDIUM"}]}
+            {"technicalQuestions":[{"question":"Hãy giải thích ranh giới transaction trong Spring.","expectedAnswerOutline":"Trình bày propagation và rollback.","whyInterviewerAsks":"Đánh giá chiều sâu kiến thức Backend.","relatedResumeSection":"Kỹ năng chuyên môn","difficulty":"HARD"}],
+             "behavioralQuestions":[{"question":"Hãy mô tả một quyết định khó trong nhóm.","expectedAnswerOutline":"Nêu tình huống, hành động và kết quả.","whyInterviewerAsks":"Đánh giá khả năng phối hợp.","relatedResumeSection":"Kỹ năng mềm","difficulty":"MEDIUM"}],
+             "hrQuestions":[{"question":"Vì sao bạn quan tâm vị trí này?","expectedAnswerOutline":"Liên hệ mức độ phù hợp và mục tiêu nghề nghiệp.","whyInterviewerAsks":"Đánh giá động lực ứng tuyển.","relatedResumeSection":"Tổng quan","difficulty":"EASY"}],
+             "projectQuestions":[{"question":"Bạn đã thiết kế RecruitmentSystem như thế nào?","expectedAnswerOutline":"Trình bày ranh giới và các đánh đổi.","whyInterviewerAsks":"Xác minh vai trò thực tế trong dự án.","relatedResumeSection":"Dự án","difficulty":"MEDIUM"}]}
             """;
     private static final String JOB_RECOMMENDATION = """
-            {"recommendationSummary":"Strong published-job alignment.","gapSummary":"Review one missing skill.",
-             "recommendationReason":"The deterministic match shows relevant backend evidence."}
+            {"recommendationSummary":"Hồ sơ phù hợp tốt với công việc đang đăng tuyển.","gapSummary":"Cần xem lại một kỹ năng còn thiếu.",
+             "recommendationReason":"Kết quả theo quy tắc cho thấy minh chứng Backend phù hợp."}
             """;
     private static final String CANDIDATE_RECOMMENDATION = """
-            {"recommendationSummary":"Relevant backend candidate.","interviewRecommendation":"Validate project depth.",
-             "recommendationReason":"The deterministic match contains strong Java evidence."}
+            {"recommendationSummary":"Ứng viên có kinh nghiệm Backend phù hợp.","interviewRecommendation":"Nên xác minh chiều sâu kinh nghiệm dự án.",
+             "recommendationReason":"Kết quả theo quy tắc có minh chứng Java rõ ràng."}
             """;
     private static final String ASSISTANT = """
-            {"summary":"Grounded structured-data summary.","recommendations":["Review Java evidence"],
-             "risks":["Validate the stated experience"],"nextSteps":["Discuss the project"]}
+            {"summary":"Tóm tắt dựa trên dữ liệu có cấu trúc.","recommendations":["Xem lại minh chứng Java"],
+             "risks":["Cần xác minh kinh nghiệm đã nêu"],"nextSteps":["Trao đổi sâu hơn về dự án"]}
             """;
 
     @Autowired private MockMvc mockMvc;

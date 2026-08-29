@@ -40,7 +40,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CareerCompanionServiceImpl implements CareerCompanionService {
 
-    static final int MAX_CORRECTION_RETRIES = 2;
+    static final int MAX_CORRECTION_RETRIES = 1;
     static final int MAX_OUTPUT_TOKENS = 384;
     static final String SYSTEM_PROMPT = """
             ROLE: You are an AI Career Companion inside RecruitmentSystem.

@@ -16,7 +16,7 @@ public class CertificateScorer implements MatchingScorer {
         boolean required = context.requirements().certificateRequired();
         int score = !required || present ? maximumScore : 0;
         return new ScoreResult(dimension(), maximumScore, score,
-                required ? (present ? "Certification evidence is present." : "The declared certification requirement is missing.")
-                        : "No certification requirement is declared; this dimension is neutral.");
+                required ? (present ? "CV đã cung cấp thông tin chứng chỉ." : "CV chưa thể hiện chứng chỉ mà công việc yêu cầu.")
+                        : "Công việc chưa nêu yêu cầu chứng chỉ; ứng viên không bị trừ điểm ở tiêu chí này.");
     }
 }

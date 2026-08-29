@@ -79,7 +79,7 @@ public class MatchingServiceImpl implements MatchingService {
         }
         if (!user.isAdmin() && user.hasRole("EMPLOYER")
                 && !job.companyOwnerId().equals(user.getUserId())) {
-            throw new AccessDeniedException("You do not own this job.");
+            throw new AccessDeniedException("Bạn không có quyền quản lý việc làm này.");
         }
 
         return computeAndPersist(job, analysis, CorrelationIds.current(), started);
@@ -155,7 +155,7 @@ public class MatchingServiceImpl implements MatchingService {
         } else if (user.hasRole("EMPLOYER")) {
             JobSnapshot job = jobGateway.getJob(jobId, accessToken());
             if (!job.companyOwnerId().equals(user.getUserId())) {
-                throw new AccessDeniedException("You do not own this job.");
+                throw new AccessDeniedException("Bạn không có quyền quản lý việc làm này.");
             }
             page = matchRepository.findByJobId(jobId, pageable);
         } else {
@@ -226,14 +226,14 @@ public class MatchingServiceImpl implements MatchingService {
 
     private CurrentUser authenticatedUser() {
         CurrentUser user = SecurityUtils.getCurrentUser();
-        if (user == null || user.getUserId() == null) throw new AccessDeniedException("User is not authenticated.");
+        if (user == null || user.getUserId() == null) throw new AccessDeniedException("Bạn chưa đăng nhập.");
         return user;
     }
 
     private String accessToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getCredentials() == null) {
-            throw new AccessDeniedException("Access token is unavailable.");
+            throw new AccessDeniedException("Không thể xác thực phiên làm việc.");
         }
         return authentication.getCredentials().toString();
     }

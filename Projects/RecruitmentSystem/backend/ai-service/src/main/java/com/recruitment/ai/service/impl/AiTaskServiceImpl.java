@@ -50,7 +50,7 @@ public class AiTaskServiceImpl implements AiTaskService {
     private CurrentUser authenticatedUser() {
         CurrentUser currentUser = SecurityUtils.getCurrentUser();
         if (currentUser == null || currentUser.getUserId() == null) {
-            throw new AccessDeniedException("User is not authenticated.");
+            throw new AccessDeniedException("Bạn chưa đăng nhập.");
         }
         return currentUser;
     }

@@ -21,14 +21,14 @@ public class SkillScorer implements MatchingScorer {
         List<String> preferred = context.requirements().preferredSkills();
         if (required.isEmpty() && preferred.isEmpty()) {
             return new ScoreResult(dimension(), maximumScore, maximumScore,
-                    "The job does not declare recognized technical skill requirements.");
+                    "Công việc chưa nêu yêu cầu kỹ năng chuyên môn có thể nhận diện; ứng viên không bị trừ điểm ở tiêu chí này.");
         }
         long requiredMatched = required.stream().map(MatchingText::normalize).filter(resume::contains).count();
         long preferredMatched = preferred.stream().map(MatchingText::normalize).filter(resume::contains).count();
         double numerator = requiredMatched + preferredMatched * 0.5;
         double denominator = required.size() + preferred.size() * 0.5;
         int score = ScoringSupport.proportional(maximumScore, numerator, denominator);
-        String reason = "Required skills %d/%d; preferred skills %d/%d."
+        String reason = "Kỹ năng bắt buộc phù hợp %d/%d; kỹ năng ưu tiên phù hợp %d/%d."
                 .formatted(requiredMatched, required.size(), preferredMatched, preferred.size());
         return new ScoreResult(dimension(), maximumScore, score, reason);
     }

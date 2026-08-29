@@ -20,6 +20,17 @@ import java.util.stream.Collectors;
 @Component
 public class RuleBasedMatchingEngine {
 
+    private static final Map<String, String> DIMENSION_LABELS = Map.of(
+            "technicalSkills", "Kỹ năng chuyên môn",
+            "experience", "Kinh nghiệm",
+            "education", "Học vấn",
+            "projects", "Dự án",
+            "certificates", "Chứng chỉ",
+            "languages", "Ngoại ngữ",
+            "softSkills", "Kỹ năng mềm",
+            "keywords", "Từ khóa"
+    );
+
     private final MatchingProperties properties;
     private final Map<String, MatchingScorer> scorers;
 
@@ -50,32 +61,36 @@ public class RuleBasedMatchingEngine {
 
         List<String> strengths = breakdown.stream()
                 .filter(score -> score.maximumScore() == 0 || score.actualScore() * 100 >= score.maximumScore() * 70)
-                .map(score -> score.dimension() + ": " + score.reason()).toList();
+                .map(score -> label(score.dimension()) + ": " + score.reason()).toList();
         List<String> weaknesses = breakdown.stream()
                 .filter(score -> score.maximumScore() > 0 && score.actualScore() * 100 < score.maximumScore() * 70)
-                .map(score -> score.dimension() + ": " + score.reason()).toList();
+                .map(score -> label(score.dimension()) + ": " + score.reason()).toList();
 
         List<String> gaps = new ArrayList<>();
-        if (!missingSkills.isEmpty()) gaps.add("Missing required skills: " + String.join(", ", missingSkills));
-        if (!missingKeywords.isEmpty()) gaps.add("Missing job keywords: " + String.join(", ", missingKeywords));
-        weaknesses.forEach(item -> gaps.add("Score gap: " + item));
-        if (gaps.isEmpty()) gaps.add("No material rule-based gap was detected.");
+        if (!missingSkills.isEmpty()) gaps.add("Kỹ năng bắt buộc còn thiếu: " + String.join(", ", missingSkills));
+        if (!missingKeywords.isEmpty()) gaps.add("Từ khóa công việc còn thiếu: " + String.join(", ", missingKeywords));
+        weaknesses.forEach(item -> gaps.add("Tiêu chí cần cải thiện: " + item));
+        if (gaps.isEmpty()) gaps.add("Chưa phát hiện khoảng trống đáng kể theo các tiêu chí đánh giá hiện tại.");
 
         List<String> recommendations = new ArrayList<>();
-        if (!missingSkills.isEmpty()) recommendations.add("Build or demonstrate the required skills: " + String.join(", ", missingSkills));
-        if (!missingKeywords.isEmpty()) recommendations.add("Add truthful evidence for relevant keywords: " + String.join(", ", missingKeywords));
+        if (!missingSkills.isEmpty()) recommendations.add("Bổ sung năng lực hoặc minh chứng thực tế cho các kỹ năng bắt buộc: " + String.join(", ", missingSkills));
+        if (!missingKeywords.isEmpty()) recommendations.add("Bổ sung minh chứng trung thực liên quan đến các từ khóa: " + String.join(", ", missingKeywords));
         breakdown.stream().filter(score -> score.actualScore() < score.maximumScore())
-                .forEach(score -> recommendations.add("Improve " + score.dimension() + " evidence. " + score.reason()));
-        if (recommendations.isEmpty()) recommendations.add("Maintain current evidence and keep the resume facts up to date.");
+                .forEach(score -> recommendations.add("Cải thiện minh chứng cho mục " + label(score.dimension()) + ". " + score.reason()));
+        if (recommendations.isEmpty()) recommendations.add("Duy trì các minh chứng hiện có và thường xuyên cập nhật thông tin trong CV.");
 
         String experience = breakdown.stream().filter(item -> item.dimension().equals("experience"))
-                .findFirst().map(ScoreResult::reason).orElse("Experience was not evaluated.");
+                .findFirst().map(ScoreResult::reason).orElse("Kinh nghiệm chưa được đánh giá.");
         String education = breakdown.stream().filter(item -> item.dimension().equals("education"))
-                .findFirst().map(ScoreResult::reason).orElse("Education was not evaluated.");
+                .findFirst().map(ScoreResult::reason).orElse("Học vấn chưa được đánh giá.");
 
         return new MatchingComputation(overall, List.copyOf(breakdown), matchedSkills, missingSkills,
                 matchedKeywords, missingKeywords, strengths, weaknesses, List.copyOf(recommendations),
                 List.copyOf(gaps), experience, education);
+    }
+
+    private String label(String dimension) {
+        return DIMENSION_LABELS.getOrDefault(dimension, dimension);
     }
 
     private Set<String> resumeTerms(MatchingContext context, String... fields) {

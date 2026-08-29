@@ -16,11 +16,11 @@ public class SoftSkillScorer implements MatchingScorer {
     public ScoreResult score(MatchingContext context, int maximumScore) {
         Set<String> resume = MatchingText.normalized(MatchingText.fieldValues(context.resumeFacts(), "softSkills"));
         if (context.requirements().softSkills().isEmpty()) {
-            return new ScoreResult(dimension(), maximumScore, maximumScore, "No soft-skill requirement is declared; this dimension is neutral.");
+            return new ScoreResult(dimension(), maximumScore, maximumScore, "Công việc chưa nêu yêu cầu kỹ năng mềm; ứng viên không bị trừ điểm ở tiêu chí này.");
         }
         long matched = context.requirements().softSkills().stream().map(MatchingText::normalize).filter(resume::contains).count();
         int score = ScoringSupport.proportional(maximumScore, matched, context.requirements().softSkills().size());
         return new ScoreResult(dimension(), maximumScore, score,
-                ScoringSupport.countReason("Soft skills", (int) matched, context.requirements().softSkills().size()));
+                ScoringSupport.countReason("Kỹ năng mềm", (int) matched, context.requirements().softSkills().size()));
     }
 }
