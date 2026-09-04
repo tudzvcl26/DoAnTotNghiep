@@ -84,6 +84,16 @@ class GatewayIntegrationTest {
     }
 
     @Test
+    void aiRouteBudgetExceedsTwoBoundedProviderCallsWithoutChangingOtherRoutes() {
+        var routes = routeLocator.getRoutes().collectList().block();
+        assertThat(routes).isNotNull();
+        assertThat(routes.stream().filter(route -> route.getId().equals("ai-service")).findFirst().orElseThrow()
+                .getMetadata().get("response-timeout")).isEqualTo(390_000);
+        assertThat(routes.stream().filter(route -> !route.getId().equals("ai-service")))
+                .allMatch(route -> !route.getMetadata().containsKey("response-timeout"));
+    }
+
+    @Test
     @Order(1)
     void applicationStartsAndDeclaresAllExpectedRoutes() {
         List<String> routeIds = routeLocator.getRoutes().map(Route::getId).collectList().block();
@@ -245,11 +255,16 @@ class GatewayIntegrationTest {
     void requestLogsNeverContainAuthorizationToken() {
         Logger logger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.list = new java.util.concurrent.CopyOnWriteArrayList<>();
         appender.start();
         logger.addAppender(appender);
         String token = validToken();
         try {
             authorizedGet("/api/v1/users/log-check", token).exchange().expectStatus().isOk();
+            // doFinally logs after response completion on another thread. Wait
+            // for this request, not an unrelated earlier request's log event.
+            org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
+                    assertThat(appender.list).anyMatch(event -> event.getFormattedMessage().contains("path=/api/v1/users/log-check ")));
             List<String> messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
             assertThat(messages).isNotEmpty();
             assertThat(messages).allMatch(message -> !message.contains(token)
@@ -273,6 +288,27 @@ class GatewayIntegrationTest {
                 .jsonPath("$.status").isEqualTo(503)
                 .jsonPath("$.code").isEqualTo("GATEWAY_UPSTREAM_UNAVAILABLE")
                 .jsonPath("$.message").isEqualTo("Dịch vụ phía sau hiện không khả dụng.");
+    }
+
+    @Test
+    void unauthorizedResponsesExposeCorsHeadersForSessionRecovery() {
+        for (String bearer : List.of("", "not-a-jwt", token(Instant.now().minusSeconds(120), "access"))) {
+            webTestClient.get().uri("/api/v1/cvs")
+                    .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer)
+                    .exchange().expectStatus().isUnauthorized()
+                    .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                    .expectBody().jsonPath("$.code").isEqualTo("GATEWAY_UNAUTHORIZED");
+        }
+    }
+
+    @Test
+    void disallowedOriginCannotReadProtectedResponses() {
+        webTestClient.get().uri("/api/v1/cvs")
+                .header(HttpHeaders.ORIGIN, "https://untrusted.example")
+                .headers(headers -> headers.setBearerAuth(validToken()))
+                .exchange().expectStatus().isForbidden()
+                .expectHeader().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN);
     }
 
     private static DisposableServer startUpstream(String service) {

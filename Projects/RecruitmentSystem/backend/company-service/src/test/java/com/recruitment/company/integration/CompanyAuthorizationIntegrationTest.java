@@ -54,6 +54,18 @@ public class CompanyAuthorizationIntegrationTest {
     }
 
     @Test
+    void missingCompanyClassificationIsValidationErrorNotDatabaseFailure() throws Exception {
+        String employer = generateToken(UUID.randomUUID(), "classification@example.test", List.of("EMPLOYER"));
+        for (String body : List.of("{\"name\":\"QA missing fields\"}",
+                "{\"name\":\"QA missing size\",\"companyType\":\"PRIVATE\"}",
+                "{\"name\":\"QA missing type\",\"companySize\":\"SMALL\"}")) {
+            mockMvc.perform(post("/api/v1/companies").header("Authorization", "Bearer " + employer)
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
     @DisplayName("Task 5: GET /api/v1/companies is public -> 200 OK without JWT")
     void testPublicGetAllCompanies() throws Exception {
         mockMvc.perform(get("/api/v1/companies"))

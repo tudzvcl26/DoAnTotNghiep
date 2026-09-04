@@ -10,7 +10,7 @@ const groups: { label: string; items: CandidateItem[] }[] = [
     { label: 'Công ty', to: '/companies', icon: Building2 },
   ] },
   { label: 'Sự nghiệp của tôi', items: [
-    { label: 'Career dashboard', to: '/candidate', icon: LayoutDashboard, end: true },
+    { label: 'Tổng quan sự nghiệp', to: '/candidate', icon: LayoutDashboard, end: true },
     { label: 'Hồ sơ của tôi', to: '/candidate/profile', icon: UserRound },
     { label: 'CV đã tạo', to: '/cv', icon: FileText },
     { label: 'Tạo CV mới', to: '/cv/templates', icon: FilePlus2 },
@@ -27,12 +27,12 @@ const groups: { label: string; items: CandidateItem[] }[] = [
 export function CandidateSidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="candidate-sidebar">
-      <div className="candidate-sidebar__heading"><span>Job seeker product</span><strong>Career workspace</strong></div>
+      <div className="candidate-sidebar__heading"><span>Dành cho ứng viên</span><strong>Không gian sự nghiệp</strong></div>
       <nav aria-label="Điều hướng Career">
         {groups.map((group) => <div className="candidate-sidebar__group" key={group.label}>
           <strong>{group.label}</strong>
           {group.items.map(({ label, to, icon: Icon, end, planned }) => planned || !to
-            ? <span className="candidate-sidebar__planned" aria-disabled="true" key={label}><Icon aria-hidden="true" /><span>{label}</span><small>Planned</small></span>
+            ? <span className="candidate-sidebar__planned" aria-disabled="true" key={label}><Icon aria-hidden="true" /><span>{label}</span><small>Chưa triển khai</small></span>
             : <NavLink key={to} to={to} end={end} onClick={onNavigate} className={({ isActive }) => isActive ? 'is-active' : ''}><Icon aria-hidden="true" /><span>{label}</span></NavLink>,
           )}
         </div>)}

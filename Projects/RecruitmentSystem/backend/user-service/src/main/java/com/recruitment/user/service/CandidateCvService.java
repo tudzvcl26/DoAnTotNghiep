@@ -3,6 +3,7 @@ package com.recruitment.user.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recruitment.user.dto.cv.CvDocument;
+import com.recruitment.user.dto.cv.CvTemplateCatalog;
 import com.recruitment.user.dto.request.CreateCvFromProfileRequest;
 import com.recruitment.user.dto.request.SaveCandidateCvRequest;
 import com.recruitment.user.dto.response.CandidateCvResponse;
@@ -81,7 +82,7 @@ public class CandidateCvService {
                 List.of(),
                 profile.getCertificates().stream().map(item -> new CvDocument.CvCertification(
                         text(item.getCertificateName()), text(item.getIssuerName()), date(item.getIssueDate()))).toList(),
-                List.of(), List.of());
+                List.of(), List.of(), CvTemplateCatalog.design(request.templateId()), List.of());
         return create(candidateId, new SaveCandidateCvRequest(
                 request.title(), request.templateId(), "vi", content));
     }

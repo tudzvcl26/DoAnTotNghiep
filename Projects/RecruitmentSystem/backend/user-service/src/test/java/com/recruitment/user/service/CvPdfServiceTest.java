@@ -3,6 +3,7 @@ package com.recruitment.user.service;
 import com.recruitment.user.dto.cv.CvDocument;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -26,6 +27,24 @@ class CvPdfServiceTest {
             assertThat(pdf.getPage(0).getMediaBox().getWidth()).isCloseTo(595.28f, within(0.2f));
             assertThat(pdf.getPage(0).getMediaBox().getHeight()).isCloseTo(841.89f, within(0.2f));
             assertThat(new PDFTextStripper().getText(pdf)).contains("Nguyễn Thị Ánh", "KỸ NĂNG", "Spring Boot");
+            var continuation = new PDFRenderer(pdf).renderImageWithDPI(1, 72);
+            java.nio.file.Files.createDirectories(java.nio.file.Path.of("target/qa"));
+            javax.imageio.ImageIO.write(continuation, "png", new java.io.File("target/qa/pdf-continuation.png"));
+            int darkPixels = 0;
+            for (int y = 35; y < 120; y++) for (int x = 45; x < 540; x++) {
+                var color = new java.awt.Color(continuation.getRGB(x, y));
+                if (color.getRed() < 180 && color.getGreen() < 180 && color.getBlue() < 180) darkPixels++;
+            }
+            assertThat(darkPixels).as("Continuation-page text must be visible on its background").isGreaterThan(100);
+        }
+    }
+
+    @Test
+    void exportsPastedUnicodeControlsAndMissingOptionalContactFields() throws Exception {
+        CvDocument cv = new CvDocument(new CvDocument.CvPersonalInfo("Nguyễn Văn An", null, null, null, null, null),
+                "Phát triển phần mềm\tJava\nKỹ năng 🚀 và tiếng Việt e\u0302\u0301.", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        try (PDDocument pdf = PDDocument.load(new CvPdfService().render("classic", cv))) {
+            assertThat(new PDFTextStripper().getText(pdf)).contains("Nguyễn Văn An", "Phát triển phần mềm", "Java");
         }
     }
 
@@ -45,6 +64,18 @@ class CvPdfServiceTest {
             String text = new PDFTextStripper().getText(pdf);
             assertThat(text).contains("Nguyễn Đình Tuấn Tú", "KỸ NĂNG", "NGƯỜI THAM CHIẾU", "Trần Minh Anh")
                     .doesNotContain("Mục này phải được ẩn");
+            var positions = new java.util.HashMap<String, Float>();
+            new PDFTextStripper() {
+                @Override protected void writeString(String value, List<org.apache.pdfbox.text.TextPosition> glyphs) throws java.io.IOException {
+                    if (value.contains("Spring Boot")) positions.put("sidebar", glyphs.get(0).getXDirAdj());
+                    if (value.contains("Trần Minh Anh")) positions.put("main", glyphs.get(0).getXDirAdj());
+                    super.writeString(value, glyphs);
+                }
+            }.getText(pdf);
+            assertThat(positions.get("sidebar")).isLessThan(100f);
+            assertThat(positions.get("main")).isGreaterThan(200f);
+            java.nio.file.Files.createDirectories(java.nio.file.Path.of("target/qa"));
+            javax.imageio.ImageIO.write(new PDFRenderer(pdf).renderImageWithDPI(0, 96), "png", new java.io.File("target/qa/pdf-sidebar.png"));
         }
     }
 

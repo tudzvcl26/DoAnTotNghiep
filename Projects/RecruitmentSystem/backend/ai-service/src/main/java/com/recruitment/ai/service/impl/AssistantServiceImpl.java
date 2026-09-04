@@ -2,10 +2,14 @@ package com.recruitment.ai.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recruitment.ai.assistant.CandidateAssistantTask;
+import com.recruitment.ai.assistant.CandidateAnswerPolicy;
+import com.recruitment.ai.assistant.GroundedAssistantComposer;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.recruitment.ai.assistant.AssistantJsonValidator;
 import com.recruitment.ai.assistant.VietnameseGenerationPolicy;
 import com.recruitment.ai.assistant.RecruiterAssistantTask;
+import com.recruitment.ai.assistant.RecruiterAnswerPolicy;
 import com.recruitment.ai.dto.request.CandidateAssistantRequest;
 import com.recruitment.ai.dto.request.RecruiterAssistantRequest;
 import com.recruitment.ai.dto.response.AssistantResponseDto;
@@ -42,9 +46,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AssistantServiceImpl implements AssistantService {
-    private static final String VIETNAMESE_FALLBACK = """
-            {"summary":"Mô hình chưa tạo được nội dung tư vấn tiếng Việt đáng tin cậy.","recommendations":["Vui lòng thử lại sau hoặc bổ sung thông tin CV cụ thể hơn."],"risks":["Kết quả hiện tại chưa đáp ứng yêu cầu ngôn ngữ."],"nextSteps":["Kiểm tra dữ liệu CV rồi gửi lại yêu cầu."]}
-            """;
     private final AssistantSessionRepository sessionRepository;
     private final AssistantResponseRepository responseRepository;
     private final ResumeAnalysisResultRepository analysisRepository;
@@ -56,6 +57,9 @@ public class AssistantServiceImpl implements AssistantService {
     private final JobGateway jobGateway;
     private final GenerationContextBuilder contextBuilder;
     private final AssistantJsonValidator validator;
+    private final CandidateAnswerPolicy candidateAnswerPolicy;
+    private final RecruiterAnswerPolicy recruiterAnswerPolicy;
+    private final GroundedAssistantComposer groundedAssistantComposer;
     private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
@@ -126,7 +130,10 @@ public class AssistantServiceImpl implements AssistantService {
             root.put("requestedTask", task);
             if (analysis != null) root.set("resumeFacts", objectMapper.readTree(analysis.getStructuredData()));
             if (match != null && job != null) {
-                root.set("deterministicMatchContext", objectMapper.readTree(contextBuilder.build(match, job)));
+                ObjectNode matchContext = (ObjectNode) objectMapper.readTree(contextBuilder.build(match, job));
+                // Already present above. Do not send a second full copy of the CV.
+                matchContext.remove("resumeFacts");
+                root.set("deterministicMatchContext", matchContext);
             } else if (job != null) {
                 ObjectNode jobNode = root.putObject("publishedJob");
                 jobNode.put("id", job.id().toString()); jobNode.put("title", job.title());
@@ -153,11 +160,31 @@ public class AssistantServiceImpl implements AssistantService {
         long started = System.nanoTime();
         try {
             StructuredGenerationRequest generationRequest = new StructuredGenerationRequest(
-                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
-                    prompt.getUserPromptTemplate().replace("{{task}}", taskType).replace("{{context}}", context),
-                    prompt.getOutputSchema(), correlationId);
-            StructuredGenerationResult generated = vietnameseGenerationPolicy.generate(
-                    provider, generationRequest, promptCode, VIETNAMESE_FALLBACK);
+                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema())
+                            + ("CANDIDATE".equals(assistantType) ? "\n" + CandidateAnswerPolicy.CONTRACT : "\n" + RecruiterAnswerPolicy.CONTRACT),
+                    prompt.getUserPromptTemplate().replace("{{task}}", taskType).replace("{{context}}", context)
+                            + ("CANDIDATE".equals(assistantType) ? "\nNHIỆM VỤ CỤ THỂ: " + CandidateAssistantTask.valueOf(taskType).instruction()
+                            + "\nViết ngắn gọn, tối đa 3 mục mỗi danh sách; không dùng lại gợi ý chung về từ khóa thay cho nhiệm vụ."
+                            + "\nThiếu minh chứng không có nghĩa là ứng viên không có năng lực. Chỉ đề nghị bổ sung CV nếu có minh chứng thật; không khuyên khai kỹ năng, chứng chỉ hoặc dự án chưa có."
+                            : "\nNHIỆM VỤ CỤ THỂ: " + recruiterInstruction(taskType)),
+                    prompt.getOutputSchema(), correlationId, "CANDIDATE".equals(assistantType) ? 768 : 0);
+            StructuredGenerationResult generated;
+            if ("CANDIDATE".equals(assistantType)) {
+                String grounded = groundedAssistantComposer.candidate(taskType, context);
+                if (!candidateAnswerPolicy.accepts(grounded, taskType)) {
+                    throw new BusinessException(ErrorCode.ASSISTANT_RESPONSE_INVALID);
+                }
+                generated = new StructuredGenerationResult("deterministic-grounded", "grounded-candidate-v1", grounded, 0, 0);
+            } else if (RecruiterAssistantTask.SUMMARIZE_JOB.name().equals(taskType)) {
+                String grounded = groundedAssistantComposer.recruiterJobSummary(context);
+                if (!recruiterAnswerPolicy.accepts(grounded, taskType)) {
+                    throw new BusinessException(ErrorCode.ASSISTANT_RESPONSE_INVALID);
+                }
+                generated = new StructuredGenerationResult("deterministic-grounded", "grounded-job-summary-v1", grounded, 0, 0);
+            } else {
+                generated = vietnameseGenerationPolicy.generateValidated(provider, generationRequest, promptCode, null,
+                        output -> recruiterAnswerPolicy.accepts(output, taskType), RecruiterAnswerPolicy.CONTRACT);
+            }
             JsonNode data = validator.validate(generated.structuredOutput());
             long duration = elapsed(started);
             AssistantResponse saved = transaction().execute(status -> {
@@ -215,6 +242,7 @@ public class AssistantServiceImpl implements AssistantService {
             task.setStatus(AiTaskStatus.FAILED); task.setProgress(100);
             task.setErrorCode(exception instanceof BusinessException business ? business.getErrorCode().getCode()
                     : ErrorCode.INTERNAL_SERVER_ERROR.getCode());
+            task.setRetryable(exception instanceof BusinessException business && business.getErrorCode().isRetryable());
             task.setErrorMessage(exception.getMessage()); task.setCompletedAt(LocalDateTime.now()); taskRepository.save(task);
         }));
     }
@@ -244,4 +272,11 @@ public class AssistantServiceImpl implements AssistantService {
     private String write(JsonNode value) { try { return objectMapper.writeValueAsString(value); } catch (Exception e) { throw new IllegalStateException(e); } }
     private JsonNode read(String value) { try { return objectMapper.readTree(value); } catch (Exception e) { throw new IllegalStateException(e); } }
     private record SessionTask(UUID sessionId, UUID taskId) { }
+
+    private String recruiterInstruction(String taskType) {
+        if (RecruiterAssistantTask.SUMMARIZE_JOB.name().equals(taskType)) {
+            return "Tóm tắt đúng publishedJob cho nhà tuyển dụng theo ba phần: Vai trò, Trách nhiệm/Nhiệm vụ và Yêu cầu. Không nhắc ứng viên hay CV.";
+        }
+        return "Thực hiện đúng tác vụ " + taskType + " cho nhà tuyển dụng, chỉ dùng ngữ cảnh đã cung cấp và không đưa quyết định tuyển dụng thay người dùng.";
+    }
 }

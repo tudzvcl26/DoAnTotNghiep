@@ -14,11 +14,13 @@ public interface ApplicationMapper {
     @Mapping(target = "jobSnapshot", ignore = true)
     @Mapping(target = "candidateProfileSnapshot", ignore = true)
     @Mapping(target = "statusHistory", ignore = true)
+    @Mapping(target = "updatedAtInstant", ignore = true)
     ApplicationResponse toResponse(Application application);
 
     @BeanMapping(ignoreUnmappedSourceProperties = "coverLetter")
     @Mapping(target = "candidateProfileSnapshot", ignore = true)
     @Mapping(target = "jobSnapshot", ignore = true)
+    @Mapping(target = "updatedAtInstant", ignore = true)
     ApplicationSummaryResponse toSummaryResponse(Application application);
 
 }

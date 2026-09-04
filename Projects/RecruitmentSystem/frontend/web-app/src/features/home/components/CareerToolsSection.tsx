@@ -5,9 +5,9 @@ import { SectionHeading } from './SectionHeading'
 const tools = [
   { title: 'AI Resume Analysis', text: 'Phân tích CV và nhận gợi ý cải thiện có cấu trúc.', icon: ScanSearch, to: '/candidate', badge: 'AI' },
   { title: 'CV Matching', text: 'Đánh giá mức độ phù hợp giữa hồ sơ và công việc.', icon: FileCheck2, to: '/candidate', badge: 'AI' },
-  { title: 'AI Cover Letter', text: 'Chuẩn bị thư ứng tuyển theo định hướng nghề nghiệp.', icon: WandSparkles, to: '/candidate', badge: 'Planned' },
+  { title: 'AI Cover Letter', text: 'Chuẩn bị thư ứng tuyển theo định hướng nghề nghiệp.', icon: WandSparkles, to: '/candidate', badge: 'Chưa triển khai' },
   { title: 'Hồ sơ nghề nghiệp', text: 'Quản lý thông tin và tài liệu ứng tuyển tập trung.', icon: FilePenLine, to: '/candidate', badge: 'Profile' },
-  { title: 'Công cụ thu nhập', text: 'Khu vực quy hoạch cho tiện ích lương và thuế.', icon: Calculator, to: '/candidate', badge: 'Planned' },
+  { title: 'Công cụ thu nhập', text: 'Khu vực quy hoạch cho tiện ích lương và thuế.', icon: Calculator, to: '/candidate', badge: 'Chưa triển khai' },
 ]
 
 export function CareerToolsSection() {

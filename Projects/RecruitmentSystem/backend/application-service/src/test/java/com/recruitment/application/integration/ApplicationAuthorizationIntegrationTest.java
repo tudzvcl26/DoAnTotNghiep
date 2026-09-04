@@ -12,8 +12,10 @@ import com.recruitment.application.dto.request.ApplyJobRequest;
 import com.recruitment.application.dto.request.UpdateApplicationStatusRequest;
 import com.recruitment.application.entity.enums.ApplicationStatus;
 import com.recruitment.application.entity.Application;
+import com.recruitment.application.entity.ApplicationStatusHistory;
 import com.recruitment.application.repository.ApplicationRepository;
 import com.recruitment.application.repository.CandidateProfileSnapshotRepository;
+import com.recruitment.application.repository.ApplicationStatusHistoryRepository;
 import com.recruitment.application.service.ResumeSnapshotStorage;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -75,6 +77,9 @@ public class ApplicationAuthorizationIntegrationTest {
 
     @Autowired
     private CandidateProfileSnapshotRepository candidateProfileSnapshotRepository;
+
+    @Autowired
+    private ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
 
     private String generateToken(UUID userId, String email, List<String> roles) {
         SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
@@ -171,6 +176,10 @@ public class ApplicationAuthorizationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(applyReq)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.appliedAtInstant",
+                        org.hamcrest.Matchers.matchesPattern(".*(?:Z|[+-]\\d{2}:\\d{2})$")))
+                .andExpect(jsonPath("$.data.updatedAtInstant",
+                        org.hamcrest.Matchers.matchesPattern(".*(?:Z|[+-]\\d{2}:\\d{2})$")))
                 .andExpect(jsonPath("$.data.resumeSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("immutable-v1.pdf")))
                 .andExpect(jsonPath("$.data.candidateProfileSnapshot.displayName").value("John Candidate"))
                 .andExpect(jsonPath("$.data.candidateProfileSnapshot.headline").value("Backend Engineer"))
@@ -203,7 +212,9 @@ public class ApplicationAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + candidateToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].jobSnapshot.jobId").value(jobId.toString()))
-                .andExpect(jsonPath("$.data.content[0].jobSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("Senior Backend Engineer")));
+                .andExpect(jsonPath("$.data.content[0].jobSnapshot.snapshotData").value(org.hamcrest.Matchers.containsString("Senior Backend Engineer")))
+                .andExpect(jsonPath("$.data.content[0].updatedAtInstant",
+                        org.hamcrest.Matchers.matchesPattern(".*(?:Z|[+-]\\d{2}:\\d{2})$")));
 
         // 5. Candidate get application detail -> 200 OK
         mockMvc.perform(get("/api/v1/applications/" + applicationId)
@@ -298,7 +309,11 @@ public class ApplicationAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + employerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateStatusReq)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.statusHistory[1].changedAtInstant",
+                        org.hamcrest.Matchers.matchesPattern(".*(?:Z|[+-]\\d{2}:\\d{2})$")))
+                .andExpect(jsonPath("$.data.updatedAtInstant",
+                        org.hamcrest.Matchers.matchesPattern(".*(?:Z|[+-]\\d{2}:\\d{2})$")));
 
         updateStatusReq.setStatus(ApplicationStatus.INTERVIEW);
         updateStatusReq.setReasonCode("INTERVIEW_SCHEDULED");
@@ -345,6 +360,41 @@ public class ApplicationAuthorizationIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("APP_010"));
+    }
+
+    @Test
+    @DisplayName("Legacy zone-less application timestamps remain unchanged and gain no invented instant")
+    void legacyZoneLessTimestampsArePreservedWithoutInventedInstant() throws Exception {
+        UUID candidateId = UUID.randomUUID();
+        LocalDateTime legacyAppliedAt = LocalDateTime.of(2024, 7, 1, 9, 30);
+        LocalDateTime legacyChangedAt = LocalDateTime.of(2024, 7, 2, 14, 45);
+        Application application = new Application();
+        application.setCandidateId(candidateId);
+        application.setCompanyId(UUID.randomUUID());
+        application.setJobId(UUID.randomUUID());
+        application.setStatus(ApplicationStatus.SCREENING);
+        application.setAppliedAt(legacyAppliedAt);
+        application.setAppliedAtInstant(null);
+        application.setActive(true);
+        application = applicationRepository.save(application);
+
+        ApplicationStatusHistory history = new ApplicationStatusHistory();
+        history.setApplicationId(application.getId());
+        history.setFromStatus(ApplicationStatus.APPLIED);
+        history.setToStatus(ApplicationStatus.SCREENING);
+        history.setChangedBy(candidateId);
+        history.setChangedAt(legacyChangedAt);
+        history.setChangedAtInstant(null);
+        applicationStatusHistoryRepository.save(history);
+
+        mockMvc.perform(get("/api/v1/applications/" + application.getId())
+                        .header("Authorization", "Bearer " + generateToken(candidateId, "legacy@test.com", List.of("CANDIDATE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.appliedAt").value("2024-07-01T09:30:00"))
+                .andExpect(jsonPath("$.data.appliedAtInstant").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.updatedAtInstant").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.statusHistory[0].changedAt").value("2024-07-02T14:45:00"))
+                .andExpect(jsonPath("$.data.statusHistory[0].changedAtInstant").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test

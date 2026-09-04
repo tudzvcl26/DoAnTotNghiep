@@ -12,7 +12,7 @@ public class CertificateScorer implements MatchingScorer {
 
     @Override
     public ScoreResult score(MatchingContext context, int maximumScore) {
-        boolean present = !MatchingText.fieldValues(context.resumeFacts(), "certificates").isEmpty();
+        boolean present = MatchingText.hasCertificateEvidence(context.resumeFacts().path("certificates"));
         boolean required = context.requirements().certificateRequired();
         int score = !required || present ? maximumScore : 0;
         return new ScoreResult(dimension(), maximumScore, score,

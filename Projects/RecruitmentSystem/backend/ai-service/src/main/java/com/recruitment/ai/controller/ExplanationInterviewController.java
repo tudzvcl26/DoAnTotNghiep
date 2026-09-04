@@ -23,6 +23,16 @@ import java.util.UUID;
 public class ExplanationInterviewController {
     private final ExplanationInterviewService service;
 
+    @PostMapping("/explanation/tasks")
+    public org.springframework.http.ResponseEntity<ApiResponse<com.recruitment.ai.dto.response.AiTaskResponse>> queueExplanation(@PathVariable UUID matchId) {
+        return org.springframework.http.ResponseEntity.accepted().body(ApiResponse.success("Đã tiếp nhận tác vụ giải thích.", service.queueExplanation(matchId)));
+    }
+
+    @GetMapping("/explanation/tasks/latest")
+    public ApiResponse<com.recruitment.ai.dto.response.AiTaskResponse> latestExplanationTask(@PathVariable UUID matchId) {
+        return ApiResponse.success(service.latestExplanationTask(matchId));
+    }
+
     @PostMapping("/explanation")
     @Operation(summary = "Generate an explanation and improvement plan without changing the deterministic score")
     public ApiResponse<MatchExplanationResponse> generateExplanation(@PathVariable UUID matchId) {
@@ -39,6 +49,16 @@ public class ExplanationInterviewController {
     @Operation(summary = "Generate grounded technical, behavioral, HR, and project interview preparation")
     public ApiResponse<InterviewPreparationResponse> generateInterview(@PathVariable UUID matchId) {
         return ApiResponse.success("Đã tạo nội dung chuẩn bị phỏng vấn.", service.generateInterview(matchId));
+    }
+
+    @PostMapping("/interview/tasks")
+    public org.springframework.http.ResponseEntity<ApiResponse<com.recruitment.ai.dto.response.AiTaskResponse>> queueInterview(@PathVariable UUID matchId) {
+        return org.springframework.http.ResponseEntity.accepted().body(ApiResponse.success("Đã tiếp nhận tác vụ chuẩn bị phỏng vấn.", service.queueInterview(matchId)));
+    }
+
+    @GetMapping("/interview/tasks/latest")
+    public ApiResponse<com.recruitment.ai.dto.response.AiTaskResponse> latestInterviewTask(@PathVariable UUID matchId) {
+        return ApiResponse.success(service.latestInterviewTask(matchId));
     }
 
     @GetMapping("/interview")

@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Check, Download, Eye, EyeOff, LayoutTemplate, Library, Minus, MoveDown, MoveUp, Palette, PanelLeft, Pencil, Plus, Redo2, Save, SlidersHorizontal, Sparkles, TextCursorInput, Undo2 } from 'lucide-react'
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { cvApi, saveBlob } from './cv.api'
 import { CvPreview } from './components/CvPreview'
 import { cvTemplates } from './cv.templates'
-import { builtInSectionIds, cvThemes, emptyCvContent, type CvContent, type CvDensity, type CvDesignConfig, type CvFontFamily, type CvLanguage, type CvLayout, type CvTemplateId, type SaveCvPayload } from './cv.types'
+import { useAuthStore } from '../auth/auth.store'
+import { cvDraftKey, readCvDraft, removeCvDraft, writeCvDraft } from './cv.draft'
+import { AppError } from '../../lib/api/error-adapter'
+import { applyCvTemplate, defaultCvDesignConfig, builtInSectionIds, cvThemes, emptyCvContent, type CandidateCv, type CvContent, type CvDensity, type CvDesignConfig, type CvFontFamily, type CvLanguage, type CvLayout, type CvTemplateId, type SaveCvPayload } from './cv.types'
 import './cv-builder.css'
 
 type ToolId = 'design' | 'add' | 'layout' | 'color' | 'spacing' | 'library'
@@ -18,7 +21,9 @@ const layouts: Array<{ value: CvLayout; label: string; hint: string }> = [{ valu
 const zoomLevels = [50, 60, 75, 85, 100, 110]
 
 const cloneSnapshot = (snapshot: EditorSnapshot): EditorSnapshot => structuredClone(snapshot)
-const snapshotSignature = (snapshot: EditorSnapshot) => JSON.stringify({ title: snapshot.title.trim() || 'CV tiếng Việt', templateId: snapshot.templateId, language: snapshot.language, content: snapshot.content })
+const snapshotSignature = (snapshot: EditorSnapshot) => JSON.stringify({ title: snapshot.title.trim() || 'CV tiếng Việt', templateId: snapshot.templateId, language: snapshot.language, content: snapshot.content }, (_key, value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right))) : value)
 
 export function CvEditorPage() {
   const { id } = useParams()
@@ -27,6 +32,10 @@ export function CvEditorPage() {
   const queryClient = useQueryClient()
   const initialTemplate = cvTemplates.some((item) => item.id === params.get('template')) ? params.get('template') as CvTemplateId : 'classic'
   const initialContent = emptyCvContent(initialTemplate)
+  const ownerId = useAuthStore((state) => state.currentUser?.id)
+  const draftKey = cvDraftKey(ownerId, id ?? `new:${initialTemplate}`)
+  const [recovery, setRecovery] = useState(() => readCvDraft(draftKey))
+  const [draftStorageFailed, setDraftStorageFailed] = useState(false)
   const [title, setTitle] = useState('CV tiếng Việt')
   const [templateId, setTemplateId] = useState<CvTemplateId>(initialTemplate)
   const [language, setLanguage] = useState<CvLanguage>('vi')
@@ -38,8 +47,11 @@ export function CvEditorPage() {
   const [savedSignature, setSavedSignature] = useState(() => snapshotSignature({ title: 'CV tiếng Việt', templateId: initialTemplate, language: 'vi', content: initialContent }))
   const [loadedId, setLoadedId] = useState<string | null>(null)
   const [historyRevision, setHistoryRevision] = useState(0)
+  const [composing, setComposing] = useState(false)
   const profileImportStarted = useRef(false)
   const attemptedAutosaveSignature = useRef<string | null>(null)
+  const persistedId = useRef(id)
+  const saveInFlight = useRef<Promise<CandidateCv> | null>(null)
   const undoStack = useRef<EditorSnapshot[]>([])
   const redoStack = useRef<EditorSnapshot[]>([])
   const currentRef = useRef<EditorSnapshot>({ title, templateId, language, content })
@@ -51,11 +63,17 @@ export function CvEditorPage() {
   const signature = snapshotSignature(currentSnapshot)
   const dirty = signature !== savedSignature
 
+  useLayoutEffect(() => {
+    if (recovery || !dirty || (id && loadedId !== id)) return
+    setDraftStorageFailed(!writeCvDraft(draftKey, { snapshot: currentRef.current, baseSignature: savedSignature, updatedAt: Date.now() }))
+  }, [draftKey, dirty, signature, savedSignature, recovery, id, loadedId])
+
   useEffect(() => {
     if (!existing.data || loadedId === existing.data.id) return
     const loaded = { title: existing.data.title, templateId: existing.data.templateId, language: existing.data.language, content: existing.data.content }
     setTitle(loaded.title); setTemplateId(loaded.templateId); setLanguage(loaded.language); setContent(loaded.content)
     setSavedSignature(snapshotSignature(loaded)); setLoadedId(existing.data.id)
+    persistedId.current = existing.data.id
     undoStack.current = []; redoStack.current = []; setHistoryRevision((value) => value + 1)
   }, [existing.data, loadedId])
 
@@ -72,37 +90,53 @@ export function CvEditorPage() {
   const redo = useCallback(() => { const next = redoStack.current.pop(); if (!next) return; undoStack.current.push(cloneSnapshot(currentRef.current)); restore(next); setHistoryRevision((value) => value + 1) }, [restore])
 
   const save = useMutation({
-    mutationFn: (payload: SaveCvPayload) => id ? cvApi.update(id, payload) : cvApi.create(payload),
+    mutationFn: (payload: SaveCvPayload) => {
+      if (saveInFlight.current) return saveInFlight.current
+      const request = persistedId.current ? cvApi.update(persistedId.current, payload) : cvApi.create(payload)
+      saveInFlight.current = request.finally(() => { saveInFlight.current = null })
+      return saveInFlight.current
+    },
     onSuccess: async (saved) => {
       const persisted = { title: saved.title, templateId: saved.templateId, language: saved.language, content: saved.content }
       setSavedSignature(snapshotSignature(persisted))
-      await queryClient.invalidateQueries({ queryKey: ['candidate-cvs'] }); await queryClient.invalidateQueries({ queryKey: ['candidate-cv', saved.id] })
+      // Acknowledging a snapshot must never rehydrate over edits made in flight.
+      persistedId.current = saved.id
+      setLoadedId(saved.id)
+      queryClient.setQueryData(['candidate-cv', saved.id], saved)
+      const savedKey = cvDraftKey(ownerId, saved.id)
+      if (snapshotSignature(currentRef.current) === snapshotSignature(persisted)) removeCvDraft(savedKey)
+      else writeCvDraft(savedKey, { snapshot: currentRef.current, baseSignature: snapshotSignature(persisted), updatedAt: Date.now() })
+      if (savedKey !== draftKey) removeCvDraft(draftKey)
       if (!id) navigate(`/cv/${saved.id}/edit`, { replace: true })
+      await queryClient.invalidateQueries({ queryKey: ['candidate-cvs'] })
     },
   })
   const autofill = useMutation({ mutationFn: () => cvApi.createFromProfile(title.trim() || 'CV từ hồ sơ', templateId), onSuccess: async (saved) => { await queryClient.invalidateQueries({ queryKey: ['candidate-cvs'] }); navigate(`/cv/${saved.id}/edit`, { replace: true }) } })
-  const download = useMutation({ mutationFn: async () => { const saved = id ? await cvApi.update(id, currentPayload) : await cvApi.create(currentPayload); return { saved, blob: await cvApi.download(saved.id) } }, onSuccess: ({ saved, blob }) => { saveBlob(blob, `${saved.title}.pdf`); if (!id) navigate(`/cv/${saved.id}/edit`, { replace: true }) } })
+  const download = useMutation({ mutationFn: async () => {
+    const saved = await save.mutateAsync({ ...currentRef.current, title: currentRef.current.title.trim() || 'CV tiếng Việt' })
+    return { saved, blob: await cvApi.download(saved.id) }
+  }, onSuccess: ({ saved, blob }) => saveBlob(blob, `${saved.title}.pdf`) })
   const persist = save.mutate
 
   useEffect(() => { if (id || params.get('source') !== 'profile' || profileImportStarted.current) return; profileImportStarted.current = true; autofill.mutate() }, [id, params, autofill])
   useEffect(() => {
-    if (!dirty || attemptedAutosaveSignature.current === signature || save.isPending || autofill.isPending || params.get('source') === 'profile' || (id && loadedId !== id)) return
+    if (composing || recovery || !dirty || attemptedAutosaveSignature.current === signature || save.isPending || download.isPending || autofill.isPending || params.get('source') === 'profile' || (id && loadedId !== id)) return
     const timer = window.setTimeout(() => {
       const current = currentRef.current
       attemptedAutosaveSignature.current = snapshotSignature(current)
       persist({ title: current.title.trim() || 'CV tiếng Việt', templateId: current.templateId, language: current.language, content: current.content })
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [dirty, signature, id, loadedId, params, save.isPending, autofill.isPending, persist])
+  }, [composing, recovery, dirty, signature, id, loadedId, params, save.isPending, download.isPending, autofill.isPending, persist])
   useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault() }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn) }, [dirty])
-  useEffect(() => { const keyboardHistory = (event: KeyboardEvent) => { if (!(event.ctrlKey || event.metaKey)) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() } if (event.key.toLowerCase() === 'y') { event.preventDefault(); redo() } }; window.addEventListener('keydown', keyboardHistory); return () => window.removeEventListener('keydown', keyboardHistory) }, [redo, undo])
+  useEffect(() => { const keyboardHistory = (event: KeyboardEvent) => { if (event.isComposing || event.keyCode === 229 || !(event.ctrlKey || event.metaKey)) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() } if (event.key.toLowerCase() === 'y') { event.preventDefault(); redo() } }; window.addEventListener('keydown', keyboardHistory); return () => window.removeEventListener('keydown', keyboardHistory) }, [redo, undo])
   useEffect(() => { if (!templatePickerOpen) return; const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setTemplatePickerOpen(false) }; window.addEventListener('keydown', closeOnEscape); return () => window.removeEventListener('keydown', closeOnEscape) }, [templatePickerOpen])
 
   const updateDesign = (patch: Partial<CvDesignConfig>) => { checkpoint(); setContent((value) => ({ ...value, designConfig: { ...value.designConfig, ...patch } })) }
   const scrollTo = (section: string) => document.getElementById(`cv-section-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   const ensureVisible = (section: string) => {
     checkpoint()
-    setContent((value) => ({ ...value, designConfig: { ...value.designConfig, sectionOrder: value.designConfig.sectionOrder.includes(section) ? value.designConfig.sectionOrder : [...value.designConfig.sectionOrder, section], sectionVisibility: { ...value.designConfig.sectionVisibility, [section]: true } } }))
+    setContent((value) => ({ ...value, customSections: value.customSections.map((item) => `custom:${item.id}` === section ? { ...item, visible: true } : item), designConfig: { ...value.designConfig, sectionOrder: value.designConfig.sectionOrder.includes(section) ? value.designConfig.sectionOrder : [...value.designConfig.sectionOrder, section], sectionVisibility: { ...value.designConfig.sectionVisibility, [section]: true } } }))
     window.setTimeout(() => scrollTo(section), 0)
   }
   const addSectionItem = (section: string) => {
@@ -131,13 +165,18 @@ export function CvEditorPage() {
     const next = [...order]; [next[index], next[target]] = [next[target], next[index]]; updateDesign({ sectionOrder: next })
   }
 
+  if (!id && params.get('source') === 'profile' && !autofill.isError) return <main className="cv-page"><div className="cv-state" role="status">Đang tạo CV từ hồ sơ của bạn…</div></main>
   if (id && existing.isLoading) return <main className="cv-page"><div className="cv-state">Đang mở CV…</div></main>
-  if (id && existing.isError) return <main className="cv-page"><div className="cv-state cv-state--error">Không tìm thấy CV hoặc bạn không có quyền truy cập.</div></main>
+  if (id && existing.isError) return <main className="cv-page"><div className="cv-state cv-state--error" role="alert"><p>{existing.error instanceof AppError ? existing.error.message : 'Không thể tải CV lúc này. Nội dung đã lưu vẫn được giữ trên máy chủ.'}</p><button type="button" className="cv-button" onClick={() => void existing.refetch()}>Tải lại CV</button></div></main>
 
-  const saveLabel = save.isPending ? 'Đang lưu…' : save.isError ? 'Không thể lưu' : dirty ? 'Có thay đổi chưa lưu' : <><Check /> Đã lưu</>
+  const saveLabel = save.isPending ? 'Đang lưu…' : save.isError ? 'Không thể lưu' : dirty ? 'Có thay đổi chưa lưu' : !id ? 'CV mới chưa lưu' : <><Check /> Đã lưu</>
+  const writePending = composing || save.isPending || autofill.isPending || download.isPending || Boolean(recovery)
+  const effectiveVisibility = { ...content.designConfig.sectionVisibility, ...Object.fromEntries(content.customSections.filter((item) => !item.visible).map((item) => [`custom:${item.id}`, false])) }
   const tools: Array<[ToolId, string, typeof Palette]> = [['design', 'Thiết kế & Font', TextCursorInput], ['add', 'Thêm mục', Plus], ['layout', 'Bố cục', PanelLeft], ['color', 'Màu CV', Palette], ['spacing', 'Khoảng cách', SlidersHorizontal], ['library', 'Thư viện CV', Library]]
 
-  return <main className={`cv-editor cv-inline-editor${mode === 'preview' ? ' is-preview-mode' : ''}`}>
+  return <main className={`cv-editor cv-inline-editor${mode === 'preview' ? ' is-preview-mode' : ''}`}
+    onCompositionStartCapture={() => setComposing(true)}
+    onCompositionEndCapture={() => setComposing(false)}>
     <header className="cv-editor__toolbar">
       <Link to="/cv"><ArrowLeft /> CV của tôi</Link>
       <input aria-label="Tên CV" value={title} maxLength={150} onFocus={checkpoint} onChange={(event) => setTitle(event.target.value)} />
@@ -146,13 +185,16 @@ export function CvEditorPage() {
       <div className="cv-editor__toolbar-actions">
         <button type="button" aria-label="Hoàn tác" title="Hoàn tác (Ctrl+Z)" onClick={undo} disabled={undoStack.current.length === 0} data-history-revision={historyRevision}><Undo2 /></button>
         <button type="button" aria-label="Làm lại" title="Làm lại (Ctrl+Shift+Z)" onClick={redo} disabled={redoStack.current.length === 0}><Redo2 /></button>
-        {!id && params.get('source') !== 'profile' && <button type="button" onClick={() => autofill.mutate()} disabled={autofill.isPending}><Sparkles /> Điền từ hồ sơ</button>}
+        {!id && params.get('source') !== 'profile' && <button type="button" onClick={() => autofill.mutate()} disabled={writePending}><Sparkles /> Điền từ hồ sơ</button>}
         <button type="button" onClick={() => setMode((value) => value === 'edit' ? 'preview' : 'edit')}>{mode === 'edit' ? <><Eye /> Xem trước</> : <><Pencil /> Nội dung</>}</button>
-        <button type="button" onClick={() => download.mutate()} disabled={download.isPending}><Download /> {download.isPending ? 'Đang tạo…' : 'PDF'}</button>
-        <button className="is-primary" type="button" onClick={() => save.mutate(currentPayload)} disabled={save.isPending}><Save /> {save.isPending ? 'Đang lưu…' : 'Lưu CV'}</button>
+        <button type="button" onClick={() => download.mutate()} disabled={writePending}><Download /> {download.isPending ? 'Đang tạo…' : 'PDF'}</button>
+        <button className="is-primary" type="button" onClick={() => save.mutate(currentPayload)} disabled={writePending}><Save /> {save.isPending ? 'Đang lưu…' : 'Lưu CV'}</button>
       </div>
     </header>
-    {(save.isError || autofill.isError || download.isError) && <div className="cv-editor__error">Không thể hoàn tất thao tác. Vui lòng kiểm tra dữ liệu và thử lại.</div>}
+    {recovery && <div className="cv-editor__recovery" role="status"><span>Tìm thấy bản nháp chưa lưu trong tab này. Nội dung trên máy chủ chưa bị thay đổi.</span><button type="button" onClick={() => { checkpoint(); restore(recovery.snapshot); setRecovery(null) }}>Khôi phục bản nháp</button><button type="button" onClick={() => { removeCvDraft(draftKey); setRecovery(null) }}>Bỏ bản nháp</button></div>}
+    {draftStorageFailed && <div className="cv-editor__error" role="alert">Không thể giữ bản nháp trong trình duyệt. Hãy lưu thành công trước khi rời trang.</div>}
+    {autofill.isError && <div className="cv-editor__error"><button type="button" className="cv-button" onClick={() => autofill.mutate()}>Thử lại nhập hồ sơ</button></div>}
+    {(save.isError || autofill.isError || download.isError) && <div className="cv-editor__error" role="alert">{save.error instanceof AppError ? save.error.message : 'Không thể hoàn tất thao tác. Bản nháp được giữ trong tab này nếu trình duyệt cho phép. Vui lòng kiểm tra dữ liệu và thử lưu lại.'}</div>}
     {mode === 'preview' && <div className="cv-preview-mode-banner"><Eye /> Chế độ xem trước — mọi công cụ chỉnh sửa đã được ẩn.<button type="button" onClick={() => setMode('edit')}>Quay lại chỉnh sửa</button></div>}
     <div className="cv-inline-workspace">
       {mode === 'edit' && <aside className="cv-tool-sidebar" aria-label="Công cụ CV">
@@ -160,18 +202,18 @@ export function CvEditorPage() {
         <div className="cv-tool-panel">
           {tool === 'design' && <DesignPanel language={language} design={content.designConfig} zoom={zoom} onLanguage={(next) => { checkpoint(); setLanguage(next) }} onDesign={updateDesign} onZoom={setZoom} onTemplate={() => setTemplatePickerOpen(true)} />}
           {tool === 'add' && <><h2>Thêm mục</h2><p>Mục được bật và xuất hiện ngay trên CV để bạn nhập trực tiếp.</p><div className="cv-tool-list">{builtInSectionIds.map((section) => <button type="button" onClick={() => section === 'summary' ? ensureVisible(section) : addSectionItem(section)} key={section}><Plus /> {sectionLabels[section]}</button>)}</div><h3 className="cv-tool-subtitle">Mục mở rộng</h3><div className="cv-tool-list"><button type="button" onClick={() => addCustomSection('Sở thích')}><Plus /> Sở thích</button><button type="button" onClick={() => addCustomSection('Người tham chiếu')}><Plus /> Người tham chiếu</button><button type="button" onClick={() => addCustomSection('Thông tin khác')}><Plus /> Thông tin khác</button></div></>}
-          {tool === 'layout' && <LayoutPanel design={content.designConfig} customTitles={Object.fromEntries(content.customSections.map((section) => [`custom:${section.id}`, section.title]))} onDesign={updateDesign} onMove={moveOrder} onShow={ensureVisible} />}
+          {tool === 'layout' && <LayoutPanel design={{ ...content.designConfig, sectionVisibility: effectiveVisibility }} customTitles={Object.fromEntries(content.customSections.map((section) => [`custom:${section.id}`, section.title]))} onDesign={updateDesign} onMove={moveOrder} onShow={ensureVisible} />}
           {tool === 'color' && <ColorPanel selected={content.designConfig.theme.id} onSelect={(themeId) => updateDesign({ theme: { ...(cvThemes.find((theme) => theme.id === themeId) ?? cvThemes[0]) } })} />}
           {tool === 'spacing' && <SpacingPanel design={content.designConfig} onDesign={updateDesign} />}
-          {tool === 'library' && <><h2>Thư viện CV</h2><p>Đổi template không làm mất nội dung, màu, font hoặc thứ tự section.</p><button className="cv-tool-action" type="button" onClick={() => setTemplatePickerOpen(true)}><LayoutTemplate /> Đổi mẫu CV</button><Link className="cv-tool-action" to="/cv">CV của tôi</Link><Link className="cv-tool-action" to="/cv/templates">Thư viện mẫu</Link></>}
+          {tool === 'library' && <><h2>Thư viện CV</h2><p>Đổi mẫu áp dụng thiết kế mới và giữ nguyên toàn bộ nội dung, kể cả mục đang ẩn.</p><button className="cv-tool-action" type="button" onClick={() => setTemplatePickerOpen(true)}><LayoutTemplate /> Đổi mẫu CV</button><Link className="cv-tool-action" to="/cv">CV của tôi</Link><Link className="cv-tool-action" to="/cv/templates">Thư viện mẫu</Link></>}
         </div>
       </aside>}
       <section className="cv-inline-stage" aria-label={mode === 'edit' ? 'Vùng chỉnh sửa CV trực tiếp' : 'Vùng xem trước CV'}>
-        {mode === 'edit' && <div className="cv-inline-hint"><Pencil /> Nhấp trực tiếp vào nội dung • rê chuột vào section để sắp xếp</div>}
+        {mode === 'edit' && <div className="cv-inline-hint"><Pencil /> Nhấp để nhập nội dung • dùng nút để sắp xếp • cuộn ngang canvas trên màn hình nhỏ</div>}
         <div className="cv-inline-canvas" style={{ '--cv-zoom': zoom / 100 } as CSSProperties}><CvPreview content={content} templateId={templateId} language={language} editor={mode === 'edit' ? { onChange: setContent, onCheckpoint: checkpoint } : undefined} /></div>
       </section>
     </div>
-    {templatePickerOpen && <div className="cv-template-dialog" role="dialog" aria-modal="true" aria-labelledby="template-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplatePickerOpen(false) }}><div><header><div><span>Đổi giao diện</span><h2 id="template-dialog-title">Chọn mẫu CV</h2><p>Nội dung và toàn bộ thiết lập thiết kế đang nhập được giữ nguyên.</p></div><button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Đóng">×</button></header><div className="cv-template-dialog__grid">{cvTemplates.map((template) => <button type="button" className={template.id === templateId ? 'is-active' : ''} onClick={() => { checkpoint(); setTemplateId(template.id); setTemplatePickerOpen(false) }} key={template.id}><span className={`cv-template-swatch cv-template-swatch--${template.id}`} /><strong>{template.name}</strong><small>{template.style}</small>{template.id === templateId && <Check />}</button>)}</div></div></div>}
+    {templatePickerOpen && <div className="cv-template-dialog" role="dialog" aria-modal="true" aria-labelledby="template-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplatePickerOpen(false) }}><div><header><div><span>Đổi giao diện</span><h2 id="template-dialog-title">Chọn mẫu CV</h2><p>Áp dụng màu, font và bố cục của mẫu. Nội dung và các mục ẩn được giữ nguyên; có thể hoàn tác.</p></div><button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Đóng">×</button></header><div className="cv-template-dialog__grid">{cvTemplates.map((template) => <button type="button" className={template.id === templateId ? 'is-active' : ''} onClick={() => { checkpoint(); setTemplateId(template.id); setContent(value => applyCvTemplate(value, template.id)); setTemplatePickerOpen(false) }} key={template.id}><span className={`cv-template-swatch cv-template-swatch--${template.id}`} style={{ background: defaultCvDesignConfig(template.id).theme.primaryColor }} /><strong>{template.name}</strong><small>{template.style}</small>{template.id === templateId && <Check />}</button>)}</div></div></div>}
   </main>
 }
 

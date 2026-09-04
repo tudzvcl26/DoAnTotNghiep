@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.text.Normalizer;
 
 @Service
 public class CvPdfService {
@@ -51,12 +52,21 @@ public class CvPdfService {
                 Map<String, CvDocument.CvCustomSection> customSections = new LinkedHashMap<>();
                 safe(safeDocument.customSections()).forEach(section -> customSections.put("custom:" + section.id(), section));
                 List<String> order = safe(design.sectionOrder()).isEmpty() ? DEFAULT_ORDER : design.sectionOrder();
+                boolean sidebar = design.layout().startsWith("sidebar-");
+                float bodyTop = writer.y;
+                // Match the shared preview's section assignment; each column
+                // paginates independently, reusing rather than repainting pages.
+                var sidebarIds = java.util.Set.of("education", "skills", "certifications");
+                for (int column = 0; column < (sidebar ? 2 : 1); column++) {
+                if (sidebar) writer.column(column == 0, bodyTop);
                 for (String sectionId : order) {
+                    if (sidebar && sidebarIds.contains(sectionId) != (column == 0)) continue;
                     if (Boolean.FALSE.equals(safeMap(design.sectionVisibility()).get(sectionId))) continue;
                     if (sectionId.startsWith("custom:")) {
                         CvDocument.CvCustomSection section = customSections.get(sectionId);
                         if (section != null && section.visible()) writeCustomSection(writer, section);
                     } else writeBuiltInSection(writer, safeDocument, sectionId, language);
+                }
                 }
             }
             pdf.save(output);
@@ -116,7 +126,7 @@ public class CvPdfService {
             writer.banner();
         }
         writer.title(info.fullName()); writer.subtitle(info.headline());
-        writer.contact(List.of(info.email(), info.phone(), info.location(), info.website())); writer.rule();
+        writer.contact(List.of(text(info.email()), text(info.phone()), text(info.location()), text(info.website()))); writer.rule();
     }
 
     private PDFont loadFont(PDDocument pdf, boolean bold, String family) throws IOException {
@@ -178,27 +188,41 @@ public class CvPdfService {
         private static final float BASE_MARGIN = 46;
         private final PDDocument pdf; private final PDFont regular; private final PDFont bold;
         private final TemplateStyle style; private final Palette palette; private final double fontScale;
-        private final double densityScale; private final String layout; private final float leftMargin;
-        private final float rightMargin; private final float contentWidth;
+        private final double densityScale; private final String layout; private float leftMargin;
+        private float rightMargin; private float contentWidth;
         private PDPageContentStream stream; private float y;
+        private boolean pageHasBanner;
+        private int pageIndex = -1;
 
         Writer(PDDocument pdf, PDFont regular, PDFont bold, TemplateStyle style, Palette palette, CvDocument.CvDesignConfig design) throws IOException {
             this.pdf = pdf; this.regular = regular; this.bold = bold; this.style = style; this.palette = palette;
             this.fontScale = design.fontScale() < 0.85 || design.fontScale() > 1.15 ? 1 : design.fontScale();
             this.densityScale = switch (design.density()) { case "compact" -> .82; case "comfortable" -> 1.18; default -> 1; };
-            this.layout = design.layout(); this.leftMargin = "sidebar-left".equals(layout) ? 126 : BASE_MARGIN;
-            this.rightMargin = "sidebar-right".equals(layout) ? 126 : BASE_MARGIN; this.contentWidth = WIDTH - leftMargin - rightMargin; newPage();
+            this.layout = design.layout(); this.leftMargin = BASE_MARGIN;
+            this.rightMargin = BASE_MARGIN; this.contentWidth = WIDTH - leftMargin - rightMargin; newPage();
         }
 
-        void banner() throws IOException { stream.setNonStrokingColor(palette.primary()); stream.addRect(0, HEIGHT - 150, WIDTH, 150); stream.fill(); }
-        void title(String value) throws IOException { line(text(value).isBlank() ? "CV ỨNG VIÊN" : value, 24, true, 30); }
-        void subtitle(String value) throws IOException { if (!blank(value)) line(value, 12, true, 20); }
+        void column(boolean secondary, float firstPageTop) throws IOException {
+            float gap = 22, sideWidth = 148, mainWidth = WIDTH - 2 * BASE_MARGIN - gap - sideWidth;
+            boolean left = "sidebar-left".equals(layout);
+            leftMargin = secondary ? (left ? BASE_MARGIN : BASE_MARGIN + mainWidth + gap)
+                    : (left ? BASE_MARGIN + sideWidth + gap : BASE_MARGIN);
+            contentWidth = secondary ? sideWidth : mainWidth;
+            rightMargin = WIDTH - leftMargin - contentWidth;
+            pageIndex = -1;
+            newPage();
+            y = firstPageTop;
+        }
+
+        void banner() throws IOException { pageHasBanner = true; stream.setNonStrokingColor(palette.primary()); stream.addRect(0, HEIGHT - 150, WIDTH, 150); stream.fill(); }
+        void title(String value) throws IOException { wrapped(text(value).isBlank() ? "CV ỨNG VIÊN" : value, 24, true, 30); }
+        void subtitle(String value) throws IOException { if (!blank(value)) wrapped(value, 12, true, 20); }
         void contact(List<String> values) throws IOException {
             String joined = values.stream().filter(value -> !blank(value)).map(CvPdfService::text).reduce((left, right) -> left + "  •  " + right).orElse("");
             if (!joined.isBlank()) wrapped(joined, 9.5f, false, 15);
         }
-        void rule() throws IOException { ensure(spacing(18)); stream.setStrokingColor(palette.primary()); stream.setLineWidth(1.4f); stream.moveTo(leftMargin, y); stream.lineTo(WIDTH - rightMargin, y); stream.stroke(); y -= spacing(18); }
-        void section(String label) throws IOException { ensure(spacing(32)); y -= spacing(7); line(label, style.strongHeadings() ? 11.5f : 10.5f, true, 18); }
+        void rule() throws IOException { if (pageHasBanner) y = Math.min(y, HEIGHT - 158); ensure(spacing(18)); stream.setStrokingColor(palette.primary()); stream.setLineWidth(1.4f); stream.moveTo(leftMargin, y); stream.lineTo(WIDTH - rightMargin, y); stream.stroke(); y -= spacing(18); }
+        void section(String label) throws IOException { ensure(spacing(70)); y -= spacing(7); wrapped(label, style.strongHeadings() ? 11.5f : 10.5f, true, 18); }
         void paragraph(String value) throws IOException { if (!blank(value)) wrapped(value, 10, false, 14); }
         void item(String heading, String meta, String description) throws IOException {
             if (blank(heading) && blank(description)) return; ensure(spacing(42));
@@ -209,29 +233,59 @@ public class CvPdfService {
         void line(String value, float size, boolean isBold, float leading) throws IOException { float spaced = spacing(leading); ensure(spaced); show(value, scaled(size), isBold); y -= spaced; }
         void wrapped(String value, float size, boolean isBold, float leading) throws IOException {
             float scaledSize = scaled(size); float spaced = spacing(leading);
-            for (String paragraph : text(value).replace('\r', '\n').split("\\n+")) for (String line : wrap(paragraph, isBold ? bold : regular, scaledSize)) { ensure(spaced); show(line, scaledSize, isBold); y -= spaced; }
+            for (String paragraph : text(value).replace("\r\n", "\n").replace('\r', '\n').split("\\n", -1)) for (String line : wrap(paragraph, isBold ? bold : regular, scaledSize)) { ensure(spaced); show(line, scaledSize, isBold); y -= spaced; }
         }
         private List<String> wrap(String value, PDFont font, float size) throws IOException {
             java.util.ArrayList<String> lines = new java.util.ArrayList<>(); StringBuilder current = new StringBuilder();
-            for (String word : value.trim().split("\\s+")) { String candidate = current.isEmpty() ? word : current + " " + word;
-                if (!current.isEmpty() && font.getStringWidth(candidate) / 1000f * size > contentWidth) { lines.add(current.toString()); current = new StringBuilder(word); } else current = new StringBuilder(candidate); }
+            for (String word : printable(value, font).trim().split("\\s+")) {
+                String candidate = current.isEmpty() ? word : current + " " + word;
+                if (font.getStringWidth(candidate) / 1000f * size <= contentWidth) { current = new StringBuilder(candidate); continue; }
+                if (!current.isEmpty()) { lines.add(current.toString()); current.setLength(0); }
+                for (int point : word.codePoints().toArray()) {
+                    String glyph = new String(Character.toChars(point));
+                    if (!current.isEmpty() && font.getStringWidth(current + glyph) / 1000f * size > contentWidth) {
+                        lines.add(current.toString()); current.setLength(0);
+                    }
+                    current.append(glyph);
+                }
+            }
             if (!current.isEmpty()) lines.add(current.toString()); return lines.isEmpty() ? List.of("") : lines;
         }
         private void show(String value, float size, boolean isBold) throws IOException {
             stream.beginText(); stream.setFont(isBold ? bold : regular, size);
-            stream.setNonStrokingColor(!"single".equals(layout) && y > HEIGHT - 150
+            stream.setNonStrokingColor(pageHasBanner && y > HEIGHT - 150
                     ? Palette.rgb(255, 255, 255)
                     : palette.text());
-            stream.newLineAtOffset(leftMargin, y); stream.showText(text(value)); stream.endText();
+            stream.newLineAtOffset(leftMargin, y); stream.showText(printable(text(value), isBold ? bold : regular)); stream.endText();
+        }
+        private String printable(String value, PDFont font) throws IOException {
+            StringBuilder output = new StringBuilder();
+            for (int point : Normalizer.normalize(text(value), Normalizer.Form.NFC).codePoints().toArray()) {
+                if (Character.isISOControl(point) || Character.isWhitespace(point)) { output.append(' '); continue; }
+                // Joiners and variation selectors have no standalone glyph in these fonts.
+                if (Character.getType(point) == Character.FORMAT || point == 0xFE0F) continue;
+                String glyph = new String(Character.toChars(point));
+                try { font.getStringWidth(glyph); output.append(glyph); }
+                catch (IllegalArgumentException unsupported) { output.append('?'); }
+            }
+            return output.toString();
         }
         private float scaled(float value) { return (float) (value * fontScale); }
-        private float spacing(float value) { return (float) (value * densityScale); }
+        private float spacing(float value) { return (float) (value * densityScale * fontScale); }
         private void ensure(float required) throws IOException { if (y - required < BASE_MARGIN) newPage(); }
         private void newPage() throws IOException {
-            if (stream != null) stream.close(); PDPage page = new PDPage(PDRectangle.A4); pdf.addPage(page); stream = new PDPageContentStream(pdf, page);
+            pageHasBanner = false;
+            if (stream != null) stream.close();
+            pageIndex++;
+            if (pageIndex < pdf.getNumberOfPages()) {
+                stream = new PDPageContentStream(pdf, pdf.getPage(pageIndex), PDPageContentStream.AppendMode.APPEND, true, true);
+                y = HEIGHT - BASE_MARGIN;
+                return;
+            }
+            PDPage page = new PDPage(PDRectangle.A4); pdf.addPage(page); stream = new PDPageContentStream(pdf, page);
             stream.setNonStrokingColor(palette.background()); stream.addRect(0, 0, WIDTH, HEIGHT); stream.fill();
-            if ("sidebar-left".equals(layout)) { stream.setNonStrokingColor(palette.secondary()); stream.addRect(0, 0, 98, HEIGHT); stream.fill(); }
-            if ("sidebar-right".equals(layout)) { stream.setNonStrokingColor(palette.secondary()); stream.addRect(WIDTH - 98, 0, 98, HEIGHT); stream.fill(); }
+            if ("sidebar-left".equals(layout)) { stream.setNonStrokingColor(palette.secondary()); stream.addRect(BASE_MARGIN - 10, BASE_MARGIN, 168, HEIGHT - BASE_MARGIN * 2); stream.fill(); }
+            if ("sidebar-right".equals(layout)) { stream.setNonStrokingColor(palette.secondary()); stream.addRect(WIDTH - BASE_MARGIN - 158, BASE_MARGIN, 168, HEIGHT - BASE_MARGIN * 2); stream.fill(); }
             y = HEIGHT - BASE_MARGIN;
         }
         @Override public void close() throws IOException { if (stream != null) stream.close(); }

@@ -7,7 +7,7 @@ import { getUnreadNotificationCount } from '../../notifications/notifications.ap
 import { useAuth } from '../../auth/auth-context'
 
 const accountLinks = [
-  { label: 'Career dashboard', to: '/candidate' },
+  { label: 'Tổng quan sự nghiệp', to: '/candidate' },
   { label: 'Hồ sơ của tôi', to: '/candidate/profile' },
   { label: 'CV đã tạo', to: '/cv' },
   { label: 'CV tải lên', to: '/candidate/resumes' },

@@ -10,6 +10,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface JobMatchResultRepository extends JpaRepository<JobMatchResult, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select m from JobMatchResult m where m.id = :id")
+    Optional<JobMatchResult> lockById(@org.springframework.data.repository.query.Param("id") UUID id);
     @EntityGraph(attributePaths = {"breakdowns", "resumeAnalysisResult", "resumeAnalysisResult.resumeDocument"})
     Optional<JobMatchResult> findDetailedById(UUID id);
     Optional<JobMatchResult> findByJobIdAndResumeAnalysisResultId(UUID jobId, UUID resumeAnalysisResultId);

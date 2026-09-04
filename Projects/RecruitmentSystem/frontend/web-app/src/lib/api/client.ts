@@ -15,6 +15,8 @@ export const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use((config) => {
+  // AI may perform one language rewrite: 2 x 180s provider, 390s gateway.
+  if (config.url?.startsWith('/api/v1/ai/')) config.timeout = 400_000
   const accessToken = authStore.getState().tokens?.accessToken
   config.headers.set('X-Correlation-ID', createCorrelationId())
   if (accessToken) config.headers.set('Authorization', `Bearer ${accessToken}`)

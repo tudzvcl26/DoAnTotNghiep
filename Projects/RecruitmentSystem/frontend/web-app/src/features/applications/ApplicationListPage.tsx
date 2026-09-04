@@ -29,7 +29,7 @@ function ApplicationRow({ application }: { application: ApplicationSummary }) {
     <span className="applications-list__icon"><BriefcaseBusiness /></span>
     <div className="applications-list__main">
       {jobTitle ? <><h2>{jobTitle}</h2><p>{company.data?.name ?? 'Doanh nghiệp đang tuyển'}</p></> : <><h2>Đơn ứng tuyển {application.id.slice(0, 8)}</h2><p>Mã công việc: {application.jobId}</p></>}
-      <small>Ứng tuyển: {formatApplicationDate(application.appliedAt)} · Cập nhật: {formatApplicationDate(application.updatedAt)}</small>
+      <small>Ứng tuyển: {formatApplicationDate(application.appliedAtInstant ?? application.appliedAt)} · Cập nhật: {formatApplicationDate(application.updatedAtInstant ?? application.updatedAt)}</small>
     </div>
     <span className={`candidate-status-chip candidate-status-chip--${application.status.toLowerCase()}`}>{applicationStatusLabels[application.status]}</span>
     <Link to={`/candidate/applications/${application.id}`}>Xem <ArrowRight /></Link>

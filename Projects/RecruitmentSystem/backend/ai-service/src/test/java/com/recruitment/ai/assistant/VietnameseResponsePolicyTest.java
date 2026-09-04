@@ -9,6 +9,20 @@ class VietnameseResponsePolicyTest {
     private final VietnameseResponsePolicy policy = new VietnameseResponsePolicy();
 
     @Test
+    void rejectsAnEnglishInstructionEvenWhenFollowedByVietnameseRationale() {
+        assertThat(policy.isVietnameseNaturalLanguage(
+                "Study and practice more on Java, Spring Boot, và REST công nghệ để phù hợp với yêu cầu công việc"))
+                .isFalse();
+    }
+
+    @Test
+    void handlesMultilineAndRejectsTokenVietnameseGreetingBeforeEnglishAdvice() {
+        assertThat(policy.isVietnameseNaturalLanguage("Kỹ năng Java\nKinh nghiệm lập trình")).isTrue();
+        assertThat(policy.isVietnameseNaturalLanguage("Bạn nên. You should improve your skills and focus on career experience. "
+                + "The candidate should add projects and improve their knowledge.")).isFalse();
+    }
+
+    @Test
     void acceptsVietnameseNaturalLanguageWithTechnicalTerms() {
         assertThat(policy.isVietnameseNaturalLanguage(
                 "Bạn nên cải thiện Java, Spring Boot, REST API, PostgreSQL và JWT để phù hợp hơn với vị trí này."))

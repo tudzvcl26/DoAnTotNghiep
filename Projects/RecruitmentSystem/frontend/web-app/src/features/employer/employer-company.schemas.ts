@@ -10,8 +10,8 @@ export const employerCompanySchema = z.object({
   email: optionalEmail,
   phone: z.string().max(50, 'Số điện thoại không được vượt quá 50 ký tự.'),
   taxCode: z.string().max(100, 'Mã số thuế không được vượt quá 100 ký tự.'),
-  companyType: z.union([z.literal(''), z.enum(COMPANY_TYPES)]),
-  companySize: z.union([z.literal(''), z.enum(COMPANY_SIZES)]),
+  companyType: z.union([z.literal(''), z.enum(COMPANY_TYPES)]).refine((value): boolean => value !== '', 'Vui lòng chọn loại hình công ty.'),
+  companySize: z.union([z.literal(''), z.enum(COMPANY_SIZES)]).refine((value): boolean => value !== '', 'Vui lòng chọn quy mô công ty.'),
   logoUrl: z.string().max(500, 'Logo URL không được vượt quá 500 ký tự.'),
   bannerUrl: z.string().max(500, 'Banner URL không được vượt quá 500 ký tự.'),
 })

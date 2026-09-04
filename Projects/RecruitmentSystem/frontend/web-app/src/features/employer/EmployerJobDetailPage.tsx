@@ -63,7 +63,7 @@ export function EmployerJobDetailPage() {
   if (!validId) return <main className="employer-job-state"><AlertCircle /><h1>ID việc làm không hợp lệ</h1><ButtonLink to="/employer/jobs">Quay lại danh sách</ButtonLink></main>
   if (job.isPending || companies.isPending) return <main className="employer-jobs-page"><div className="employer-job-skeleton" aria-label="Đang tải chi tiết"><span /><span /><span /></div></main>
   if (job.isError) { const status = normalizeApiError(job.error).status; return <main className="employer-job-state"><AlertCircle /><h1>{status === 403 ? 'Không có quyền quản lý việc làm' : status === 404 ? 'Không tìm thấy việc làm' : 'Không thể tải việc làm'}</h1><p>{getErrorMessage(job.error)}</p><div><ButtonLink to="/employer/jobs" variant="secondary"><ArrowLeft /> Danh sách</ButtonLink><Button type="button" onClick={() => void job.refetch()}><RefreshCw /> Thử lại</Button></div></main> }
-  if (!ownedCompany) return <main className="employer-job-state"><ShieldAlert /><h1>Việc làm không thuộc doanh nghiệp của bạn</h1><p>Nội dung PUBLISHED có thể đọc công khai, nhưng Employer Portal không cung cấp thao tác quản lý khi ownership không khớp.</p><ButtonLink to="/employer/jobs">Quay lại danh sách</ButtonLink></main>
+  if (!ownedCompany) return <main className="employer-job-state"><ShieldAlert /><h1>Việc làm không thuộc doanh nghiệp của bạn</h1><p>Tin đang tuyển có thể đọc công khai, nhưng Employer Portal không cung cấp thao tác quản lý khi ownership không khớp.</p><ButtonLink to="/employer/jobs">Quay lại danh sách</ButtonLink></main>
 
   const actionError = publish.error ?? close.error ?? remove.error
   return <main className="employer-job-detail">

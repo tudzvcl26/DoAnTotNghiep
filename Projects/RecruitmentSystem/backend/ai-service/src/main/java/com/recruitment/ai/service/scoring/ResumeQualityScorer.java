@@ -2,6 +2,7 @@ package com.recruitment.ai.service.scoring;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.recruitment.ai.dto.response.ScoreDimensionResponse;
+import com.recruitment.ai.matching.util.MatchingText;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -50,8 +51,13 @@ public class ResumeQualityScorer {
 
     private ScoreDimensionResponse experience(JsonNode facts) {
         int entries = arraySize(facts, "experience");
-        int score = Math.min(20, entries * 7 + (hasText(facts.path("summary")) ? 2 : 0));
-        return dimension(score, 20, entries + " mục kinh nghiệm");
+        int explicitYears = MatchingText.explicitYears(MatchingText.fieldText(facts, "experience"));
+        if (entries == 0) return dimension(0, 20, "Chưa có dữ liệu kinh nghiệm");
+        if (explicitYears == 0) {
+            return dimension(7, 20, "Có mô tả kinh nghiệm; thời lượng chưa xác định");
+        }
+        int score = Math.min(20, 7 + explicitYears * 3);
+        return dimension(score, 20, "Thời lượng kinh nghiệm được nêu rõ: " + explicitYears + " năm");
     }
 
     private ScoreDimensionResponse formatting(String text) {

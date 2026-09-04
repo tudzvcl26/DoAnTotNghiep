@@ -1,4 +1,8 @@
 export const aiCareerLabels: Record<string, string> = {
+  fullName: 'Họ và tên', email: 'Email', phone: 'Số điện thoại', location: 'Địa điểm',
+  linkedIn: 'LinkedIn', portfolio: 'Hồ sơ năng lực', skills: 'Kỹ năng', achievements: 'Thành tựu',
+  name: 'Tên', title: 'Tiêu đề', company: 'Công ty', position: 'Vị trí', school: 'Trường học',
+  degree: 'Bằng cấp', description: 'Mô tả', duration: 'Thời gian', startDate: 'Bắt đầu', endDate: 'Kết thúc',
   technicalSkills: 'Kỹ năng chuyên môn', experience: 'Kinh nghiệm', education: 'Học vấn',
   projects: 'Dự án', certificates: 'Chứng chỉ', languages: 'Ngoại ngữ', softSkills: 'Kỹ năng mềm',
   keywords: 'Từ khóa', formatting: 'Định dạng CV', keywordRichness: 'Mức độ phong phú từ khóa',

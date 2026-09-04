@@ -18,22 +18,28 @@ public class VietnameseResponsePolicy {
             "the", "you", "your", "should", "based", "improve", "this", "that", "because", "with",
             "from", "have", "has", "need", "recommend", "focus", "career", "resume", "skills", "experience",
             "candidate", "their", "working", "projects", "creating", "additionally", "taking", "courses",
-            "knowledge", "latest", "technologies", "finally", "mentorship", "community", "engineers"
+            "knowledge", "latest", "technologies", "finally", "mentorship", "community", "engineers",
+            "study", "practice", "more", "and", "on"
     );
 
     public boolean isVietnameseNaturalLanguage(String answer) {
         if (answer == null || answer.isBlank() || containsCjk(answer)) return false;
         String lower = answer.toLowerCase(Locale.ROOT);
-        boolean hasVietnameseCharacters = lower.matches(".*[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ].*");
+        boolean hasVietnameseCharacters = lower.matches("(?s).*[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ].*");
         String plain = Normalizer.normalize(lower, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").replace('đ', 'd');
         int vietnamese = 0;
         int english = 0;
+        int consecutiveEnglish = 0;
         for (String token : plain.split("[^a-z0-9+#.-]+")) {
             if (VIETNAMESE_WORDS.contains(token)) vietnamese++;
             if (ENGLISH_WORDS.contains(token)) english++;
+            consecutiveEnglish = ENGLISH_WORDS.contains(token) ? consecutiveEnglish + 1 : 0;
+            // A Vietnamese suffix must not legitimize a full English instruction.
+            // Technical names are deliberately excluded from this vocabulary.
+            if (consecutiveEnglish >= 3) return false;
         }
-        if (english >= 4 && vietnamese < 2) return false;
+        if (english >= 4 && english > vietnamese * 2) return false;
         return (hasVietnameseCharacters && (vietnamese > 0 || english == 0))
                 || vietnamese >= 2
                 || (vietnamese > 0 && english == 0);

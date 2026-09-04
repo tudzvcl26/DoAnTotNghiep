@@ -2,6 +2,7 @@ import { ArrowLeft, Check, FileText, Sparkles, UserRound } from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { CvPreview } from './components/CvPreview'
 import { cvTemplates, sampleCv } from './cv.templates'
+import { applyCvTemplate } from './cv.types'
 import './cv-builder.css'
 
 export function CvTemplatePreviewPage() {
@@ -12,7 +13,7 @@ export function CvTemplatePreviewPage() {
   return <main className="cv-page cv-template-detail">
     <Link className="cv-template-detail__back" to="/cv/templates"><ArrowLeft /> Quay lại thư viện mẫu</Link>
     <div className="cv-template-detail__layout">
-      <section className="cv-template-detail__preview" aria-label={`Xem trước mẫu ${template.name}`}><CvPreview content={sampleCv} templateId={template.id} /></section>
+      <section className="cv-template-detail__preview" aria-label={`Xem trước mẫu ${template.name}`}><CvPreview content={applyCvTemplate(sampleCv, template.id)} templateId={template.id} /></section>
       <aside className="cv-template-detail__decision">
         <span>{template.style}</span><h1>{template.name}</h1><p>{template.description}</p>
         <div className="cv-template-detail__chips">{template.highlights.map((item) => <span key={item}><Check /> {item}</span>)}</div>

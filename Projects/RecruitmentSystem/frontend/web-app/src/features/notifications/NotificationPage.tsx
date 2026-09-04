@@ -6,26 +6,15 @@ import {
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../../lib/api/error-adapter'
+import { normalizeRole } from '../../types/enums/auth'
 import type { Notification, NotificationEventType } from '../../types/models/notification'
 import { useAuth } from '../auth/auth-context'
+import { notificationEventLabels } from '../admin/admin.labels'
 import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from './notifications.api'
 import './notifications-page.css'
 
 const allowedSizes = [10, 20, 30]
 type ReadFilter = 'all' | 'unread'
-
-const eventLabels: Record<NotificationEventType, string> = {
-  APPLICATION_SUBMITTED: 'Ứng tuyển',
-  APPLICATION_WITHDRAWN: 'Ứng tuyển',
-  APPLICATION_STATUS_CHANGED: 'Ứng tuyển',
-  JOB_APPROVED: 'Việc làm',
-  JOB_REJECTED: 'Việc làm',
-  COMPANY_VERIFIED: 'Công ty',
-  COMPANY_REJECTED: 'Công ty',
-  PASSWORD_CHANGED: 'Bảo mật',
-  WELCOME: 'Tài khoản',
-  SYSTEM_ANNOUNCEMENT: 'Hệ thống',
-}
 
 function formatNotificationDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', {
@@ -34,9 +23,9 @@ function formatNotificationDate(value: string) {
   }).format(new Date(value))
 }
 
-function actionPath(notification: Notification) {
+function actionPath(notification: Notification, isEmployer: boolean) {
   return notification.relatedResourceType === 'APPLICATION' && notification.relatedResourceId
-    ? `/candidate/applications/${notification.relatedResourceId}`
+    ? `/${isEmployer ? 'employer' : 'candidate'}/applications/${notification.relatedResourceId}`
     : null
 }
 
@@ -50,6 +39,8 @@ function NotificationIcon({ eventType }: { eventType: NotificationEventType }) {
 export function NotificationPage() {
   const { currentUser } = useAuth()
   const userId = currentUser?.id ?? ''
+  const isEmployer = currentUser?.roles.some((role) => normalizeRole(role) === 'EMPLOYER') ?? false
+  const notificationScope = isEmployer ? 'employer' : 'candidate'
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -68,20 +59,20 @@ export function NotificationPage() {
   }, [filter, page, searchParams, setSearchParams, size])
 
   const notifications = useQuery({
-    queryKey: ['candidate-notifications', userId, { page, size, read }],
+    queryKey: [`${notificationScope}-notifications`, userId, { page, size, read }],
     queryFn: () => getNotifications({ page, size, read }),
     enabled: Boolean(userId),
   })
   const unread = useQuery({
-    queryKey: ['candidate-notification-unread', userId],
+    queryKey: [`${notificationScope}-notification-unread`, userId],
     queryFn: getUnreadNotificationCount,
     enabled: Boolean(userId),
   })
 
   const refreshNotificationQueries = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['candidate-notifications', userId] }),
-      queryClient.invalidateQueries({ queryKey: ['candidate-notification-unread', userId] }),
+      queryClient.invalidateQueries({ queryKey: [`${notificationScope}-notifications`, userId] }),
+      queryClient.invalidateQueries({ queryKey: [`${notificationScope}-notification-unread`, userId] }),
     ])
   }
 
@@ -98,7 +89,7 @@ export function NotificationPage() {
     setActionError('')
     try {
       if (!notification.read) await markOne.mutateAsync(notification.id)
-      const target = actionPath(notification)
+      const target = actionPath(notification, isEmployer)
       if (target) navigate(target)
     } catch (error) {
       setActionError(getErrorMessage(error))
@@ -119,7 +110,7 @@ export function NotificationPage() {
 
   return <main className="notifications-page">
     <header className="notifications-page__header">
-      <div><span>Candidate Portal</span><h1>Thông báo của tôi</h1><p>Cập nhật mới nhất từ hệ thống tuyển dụng, được sắp xếp theo thời gian.</p></div>
+      <div><span>{isEmployer ? 'Employer Portal' : 'Candidate Portal'}</span><h1>Thông báo của tôi</h1><p>Cập nhật mới nhất từ hệ thống tuyển dụng, được sắp xếp theo thời gian.</p></div>
       <div className="notifications-page__count"><Bell /><strong>{unread.data?.unreadCount ?? 0}</strong><span>chưa đọc</span></div>
     </header>
 
@@ -137,14 +128,14 @@ export function NotificationPage() {
     {actionError && <div className="notifications-action-error" role="alert"><CircleAlert />{actionError}</div>}
     {notifications.isPending && <div className="notifications-state"><span className="notifications-loading" /><p>Đang tải thông báo...</p></div>}
     {notifications.isError && <div className="notifications-state notifications-state--error" role="alert"><CircleAlert /><h2>Chưa thể tải thông báo</h2><p>{getErrorMessage(notifications.error)}</p><button type="button" onClick={() => void notifications.refetch()}><RefreshCw /> Thử lại</button></div>}
-    {notifications.data && notifications.data.content.length === 0 && <div className="notifications-state"><Inbox /><h2>{filter === 'unread' ? 'Bạn không có thông báo chưa đọc.' : 'Bạn chưa có thông báo nào.'}</h2><p>Các cập nhật liên quan đến tài khoản và quá trình ứng tuyển sẽ xuất hiện tại đây.</p></div>}
+    {notifications.data && notifications.data.content.length === 0 && <div className="notifications-state"><Inbox /><h2>{filter === 'unread' ? 'Bạn không có thông báo chưa đọc.' : 'Bạn chưa có thông báo nào.'}</h2><p>{isEmployer ? 'Các cập nhật về công ty, việc làm và ứng viên sẽ xuất hiện tại đây.' : 'Các cập nhật liên quan đến tài khoản và quá trình ứng tuyển sẽ xuất hiện tại đây.'}</p></div>}
     {notifications.data && notifications.data.content.length > 0 && <>
       <section className="notifications-list" aria-label="Danh sách thông báo">
         {notifications.data.content.map((notification) => {
-          const target = actionPath(notification)
+          const target = actionPath(notification, isEmployer)
           return <article key={notification.id} className={`notification-item${notification.read ? '' : ' notification-item--unread'}`}>
             <span className="notification-item__icon"><NotificationIcon eventType={notification.eventType} /></span>
-            <div className="notification-item__body"><div><span>{eventLabels[notification.eventType]}</span>{!notification.read && <strong>Chưa đọc</strong>}</div><h2>{notification.title}</h2><p>{notification.content}</p><time dateTime={notification.createdAt}>{formatNotificationDate(notification.createdAt)}</time></div>
+            <div className="notification-item__body"><div><span>{notificationEventLabels[notification.eventType] ?? 'Thông báo'}</span>{!notification.read && <strong>Chưa đọc</strong>}</div><h2>{notification.title}</h2><p>{notification.content}</p><time dateTime={notification.createdAt}>{formatNotificationDate(notification.createdAt)}</time></div>
             {(!notification.read || target) && <button type="button" onClick={() => void openNotification(notification)} disabled={markOne.isPending}>{notification.read ? 'Xem chi tiết' : target ? 'Đọc và xem' : 'Đánh dấu đã đọc'}</button>}
           </article>
         })}

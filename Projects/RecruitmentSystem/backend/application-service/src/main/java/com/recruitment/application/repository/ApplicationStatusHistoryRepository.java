@@ -12,4 +12,6 @@ public interface ApplicationStatusHistoryRepository extends JpaRepository<Applic
 
     List<ApplicationStatusHistory> findByApplicationIdOrderByChangedAtAsc(UUID applicationId);
 
+    List<ApplicationStatusHistory> findByApplicationIdIn(List<UUID> applicationIds);
+
 }

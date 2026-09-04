@@ -70,6 +70,11 @@ public class AiTask {
     @Column(name = "input_checksum", length = 128)
     private String inputChecksum;
 
+    // Private, credential-free snapshot for durable background generation.
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "input_payload", columnDefinition = "JSONB")
+    private String inputPayload;
+
     @Column(name = "provider_name", length = 100)
     private String providerName;
 

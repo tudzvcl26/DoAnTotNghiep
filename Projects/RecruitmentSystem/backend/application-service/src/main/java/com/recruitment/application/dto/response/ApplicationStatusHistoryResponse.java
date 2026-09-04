@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -26,6 +27,8 @@ public class ApplicationStatusHistoryResponse {
     private UUID changedBy;
 
     private LocalDateTime changedAt;
+
+    private Instant changedAtInstant;
 
     private LocalDateTime createdAt;
 

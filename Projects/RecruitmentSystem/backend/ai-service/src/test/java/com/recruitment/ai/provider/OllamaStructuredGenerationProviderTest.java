@@ -21,6 +21,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OllamaStructuredGenerationProviderTest {
+    @Test void resumeSchemaAllowsActualNullInsteadOfForcingInventedContactText() throws Exception {
+        AtomicReference<JsonNode> payload = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/chat", exchange -> {
+            payload.set(objectMapper.readTree(exchange.getRequestBody()));
+            respond(exchange, "{\"message\":{\"content\":\"{}\"},\"done\":true}");
+        });
+        server.start();
+        provider().generate(new StructuredGenerationRequest("qwen", "system", "CV", "{\"type\":\"object\",\"required\":[\"fullName\",\"phone\",\"technicalSkills\"]}", "null-test"));
+        assertThat(payload.get().path("format").path("properties").path("phone").path("type").toString()).isEqualTo("[\"string\",\"null\"]");
+        assertThat(payload.get().path("format").path("properties").path("technicalSkills").path("type").asText()).isEqualTo("array");
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private HttpServer server;
@@ -30,6 +42,15 @@ class OllamaStructuredGenerationProviderTest {
         if (server != null) {
             server.stop(0);
         }
+    }
+
+    @Test
+    void capsConfiguredTimeoutToTheSynchronousRouteBudget() {
+        var properties = new OllamaProperties();
+        properties.setTimeout(Duration.ofMinutes(20));
+        assertThat(properties.getTimeout()).isEqualTo(Duration.ofSeconds(180));
+        properties.setTimeout(Duration.ofMillis(100));
+        assertThat(properties.getTimeout()).isEqualTo(Duration.ofMillis(100));
     }
 
     @Test

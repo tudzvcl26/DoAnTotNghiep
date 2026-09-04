@@ -96,13 +96,14 @@ public class RuleBasedMatchingEngine {
     private Set<String> resumeTerms(MatchingContext context, String... fields) {
         Set<String> result = new LinkedHashSet<>();
         for (String field : fields) {
-            result.addAll(MatchingText.normalized(MatchingText.fieldValues(context.resumeFacts(), field)));
+            result.addAll(MatchingText.normalizedSkills(MatchingText.fieldValues(context.resumeFacts(), field)));
         }
         return result;
     }
 
     private List<String> filter(List<String> candidates, Set<String> normalizedResume, boolean matched) {
-        return candidates.stream().filter(value -> normalizedResume.contains(MatchingText.normalize(value)) == matched)
-                .distinct().toList();
+        Set<String> seen = new LinkedHashSet<>();
+        return candidates.stream().filter(value -> normalizedResume.contains(MatchingText.canonicalSkill(value)) == matched)
+                .filter(value -> seen.add(MatchingText.canonicalSkill(value))).toList();
     }
 }

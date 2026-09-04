@@ -165,6 +165,34 @@ class ResumePipelineIntegrationTest {
     }
 
     @Test
+    void rejectsConcurrentAnalysisBeforeCallingProviderAgain() throws Exception {
+        UUID resumeId = upload(ownerToken);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(provider.generate(any())).thenAnswer(invocation -> {
+            if (calls.incrementAndGet() == 1) {
+                entered.countDown();
+                if (!release.await(15, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("test timeout");
+            }
+            return new StructuredGenerationResult("test-provider", "test-structured-model", FACTS, 120, 80);
+        });
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var first = executor.submit(() -> mockMvc.perform(post("/api/v1/ai/resumes/{id}/analyze", resumeId)
+                    .header("Authorization", "Bearer " + ownerToken)).andReturn().getResponse().getStatus());
+            try {
+                org.assertj.core.api.Assertions.assertThat(entered.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                mockMvc.perform(post("/api/v1/ai/resumes/{id}/analyze", resumeId)
+                                .header("Authorization", "Bearer " + ownerToken))
+                        .andExpect(status().isConflict());
+                org.assertj.core.api.Assertions.assertThat(calls.get()).isEqualTo(1);
+            } finally { release.countDown(); }
+            org.assertj.core.api.Assertions.assertThat(first.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(200);
+        }
+        org.assertj.core.api.Assertions.assertThat(analysisRepository.count()).isEqualTo(1);
+    }
+
+    @Test
     void uploadsExtractsAnalyzesScoresPersistsAndDeletesResume() throws Exception {
         UUID resumeId = upload(ownerToken);
 
@@ -175,7 +203,7 @@ class ResumePipelineIntegrationTest {
                 .andExpect(jsonPath("$.data.structuredData.fullName").value("Nguyen Van A"))
                 .andExpect(jsonPath("$.data.qualityScore").isNumber())
                 .andExpect(jsonPath("$.data.scoreBreakdown.resumeCompleteness.maximum").value(15))
-                .andExpect(jsonPath("$.data.skills.length()").value(6))
+                .andExpect(jsonPath("$.data.skills.length()").value(3))
                 .andExpect(jsonPath("$.data.keywords.length()").value(3))
                 .andExpect(jsonPath("$.data.inputTokens").value(120))
                 .andExpect(jsonPath("$.data.correlationId").value("resume-analysis-test"));
@@ -188,11 +216,11 @@ class ResumePipelineIntegrationTest {
         mockMvc.perform(post("/api/v1/ai/resumes/{id}/analyze", resumeId)
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.skills.length()").value(6))
+                .andExpect(jsonPath("$.data.skills.length()").value(3))
                 .andExpect(jsonPath("$.data.keywords.length()").value(3));
 
         org.assertj.core.api.Assertions.assertThat(analysisRepository.count()).isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(skillRepository.count()).isEqualTo(6);
+        org.assertj.core.api.Assertions.assertThat(skillRepository.count()).isEqualTo(3);
         org.assertj.core.api.Assertions.assertThat(keywordRepository.count()).isEqualTo(3);
 
         mockMvc.perform(delete("/api/v1/ai/resumes/{id}", resumeId)
@@ -209,6 +237,20 @@ class ResumePipelineIntegrationTest {
         mockMvc.perform(get("/api/v1/ai/resumes/{id}", resumeId)
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test void resumePipelineRewritesEnglishProseOnceBeforePersistingFacts() throws Exception {
+        UUID resumeId = upload(ownerToken);
+        String english = FACTS.replace("Java backend engineer", "Backend software engineer with 5 years of experience building Java services.");
+        String vietnamese = FACTS.replace("Java backend engineer", "Kỹ sư phần mềm có 5 năm kinh nghiệm xây dựng dịch vụ Java.");
+        when(provider.generate(any()))
+                .thenReturn(new StructuredGenerationResult("test-provider", "test-structured-model", english, 120, 80))
+                .thenReturn(new StructuredGenerationResult("test-provider", "test-structured-model", vietnamese, 120, 80));
+        mockMvc.perform(post("/api/v1/ai/resumes/{id}/analyze", resumeId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.structuredData.summary").value("Kỹ sư phần mềm có 5 năm kinh nghiệm xây dựng dịch vụ Java."))
+                .andExpect(jsonPath("$.data.inputTokens").value(240));
+        org.mockito.Mockito.verify(provider, org.mockito.Mockito.times(2)).generate(any());
     }
 
     @Test

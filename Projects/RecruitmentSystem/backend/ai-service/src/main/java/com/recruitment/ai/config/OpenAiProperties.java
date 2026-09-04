@@ -22,6 +22,12 @@ public class OpenAiProperties {
     private Duration connectTimeout;
     private Duration readTimeout;
 
+    public Duration getReadTimeout() {
+        Duration maximum = Duration.ofSeconds(180);
+        return readTimeout == null || readTimeout.isNegative() || readTimeout.isZero() || readTimeout.compareTo(maximum) > 0
+                ? maximum : readTimeout;
+    }
+
     public boolean isConfigured() {
         return enabled
                 && baseUrl != null

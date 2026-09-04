@@ -13,6 +13,7 @@ import {
   employerJobStatisticsKey, employerPublishedJobsKey, getEmployerApplicationStatistics,
   getEmployerApplicationSummary, getEmployerCompanies, getEmployerJobs, getEmployerJobStatistics,
 } from './employer.api'
+import { employerApplicationStatusLabels } from './employer-application.presenter'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -84,9 +85,9 @@ export function EmployerDashboardPage() {
         {companies.isSuccess && companyIds.length === 0 && <div className="employer-unavailable"><BriefcaseBusiness /><p>Cần có công ty trước khi hệ thống xác định tin tuyển dụng thuộc sở hữu.</p></div>}
         {jobs.isPending && <Skeleton />}
         {jobs.isError && <SectionError error={jobs.error} retry={() => void jobs.refetch()} />}
-        {jobs.isSuccess && companyIds.length > 0 && jobs.data.content.length === 0 && <div className="employer-empty employer-empty--compact"><span><BriefcaseBusiness /></span><div><h3>Chưa có tin đang hiển thị</h3><p>Chưa có Job PUBLISHED thuộc doanh nghiệp.</p></div></div>}
-        {jobs.data && jobs.data.content.length > 0 && <div className="employer-job-list">{jobs.data.content.map((job) => <Link to={`/employer/jobs/${job.id}`} key={job.id}><span><BriefcaseBusiness /></span><div><strong>{job.title}</strong><small>{job.jobCode} · Đăng {job.publishedAt ? formatDate(job.publishedAt) : 'chưa xác định'}</small></div><em>PUBLISHED</em></Link>)}</div>}
-        {jobStatistics.data && <p className="employer-contract-note"><ShieldCheck /> {jobStatistics.data.published} Published · {jobStatistics.data.draft} Draft · {jobStatistics.data.closed} Closed.</p>}
+        {jobs.isSuccess && companyIds.length > 0 && jobs.data.content.length === 0 && <div className="employer-empty employer-empty--compact"><span><BriefcaseBusiness /></span><div><h3>Chưa có tin đang hiển thị</h3><p>Chưa có tin đang tuyển thuộc doanh nghiệp.</p></div></div>}
+        {jobs.data && jobs.data.content.length > 0 && <div className="employer-job-list">{jobs.data.content.map((job) => <Link to={`/employer/jobs/${job.id}`} key={job.id}><span><BriefcaseBusiness /></span><div><strong>{job.title}</strong><small>{job.jobCode} · Đăng {job.publishedAt ? formatDate(job.publishedAt) : 'chưa xác định'}</small></div><em>Đang tuyển</em></Link>)}</div>}
+        {jobStatistics.data && <p className="employer-contract-note"><ShieldCheck /> {jobStatistics.data.published} đang tuyển · {jobStatistics.data.draft} bản nháp · {jobStatistics.data.closed} đã đóng.</p>}
       </section>
     </div>
 
@@ -96,8 +97,8 @@ export function EmployerDashboardPage() {
         {applications.isPending && <Skeleton />}
         {applications.isError && <SectionError error={applications.error} retry={() => void applications.refetch()} />}
         {applications.data?.recent.length === 0 && <div className="employer-empty employer-empty--compact"><span><CircleUserRound /></span><div><h3>Chưa có ứng tuyển</h3><p>Chưa có Application trên các Job thuộc doanh nghiệp.</p></div></div>}
-        {applications.data && applications.data.recent.length > 0 && <div className="employer-application-list">{applications.data.recent.map((application) => <Link to={`/employer/applications/${application.id}`} key={application.id}><span><CircleUserRound /></span><div><strong>Ứng viên {application.candidateId.slice(0, 8)}</strong><small>Nộp lúc {formatDate(application.appliedAt)}</small></div><em>{humanize(application.status)}</em></Link>)}</div>}
-        {applicationStatistics.data && <p className="employer-contract-note"><FileSearch /> {applicationStatistics.data.applied} Applied · {applicationStatistics.data.screening} Screening · {applicationStatistics.data.interview} Interview · {applicationStatistics.data.offer} Offer · {applicationStatistics.data.hired} Hired · {applicationStatistics.data.rejected} Rejected · {applicationStatistics.data.withdrawn} Withdrawn.</p>}
+        {applications.data && applications.data.recent.length > 0 && <div className="employer-application-list">{applications.data.recent.map((application) => <Link to={`/employer/applications/${application.id}`} key={application.id}><span><CircleUserRound /></span><div><strong>Ứng viên {application.candidateId.slice(0, 8)}</strong><small>Nộp lúc {formatDate(application.appliedAtInstant ?? application.appliedAt)}</small></div><em>{employerApplicationStatusLabels[application.status]}</em></Link>)}</div>}
+        {applicationStatistics.data && <p className="employer-contract-note"><FileSearch /> {applicationStatistics.data.applied} đã ứng tuyển · {applicationStatistics.data.screening} đang sàng lọc · {applicationStatistics.data.interview} phỏng vấn · {applicationStatistics.data.offer} đề nghị · {applicationStatistics.data.hired} đã tuyển · {applicationStatistics.data.rejected} từ chối · {applicationStatistics.data.withdrawn} đã rút.</p>}
       </section>
 
       <section className="employer-card" aria-labelledby="employer-notifications-title">

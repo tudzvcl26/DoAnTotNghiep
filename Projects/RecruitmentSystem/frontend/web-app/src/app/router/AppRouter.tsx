@@ -1,22 +1,5 @@
 import { lazy, Suspense, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { LoginPage } from '../../features/auth/pages/LoginPage'
-import { RegisterPage } from '../../features/auth/pages/RegisterPage'
-import { ForgotPasswordPage } from '../../features/auth/pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '../../features/auth/pages/ResetPasswordPage'
-import { VerifyEmailPage } from '../../features/auth/pages/VerifyEmailPage'
-import { CompaniesPage } from '../../features/companies/CompaniesPage'
-import { CompanyDetailsPage } from '../../features/companies/CompanyDetailsPage'
-import { HomePage } from '../../features/home/HomePage'
-import { NotFoundPage } from '../../features/home/NotFoundPage'
-import { JobDetailsPage } from '../../features/jobs/JobDetailsPage'
-import { JobsPage } from '../../features/jobs/JobsPage'
-import { CandidateDashboardPage } from '../../features/candidate/CandidateDashboardPage'
-import { ApplicationDetailPage } from '../../features/applications/ApplicationDetailPage'
-import { ApplicationListPage } from '../../features/applications/ApplicationListPage'
-import { ProfilePage } from '../../features/profile/ProfilePage'
-import { ResumePage } from '../../features/resumes/ResumePage'
-import { NotificationPage } from '../../features/notifications/NotificationPage'
 import { LoadingScreen } from '../../components/feedback/LoadingScreen'
 import { ProtectedRoute } from '../guards/ProtectedRoute'
 import { RoleGuard } from '../guards/RoleGuard'
@@ -29,6 +12,23 @@ import { PublicLayout } from '../layouts/PublicLayout'
 const lazyNamed = <T extends Record<string, unknown>>(loader: () => Promise<T>, name: keyof T) =>
   lazy(async () => ({ default: (await loader())[name] as ComponentType }))
 
+const LoginPage = lazyNamed(() => import('../../features/auth/pages/LoginPage'), 'LoginPage')
+const RegisterPage = lazyNamed(() => import('../../features/auth/pages/RegisterPage'), 'RegisterPage')
+const ForgotPasswordPage = lazyNamed(() => import('../../features/auth/pages/ForgotPasswordPage'), 'ForgotPasswordPage')
+const ResetPasswordPage = lazyNamed(() => import('../../features/auth/pages/ResetPasswordPage'), 'ResetPasswordPage')
+const VerifyEmailPage = lazyNamed(() => import('../../features/auth/pages/VerifyEmailPage'), 'VerifyEmailPage')
+const CompaniesPage = lazyNamed(() => import('../../features/companies/CompaniesPage'), 'CompaniesPage')
+const CompanyDetailsPage = lazyNamed(() => import('../../features/companies/CompanyDetailsPage'), 'CompanyDetailsPage')
+const HomePage = lazyNamed(() => import('../../features/home/HomePage'), 'HomePage')
+const NotFoundPage = lazyNamed(() => import('../../features/home/NotFoundPage'), 'NotFoundPage')
+const JobDetailsPage = lazyNamed(() => import('../../features/jobs/JobDetailsPage'), 'JobDetailsPage')
+const JobsPage = lazyNamed(() => import('../../features/jobs/JobsPage'), 'JobsPage')
+const CandidateDashboardPage = lazyNamed(() => import('../../features/candidate/CandidateDashboardPage'), 'CandidateDashboardPage')
+const ApplicationDetailPage = lazyNamed(() => import('../../features/applications/ApplicationDetailPage'), 'ApplicationDetailPage')
+const ApplicationListPage = lazyNamed(() => import('../../features/applications/ApplicationListPage'), 'ApplicationListPage')
+const ProfilePage = lazyNamed(() => import('../../features/profile/ProfilePage'), 'ProfilePage')
+const ResumePage = lazyNamed(() => import('../../features/resumes/ResumePage'), 'ResumePage')
+const NotificationPage = lazyNamed(() => import('../../features/notifications/NotificationPage'), 'NotificationPage')
 const AiCareerPage = lazyNamed(() => import('../../features/ai-career/AiCareerPage'), 'AiCareerPage')
 const CvListPage = lazyNamed(() => import('../../features/cv-builder/CvListPage'), 'CvListPage')
 const CvTemplatesPage = lazyNamed(() => import('../../features/cv-builder/CvTemplatesPage'), 'CvTemplatesPage')
@@ -98,6 +98,7 @@ export function AppRouter() {
         <Route path="employer/jobs/:jobId/edit" element={<EmployerJobFormPage />} />
         <Route path="employer/applications" element={<EmployerApplicationsPage />} />
         <Route path="employer/applications/:applicationId" element={<EmployerApplicationDetailPage />} />
+        <Route path="employer/notifications" element={<NotificationPage />} />
       </Route>
       <Route element={<ProtectedRoute><RoleGuard roles={['ADMIN']}><AdminLayout /></RoleGuard></ProtectedRoute>}>
         <Route path="admin" element={<AdminDashboardPage />} />

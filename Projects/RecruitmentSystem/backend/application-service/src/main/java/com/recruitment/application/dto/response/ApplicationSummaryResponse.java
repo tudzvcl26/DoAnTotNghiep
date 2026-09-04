@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -32,10 +33,14 @@ public class ApplicationSummaryResponse {
 
     private LocalDateTime appliedAt;
 
+    private Instant appliedAtInstant;
+
     private Boolean active;
 
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private Instant updatedAtInstant;
 
 }

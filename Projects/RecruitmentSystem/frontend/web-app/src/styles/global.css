@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
 
+.app-recovery { max-width:42rem; margin:10vh auto; padding:1.5rem; line-height:1.6; }
+.app-recovery h1 { font-size:1.6rem; }
+.app-recovery button { min-height:2.75rem; padding:.65rem 1rem; border:0; border-radius:.5rem; color:white; background:#146f54; cursor:pointer; }
+
 *,
 *::before,
 *::after {

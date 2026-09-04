@@ -14,11 +14,13 @@ public class ExperienceScorer implements MatchingScorer {
     public ScoreResult score(MatchingContext context, int maximumScore) {
         int required = context.requirements().minimumExperienceYears();
         String experience = MatchingText.fieldText(context.resumeFacts(), "experience");
-        int actual = MatchingText.explicitYears(experience);
-        if (actual == 0 && context.resumeFacts().path("experience").isArray()) {
-            actual = context.resumeFacts().path("experience").size();
-        }
+        String summary = MatchingText.fieldText(context.resumeFacts(), "summary");
+        int summaryYears = MatchingText.contains(summary, "experience") || MatchingText.contains(summary, "kinh nghiệm")
+                ? MatchingText.explicitYears(summary) : 0;
+        int actual = Math.max(MatchingText.explicitYears(experience), summaryYears);
         int score = required == 0 ? maximumScore : ScoringSupport.proportional(maximumScore, actual, required);
+        if (actual == 0) return new ScoreResult(dimension(), maximumScore, score,
+                "Chưa đủ dữ liệu về số năm kinh nghiệm trong CV; không suy ra số năm từ số mục công việc. Yêu cầu: %d năm.".formatted(required));
         return new ScoreResult(dimension(), maximumScore, score,
                 "Kinh nghiệm nhận diện được: %d năm; yêu cầu của công việc: %d năm.".formatted(actual, required));
     }

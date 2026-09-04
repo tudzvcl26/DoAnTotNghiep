@@ -44,7 +44,7 @@ export function ApplicationDetailPage() {
     <section className="application-detail__grid">
       <article className="application-detail__card">
         <div className="application-detail__title"><BriefcaseBusiness /><h2>Thông tin đơn</h2></div>
-        <dl><div><dt>Mã đơn</dt><dd>{data.id}</dd></div><div><dt>Mã công việc</dt><dd>{data.jobId}</dd></div><div><dt>Trạng thái</dt><dd><span className={`candidate-status-chip candidate-status-chip--${data.status.toLowerCase()}`}>{applicationStatusLabels[data.status]}</span></dd></div><div><dt>Ngày ứng tuyển</dt><dd>{formatApplicationDate(data.appliedAt)}</dd></div><div><dt>Cập nhật gần nhất</dt><dd>{formatApplicationDate(data.updatedAt)}</dd></div></dl>
+        <dl><div><dt>Mã đơn</dt><dd>{data.id}</dd></div><div><dt>Mã công việc</dt><dd>{data.jobId}</dd></div><div><dt>Trạng thái</dt><dd><span className={`candidate-status-chip candidate-status-chip--${data.status.toLowerCase()}`}>{applicationStatusLabels[data.status]}</span></dd></div><div><dt>Ngày ứng tuyển</dt><dd>{formatApplicationDate(data.appliedAtInstant ?? data.appliedAt)}</dd></div><div><dt>Cập nhật gần nhất</dt><dd>{formatApplicationDate(data.updatedAtInstant ?? data.updatedAt)}</dd></div></dl>
       </article>
       <article className="application-detail__card">
         <div className="application-detail__title"><FileText /><h2>Hồ sơ đã gửi</h2></div>
@@ -52,7 +52,7 @@ export function ApplicationDetailPage() {
         {data.resumeSnapshot && <p className="application-detail__snapshot"><strong>CV snapshot:</strong> {data.resumeSnapshot.resumeVersion} · {formatApplicationDate(data.resumeSnapshot.createdAt)}</p>}
       </article>
     </section>
-    {data.statusHistory?.length > 0 && <section className="application-detail__card"><div className="application-detail__title"><RefreshCw /><h2>Lịch sử trạng thái</h2></div><ol className="application-history">{data.statusHistory.map((item) => <li key={item.id}><span /><div><strong>{applicationStatusLabels[item.toStatus]}</strong><small>{formatApplicationDate(item.changedAt)}</small>{item.reasonDetail && <p>{item.reasonDetail}</p>}</div></li>)}</ol></section>}
+    {data.statusHistory?.length > 0 && <section className="application-detail__card"><div className="application-detail__title"><RefreshCw /><h2>Lịch sử trạng thái</h2></div><ol className="application-history">{data.statusHistory.map((item) => <li key={item.id}><span /><div><strong>{applicationStatusLabels[item.toStatus]}</strong><small>{formatApplicationDate(item.changedAtInstant ?? item.changedAt)}</small>{item.reasonDetail && <p>{item.reasonDetail}</p>}</div></li>)}</ol></section>}
     {canWithdrawApplication(data.status) && <section className="application-withdraw"><div><h2>Rút đơn ứng tuyển</h2><p>Sau khi rút, đơn không thể tiếp tục trong quy trình tuyển dụng.</p></div>{!confirmWithdraw ? <button type="button" onClick={() => setConfirmWithdraw(true)}><RotateCcw /> Rút đơn</button> : <div className="application-withdraw__confirm"><span>Bạn chắc chắn muốn rút đơn?</span><button type="button" onClick={() => setConfirmWithdraw(false)} disabled={withdraw.isPending}>Không</button><button type="button" onClick={() => withdraw.mutate()} disabled={withdraw.isPending}>{withdraw.isPending ? 'Đang xử lý...' : 'Xác nhận rút'}</button></div>}{withdraw.isError && <p className="application-withdraw__error" role="alert">{getErrorMessage(withdraw.error)}</p>}</section>}
   </main>
 }

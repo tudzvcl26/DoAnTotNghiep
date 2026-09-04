@@ -11,6 +11,13 @@ const footerGroups = [
   { title: 'Hỗ trợ', links: ['FAQ', 'Liên hệ', 'Điều khoản', 'Chính sách'] },
 ]
 
+const destinations: Record<string, string> = {
+  'Tìm việc': '/jobs', 'Việc mới': '/jobs', 'Việc lương cao': '/jobs', 'Remote': '/jobs?keyword=Remote',
+  'Tạo CV': '/cv/templates', 'Mẫu CV': '/cv/templates', 'AI Resume': '/candidate/ai-career',
+  'Đăng tuyển': '/employer/jobs/new', 'Quản lý tin': '/employer/jobs',
+  'AI Matching': '/candidate/ai-career#job-matching', 'Công cụ nghề nghiệp': '/candidate/ai-career',
+}
+
 export function Footer() {
   return (
     <footer className="footer">
@@ -28,14 +35,16 @@ export function Footer() {
           {footerGroups.map((group) => (
             <div key={group.title}>
               <h2>{group.title}</h2>
-              {group.links.map((label) => <Link key={label} to={group.title === 'Việc làm' ? '/jobs' : '/'}>{label}<ArrowUpRight size={13} /></Link>)}
+              {group.links.map((label) => destinations[label]
+                ? <Link key={label} to={destinations[label]}>{label}<ArrowUpRight size={13} /></Link>
+                : <span className="footer__unavailable" aria-disabled="true" key={label}>{label}<small>Chưa triển khai</small></span>)}
             </div>
           ))}
         </div>
       </div>
       <div className="container footer__bottom">
         <span>© {new Date().getFullYear()} RecruitmentSystem</span>
-        <span>Made for better careers.</span>
+        <span>Đồng hành cùng sự nghiệp của bạn.</span>
       </div>
     </footer>
   )

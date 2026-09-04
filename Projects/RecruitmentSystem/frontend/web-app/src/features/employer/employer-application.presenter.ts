@@ -1,9 +1,5 @@
 import type { ApplicationStatus } from '../../types/models/application'
-
-export const employerApplicationStatusLabels: Record<ApplicationStatus, string> = {
-  APPLIED: 'Đã ứng tuyển', SCREENING: 'Đang sàng lọc', INTERVIEW: 'Phỏng vấn', OFFER: 'Đề nghị',
-  HIRED: 'Đã tuyển', REJECTED: 'Từ chối', WITHDRAWN: 'Đã rút',
-}
+export { applicationStatusLabels as employerApplicationStatusLabels } from '../applications/application-presenter'
 
 export const employerTransitions: Record<ApplicationStatus, ApplicationStatus[]> = {
   APPLIED: ['SCREENING', 'REJECTED'], SCREENING: ['INTERVIEW', 'REJECTED'],

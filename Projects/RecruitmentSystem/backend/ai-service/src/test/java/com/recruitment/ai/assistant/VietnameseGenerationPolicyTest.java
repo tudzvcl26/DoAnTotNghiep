@@ -16,8 +16,27 @@ import static org.mockito.Mockito.when;
 
 class VietnameseGenerationPolicyTest {
 
+    @Test void semanticFailureSharesTheSingleRetryBudgetAndNeverPersistsTheHiringClaim() {
+        StructuredGenerationProvider provider = mock(StructuredGenerationProvider.class);
+        when(provider.generate(any())).thenReturn(result("{\"summary\":\"Bạn đã được tuyển dụng cho vị trí Java.\"}"));
+        var acceptance = new CandidateAnswerPolicy(new ObjectMapper());
+        String fallback = "{\"summary\":\"Chưa có tư vấn đã được xác minh.\"}";
+        var response = policy.generateValidated(provider, request(), "CANDIDATE_ASSISTANT", fallback,
+                output -> acceptance.accepts(output, "SKILL_ROADMAP"), CandidateAnswerPolicy.CONTRACT);
+        assertThat(response.structuredOutput()).isEqualTo(fallback);
+        assertThat(response.inputTokens()).isEqualTo(20);
+        verify(provider, times(2)).generate(any());
+    }
+
     private final VietnameseGenerationPolicy policy = new VietnameseGenerationPolicy(
             new VietnameseResponsePolicy(), new ObjectMapper());
+
+    @Test
+    void rejectsEnglishProseFieldDespiteVietnameseOtherFieldAndAllowsTechnicalNames() {
+        assertThat(policy.isVietnameseJson("{\"summary\":\"Bạn nên cải thiện kỹ năng của mình.\","
+                + "\"advice\":\"You should improve your skills and focus on career experience.\"}")).isFalse();
+        assertThat(policy.isVietnameseJson("{\"summary\":\"Bạn nên bổ sung dự án Java.\",\"technology\":\"Spring Boot\",\"priority\":\"HIGH\"}")).isTrue();
+    }
 
     @Test
     void addsMandatoryVietnameseJsonContractToPrompt() {
@@ -26,6 +45,17 @@ class VietnameseGenerationPolicyTest {
         assertThat(prompt).contains("Mọi nội dung diễn giải dành cho người dùng phải viết bằng tiếng Việt")
                 .contains("Giữ nguyên tên công nghệ")
                 .contains("Chỉ trả về một đối tượng JSON đúng schema");
+    }
+
+    @Test void resumeFactsAllowProperNamesButNeverPersistEnglishProseAfterFailedRewrite() {
+        assertThat(policy.isVietnameseResumeJson("{\"fullName\":\"Morgan QA\",\"summary\":null,\"education\":[\"Bachelor of Computer Science at Example University\"]}")).isTrue();
+        assertThat(policy.isVietnameseResumeJson("{\"fullName\":\"Morgan QA\",\"summary\":\"Tóm tắt hồ sơ dựa trên dữ liệu đã cung cấp.\",\"experience\":[\"2 years at Sample Studio\"],\"projects\":[\"Accessible booking interface\"]}")).isTrue();
+        assertThat(policy.isVietnameseResumeJson("{\"fullName\":\"Morgan QA\",\"summary\":\"Backend software engineer with five years of professional experience.\",\"experience\":[\"2 years at Sample Studio\"]}")).isFalse();
+        StructuredGenerationProvider provider = mock(StructuredGenerationProvider.class);
+        when(provider.generate(any())).thenReturn(result("{\"summary\":\"Backend software engineer with 5 years of experience building Java services.\"}"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.generateResume(provider, request()))
+                .isInstanceOf(com.recruitment.ai.exception.BusinessException.class);
+        verify(provider, times(2)).generate(any());
     }
 
     @Test
@@ -44,6 +74,7 @@ class VietnameseGenerationPolicyTest {
         verify(provider, times(2)).generate(requests.capture());
         assertThat(requests.getAllValues().get(1).systemPrompt()).contains("LẦN TRẢ LỜI TRƯỚC KHÔNG ĐẠT")
                 .contains("Tuyệt đối không để câu giải thích tiếng Anh");
+        assertThat(requests.getAllValues().get(1).userPrompt()).contains(request.userPrompt());
     }
 
     @Test

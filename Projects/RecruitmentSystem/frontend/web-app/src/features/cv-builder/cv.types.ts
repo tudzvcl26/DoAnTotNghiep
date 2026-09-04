@@ -1,4 +1,5 @@
-export type CvTemplateId = 'classic' | 'modern' | 'ats' | 'student' | 'professional'
+import { cvPresetDefinitions } from './cv.presets'
+export type CvTemplateId = keyof typeof cvPresetDefinitions
 export type CvLanguage = 'vi' | 'en'
 export type CvFontFamily = 'Roboto' | 'Inter' | 'Arial' | 'Times New Roman' | 'Georgia' | 'Open Sans'
 export type CvDensity = 'compact' | 'normal' | 'comfortable'
@@ -86,11 +87,17 @@ export const cvThemes: CvThemeConfig[] = [
   { id: 'gray', primaryColor: '#475467', secondaryColor: '#EAECF0', textColor: '#1D2939', mutedColor: '#667085', backgroundColor: '#FFFFFF' },
 ]
 
-const templateTheme: Record<CvTemplateId, string> = { classic: 'emerald', modern: 'teal', ats: 'gray', student: 'blue', professional: 'navy' }
-
 export function defaultCvDesignConfig(templateId: CvTemplateId = 'classic'): CvDesignConfig {
-  const theme = cvThemes.find((item) => item.id === templateTheme[templateId]) ?? cvThemes[0]
-  return { fontFamily: 'Inter', fontScale: 1, theme: { ...theme }, density: 'normal', layout: templateId === 'ats' ? 'single' : 'header', sectionOrder: [...builtInSectionIds], sectionVisibility: {} }
+  const preset = cvPresetDefinitions[templateId] ?? cvPresetDefinitions.classic
+  const theme = cvThemes.find((item) => item.id === preset.theme) ?? cvThemes[0]
+  const first = preset.arrangement === 'education' ? ['summary', 'education', 'projects'] : preset.arrangement === 'projects' ? ['summary', 'projects', 'experience'] : ['summary', 'experience']
+  const sectionOrder = [...first, ...builtInSectionIds.filter(id => !first.includes(id))]
+  return { fontFamily: preset.fontFamily, fontScale: 1, theme: { ...theme }, density: preset.density, layout: preset.layout, sectionOrder, sectionVisibility: {} }
+}
+
+export function applyCvTemplate(content: CvContent, templateId: CvTemplateId): CvContent {
+  const design = defaultCvDesignConfig(templateId)
+  return { ...content, designConfig: { ...design, sectionOrder: [...design.sectionOrder, ...content.customSections.map(section => `custom:${section.id}`)], sectionVisibility: { ...content.designConfig.sectionVisibility } } }
 }
 
 export const emptyCvContent = (templateId: CvTemplateId = 'classic'): CvContent => ({

@@ -15,6 +15,8 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "AI_AUTH_403", "Bạn không có quyền sử dụng chức năng này.", false),
     DATA_INTEGRITY_VIOLATION(HttpStatus.CONFLICT, "AI_COMMON_003", "Yêu cầu xung đột với dữ liệu hiện có.", false),
     TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_TASK_001", "Không tìm thấy tác vụ AI.", false),
+    GENERATION_RUNNING(HttpStatus.CONFLICT, "AI_TASK_002", "Nội dung này đang được xử lý. Vui lòng chờ tác vụ hiện tại hoàn tất.", false),
+    RESUME_ANALYSIS_RUNNING(HttpStatus.CONFLICT, "AI_RESUME_012", "CV này đang được phân tích. Vui lòng chờ kết quả trước khi thử lại.", false),
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_RESUME_001", "Không tìm thấy CV.", false),
     RESUME_FILE_REQUIRED(HttpStatus.BAD_REQUEST, "AI_RESUME_002", "Vui lòng chọn tệp CV.", false),
     RESUME_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "AI_RESUME_003", "Tệp CV vượt quá giới hạn 10 MB.", false),

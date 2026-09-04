@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -40,5 +41,8 @@ public class ApplicationStatusHistory extends BaseEntity {
 
     @Column(name = "changed_at", nullable = false)
     private LocalDateTime changedAt;
+
+    @Column(name = "changed_at_instant")
+    private Instant changedAtInstant;
 
 }

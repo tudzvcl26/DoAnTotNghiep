@@ -75,7 +75,7 @@ class MatchingIntegrationTest {
              "linkedIn":null,"portfolio":null,"summary":"Java engineer",
              "education":[{"degree":"Bachelor of Software Engineering"}],
              "experience":[{"title":"Backend Engineer","duration":"3 years"}],
-             "projects":[{"description":"Java Spring Boot microservices with PostgreSQL and Docker"}],
+             "projects":[{"description":"Microservices dùng Java Spring Boot với PostgreSQL và Docker"}],
              "skills":["Problem solving"],"technicalSkills":["Java","Spring Boot","PostgreSQL","Docker"],
              "softSkills":["Communication","Teamwork"],"languages":["English","Vietnamese"],
              "certificates":[],"achievements":[],"keywords":["Java","Spring Boot","Microservices","PostgreSQL"]}
@@ -95,10 +95,10 @@ class MatchingIntegrationTest {
              "portfolioImprovements":["Ghi lại các quyết định kiến trúc"]}
             """;
     private static final String INTERVIEW = """
-            {"technicalQuestions":[{"question":"Hãy giải thích ranh giới transaction trong Spring.","expectedAnswerOutline":"Trình bày propagation và rollback.","whyInterviewerAsks":"Đánh giá chiều sâu kiến thức Backend.","relatedResumeSection":"Kỹ năng chuyên môn","difficulty":"HARD"}],
-             "behavioralQuestions":[{"question":"Hãy mô tả một quyết định khó trong nhóm.","expectedAnswerOutline":"Nêu tình huống, hành động và kết quả.","whyInterviewerAsks":"Đánh giá khả năng phối hợp.","relatedResumeSection":"Kỹ năng mềm","difficulty":"MEDIUM"}],
+            {"technicalQuestions":[{"question":"Bạn giải thích transaction trong Java và Spring như thế nào?","expectedAnswerOutline":"Trình bày Java, propagation và rollback.","whyInterviewerAsks":"Đánh giá chiều sâu kiến thức Backend.","relatedResumeSection":"Kỹ năng chuyên môn","difficulty":"HARD"}],
+             "behavioralQuestions":[{"question":"Bạn mô tả một quyết định khó trong nhóm như thế nào?","expectedAnswerOutline":"Nêu tình huống, hành động và kết quả.","whyInterviewerAsks":"Đánh giá khả năng phối hợp.","relatedResumeSection":"Kỹ năng mềm","difficulty":"MEDIUM"}],
              "hrQuestions":[{"question":"Vì sao bạn quan tâm vị trí này?","expectedAnswerOutline":"Liên hệ mức độ phù hợp và mục tiêu nghề nghiệp.","whyInterviewerAsks":"Đánh giá động lực ứng tuyển.","relatedResumeSection":"Tổng quan","difficulty":"EASY"}],
-             "projectQuestions":[{"question":"Bạn đã thiết kế RecruitmentSystem như thế nào?","expectedAnswerOutline":"Trình bày ranh giới và các đánh đổi.","whyInterviewerAsks":"Xác minh vai trò thực tế trong dự án.","relatedResumeSection":"Dự án","difficulty":"MEDIUM"}]}
+             "projectQuestions":[{"question":"Nếu CV chưa có dự án, bạn sẽ tạo bài thực hành nào?","expectedAnswerOutline":"Nếu chưa có minh chứng, nêu kế hoạch tạo API nhỏ.","whyInterviewerAsks":"Xác minh vai trò thực tế trong dự án.","relatedResumeSection":"Dự án","difficulty":"MEDIUM"}]}
             """;
     private static final String JOB_RECOMMENDATION = """
             {"recommendationSummary":"Hồ sơ phù hợp tốt với công việc đang đăng tuyển.","gapSummary":"Cần xem lại một kỹ năng còn thiếu.",
@@ -131,6 +131,8 @@ class MatchingIntegrationTest {
     @Autowired private AssistantSessionRepository assistantSessionRepository;
     @Autowired private AssistantResponseRepository assistantResponseRepository;
     @Autowired private RecommendationService recommendationService;
+    @Autowired private com.recruitment.ai.service.impl.ExplanationInterviewServiceImpl explanationService;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @MockitoBean private AiStorageService storageService;
     @MockitoBean private ModelRouter modelRouter;
@@ -196,7 +198,7 @@ class MatchingIntegrationTest {
                     : request.systemPrompt().contains("Generate grounded") ? INTERVIEW
                     : request.systemPrompt().contains("Candidate recommendation") ? JOB_RECOMMENDATION
                     : request.systemPrompt().contains("Recruiter recommendation") ? CANDIDATE_RECOMMENDATION
-                    : request.systemPrompt().contains("structured assistant") ? ASSISTANT : FACTS;
+                    : request.systemPrompt().contains("structured assistant") ? assistantOutput(request.userPrompt()) : FACTS;
             return new StructuredGenerationResult("test", "structured-test", output, 100, 50);
         });
         when(modelRouter.structuredGenerationProvider()).thenReturn(provider);
@@ -212,6 +214,152 @@ class MatchingIntegrationTest {
         when(jobGateway.getPublishedJobs(any())).thenAnswer(invocation ->
                 List.of(publishedJob(UUID.randomUUID(), employerId)));
         when(consentGateway.hasConsent(any(), any())).thenReturn(true);
+    }
+
+    private static String assistantOutput(String prompt) {
+        if (prompt.contains("CAREER_ROADMAP")) return """
+                {"summary":"Lộ trình dựa trên CV của bạn.",
+                 "recommendations":["0–3 tháng — Mục tiêu: củng cố Java; Hành động: làm API; Đầu ra: API có unit test.",
+                 "3–6 tháng — Mục tiêu: hoàn thiện Backend; Hành động: triển khai demo; Đầu ra: demo chạy được."],
+                 "risks":["Chỉ ghi vào CV sau khi có minh chứng thật."],"nextSteps":["Bắt đầu với đầu ra 0–3 tháng."]}
+                """;
+        if (prompt.contains("RESUME_IMPROVEMENT")) return """
+                {"summary":"CV của bạn cần làm rõ minh chứng.","recommendations":["Sửa CV bằng cách mô tả vai trò Java đã có."],
+                 "risks":["Không thêm số liệu chưa được xác minh."],"nextSteps":["Đối chiếu từng nội dung với minh chứng thật."]}
+                """;
+        if (prompt.contains("SUMMARIZE_JOB")) return """
+                {"summary":"Vị trí Backend Developer.","recommendations":["Trách nhiệm: phát triển dịch vụ Backend."],
+                 "risks":[],"nextSteps":["Yêu cầu: Java và kinh nghiệm phù hợp."]}
+                """;
+        return ASSISTANT;
+    }
+
+    @Test
+    void durableExplanationDeduplicatesAuthorizesAndPersistsWithoutBrowserSession() throws Exception {
+        UUID resumeId = analyzedResume();
+        String body = mockMvc.perform(post("/api/v1/ai/matching/jobs/{job}/resumes/{resume}", UUID.randomUUID(), resumeId)
+                .header("Authorization", "Bearer " + candidateToken)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        UUID match = UUID.fromString(objectMapper.readTree(body).path("data").path("id").asText());
+        var provider = modelRouter.structuredGenerationProvider();
+        org.mockito.Mockito.clearInvocations(provider);
+        String queued = mockMvc.perform(post("/api/v1/ai/matching/{id}/explanation/tasks", match)
+                .header("Authorization", "Bearer " + candidateToken)).andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("PENDING")).andReturn().getResponse().getContentAsString();
+        UUID task = UUID.fromString(objectMapper.readTree(queued).path("data").path("id").asText());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/explanation/tasks", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.id").value(task.toString()));
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/explanation", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isConflict());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/explanation/tasks", match)
+                .header("Authorization", "Bearer " + token(UUID.randomUUID(), "foreign@example.test", List.of("CANDIDATE"))))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/ai/tasks/{id}", task)
+                .header("Authorization", "Bearer " + token(UUID.randomUUID(), "foreign@example.test", List.of("CANDIDATE"))))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/explanation/tasks", match)).andExpect(status().isUnauthorized());
+        verify(provider, org.mockito.Mockito.never()).generate(any());
+        assertThat(taskRepository.findById(task).orElseThrow().getInputPayload()).doesNotContain(candidateToken, "Bearer");
+        assertThat(explanationService.processQueuedExplanation(task)).isTrue();
+        assertThat(explanationService.processQueuedExplanation(task)).isFalse();
+        verify(provider, org.mockito.Mockito.never()).generate(any());
+        mockMvc.perform(get("/api/v1/ai/matching/{id}/explanation/tasks/latest", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("COMPLETED"));
+        mockMvc.perform(get("/api/v1/ai/matching/{id}/explanation", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.aiTaskId").value(task.toString()));
+        assertThat(explanationRepository.count()).isEqualTo(1);
+        assertThat(taskRepository.findById(task).orElseThrow().getInputPayload()).isNull();
+    }
+
+    @Test
+    void expiredQueuedAndInterruptedGenerationBecomeRetryableFailures() throws Exception {
+        var task = new com.recruitment.ai.entity.AiTask();
+        task.setRequestedBy(UUID.randomUUID()); task.setTaskType("MATCH_EXPLANATION"); task.setCorrelationId("stale-test");
+        task.setStatus(com.recruitment.ai.entity.enums.AiTaskStatus.RUNNING);
+        task.setStartedAt(java.time.LocalDateTime.now().minusMinutes(11));
+        UUID id = taskRepository.saveAndFlush(task).getId();
+        jdbc.update("update ai_tasks set created_at = ? where id = ?", java.time.LocalDateTime.now().minusMinutes(12), id);
+        explanationService.expireAbandonedTasks();
+        var expired = taskRepository.findById(id).orElseThrow();
+        assertThat(expired.getStatus()).isEqualTo(com.recruitment.ai.entity.enums.AiTaskStatus.FAILED);
+        assertThat(expired.getRetryable()).isTrue();
+        assertThat(expired.getErrorMessage()).contains("gián đoạn");
+        assertThat(explanationService.processQueuedExplanation(id)).isFalse();
+    }
+
+    @Test
+    void recentRunningTaskBecomesExplicitRetryableFailureAfterRestartRecovery() {
+        var task = new com.recruitment.ai.entity.AiTask();
+        task.setRequestedBy(UUID.randomUUID()); task.setTaskType("INTERVIEW_PREPARATION"); task.setCorrelationId("restart-test");
+        task.setStatus(com.recruitment.ai.entity.enums.AiTaskStatus.RUNNING);
+        task.setStartedAt(java.time.LocalDateTime.now());
+        UUID id = taskRepository.saveAndFlush(task).getId();
+
+        explanationService.recoverInterruptedTasksAfterRestart();
+
+        var recovered = taskRepository.findById(id).orElseThrow();
+        assertThat(recovered.getStatus()).isEqualTo(com.recruitment.ai.entity.enums.AiTaskStatus.FAILED);
+        assertThat(recovered.getRetryable()).isTrue();
+        assertThat(recovered.getErrorMessage()).contains("khởi động lại", "thử lại");
+        assertThat(recovered.getInputPayload()).isNull();
+    }
+
+    @Test
+    void durableCompactInterviewDeduplicatesAndPersistsThenAllowsReadOnlyRecovery() throws Exception {
+        UUID resumeId = analyzedResume();
+        var prompt = promptRepository.findByTemplateCodeAndActiveTrue("INTERVIEW_PREPARATION").orElseThrow();
+        prompt.setVersionNumber(3);
+        promptRepository.saveAndFlush(prompt);
+        String body = mockMvc.perform(post("/api/v1/ai/matching/jobs/{job}/resumes/{resume}", UUID.randomUUID(), resumeId)
+                .header("Authorization", "Bearer " + candidateToken)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        UUID match = UUID.fromString(objectMapper.readTree(body).path("data").path("id").asText());
+        var provider = modelRouter.structuredGenerationProvider();
+        org.mockito.Mockito.clearInvocations(provider);
+        String queued = mockMvc.perform(post("/api/v1/ai/matching/{id}/interview/tasks", match)
+                .header("Authorization", "Bearer " + candidateToken)).andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("PENDING")).andReturn().getResponse().getContentAsString();
+        UUID task = UUID.fromString(objectMapper.readTree(queued).path("data").path("id").asText());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/interview/tasks", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.id").value(task.toString()));
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/interview", match).header("Authorization", "Bearer " + candidateToken))
+                .andExpect(status().isConflict());
+        String foreign = token(UUID.randomUUID(), "foreign@example.test", List.of("CANDIDATE"));
+        mockMvc.perform(get("/api/v1/ai/matching/{id}/interview/tasks/latest", match).header("Authorization", "Bearer " + foreign))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/interview/tasks", match).header("Authorization", "Bearer " + foreign))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/ai/matching/{id}/interview/tasks", match)).andExpect(status().isUnauthorized());
+        verify(provider, org.mockito.Mockito.never()).generate(any());
+        assertThat(explanationService.processQueuedExplanation(task)).isTrue();
+        assertThat(explanationService.processQueuedExplanation(task)).isFalse();
+        verify(provider, org.mockito.Mockito.never()).generate(any());
+        var completed = taskRepository.findById(task).orElseThrow();
+        assertThat(completed.getProviderName()).isEqualTo("deterministic-grounded");
+        assertThat(completed.getModelName()).isEqualTo("grounded-interview-v1");
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(get("/api/v1/ai/matching/{id}/interview/tasks/latest", match).header("Authorization", "Bearer " + candidateToken))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("COMPLETED"));
+            mockMvc.perform(get("/api/v1/ai/matching/{id}/interview", match).header("Authorization", "Bearer " + candidateToken))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.aiTaskId").value(task.toString()))
+                    .andExpect(jsonPath("$.data.questionSet.technicalQuestions[0].difficulty").value("MEDIUM"));
+        }
+        verify(provider, org.mockito.Mockito.never()).generate(any());
+        assertThat(interviewRepository.count()).isEqualTo(1);
+        assertThat(taskRepository.findById(task).orElseThrow().getInputPayload()).isNull();
+        // An explicit retry creates a fresh task, deterministically replaces the
+        // result once and never starts duplicate provider inference.
+        String retry = mockMvc.perform(post("/api/v1/ai/matching/{id}/interview/tasks", match)
+                .header("Authorization", "Bearer " + candidateToken)).andExpect(status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+        UUID retryTask = UUID.fromString(objectMapper.readTree(retry).path("data").path("id").asText());
+        assertThat(retryTask).isNotEqualTo(task);
+        assertThat(explanationService.processQueuedExplanation(retryTask)).isTrue();
+        var retried = taskRepository.findById(retryTask).orElseThrow();
+        assertThat(retried.getStatus()).isEqualTo(com.recruitment.ai.entity.enums.AiTaskStatus.COMPLETED);
+        assertThat(retried.getProviderName()).isEqualTo("deterministic-grounded");
+        assertThat(retried.getInputPayload()).isNull();
+        assertThat(explanationService.processQueuedExplanation(retryTask)).isFalse();
+        assertThat(interviewRepository.count()).isEqualTo(1);
+        verify(provider, org.mockito.Mockito.never()).generate(any());
     }
 
     @Test
@@ -341,7 +489,7 @@ class MatchingIntegrationTest {
                 .andExpect(jsonPath("$.data.explanation.overallEvaluation").isNotEmpty())
                 .andExpect(jsonPath("$.data.explanation.gapExplanations[0].priority").value("HIGH"))
                 .andExpect(jsonPath("$.data.promptVersion").value("MATCH_EXPLANATION:v1"))
-                .andExpect(jsonPath("$.data.inputTokens").value(100))
+                .andExpect(jsonPath("$.data.inputTokens").value(0))
                 .andExpect(jsonPath("$.data.correlationId").value("explanation-integration"));
         mockMvc.perform(post("/api/v1/ai/matching/{id}/interview", matchId)
                         .header("Authorization", "Bearer " + candidateToken)

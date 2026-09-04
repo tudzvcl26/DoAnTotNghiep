@@ -16,15 +16,16 @@ public class SkillScorer implements MatchingScorer {
 
     @Override
     public ScoreResult score(MatchingContext context, int maximumScore) {
-        Set<String> resume = MatchingText.normalized(resumeSkills(context));
-        List<String> required = context.requirements().requiredSkills();
-        List<String> preferred = context.requirements().preferredSkills();
+        Set<String> resume = MatchingText.normalizedSkills(resumeSkills(context));
+        Set<String> required = MatchingText.normalizedSkills(context.requirements().requiredSkills());
+        Set<String> preferred = MatchingText.normalizedSkills(context.requirements().preferredSkills());
+        preferred.removeAll(required);
         if (required.isEmpty() && preferred.isEmpty()) {
             return new ScoreResult(dimension(), maximumScore, maximumScore,
                     "Công việc chưa nêu yêu cầu kỹ năng chuyên môn có thể nhận diện; ứng viên không bị trừ điểm ở tiêu chí này.");
         }
-        long requiredMatched = required.stream().map(MatchingText::normalize).filter(resume::contains).count();
-        long preferredMatched = preferred.stream().map(MatchingText::normalize).filter(resume::contains).count();
+        long requiredMatched = required.stream().filter(resume::contains).count();
+        long preferredMatched = preferred.stream().filter(resume::contains).count();
         double numerator = requiredMatched + preferredMatched * 0.5;
         double denominator = required.size() + preferred.size() * 0.5;
         int score = ScoringSupport.proportional(maximumScore, numerator, denominator);

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { getErrorMessage } from '../../lib/api/error-adapter'
 import { adminCatalogKey, createCatalogItem, deleteCatalogItem, getCatalog, updateCatalogItem } from './admin.api'
 import { catalogSchema } from './admin.schemas'
+import { activeStateLabels } from './admin.labels'
 import type { CatalogItem, CatalogKind } from './admin.types'
 
 type Values = z.infer<typeof catalogSchema>
@@ -29,6 +30,13 @@ export function AdminCatalogPage({ kind }: { kind: CatalogKind }) {
   const queryClient = useQueryClient()
   const form = useForm<Values>({ resolver: zodResolver(catalogSchema), defaultValues: defaults })
   const items = useQuery({ queryKey: [...adminCatalogKey(kind), { page, keyword }], queryFn: () => getCatalog(kind, { page, size: 12, keyword: keyword || undefined }), placeholderData: (old) => old })
+
+  useEffect(() => {
+    setEditing(null)
+    setFormOpen(false)
+    setFeedback('')
+    form.reset(defaults)
+  }, [form, kind])
 
   useEffect(() => {
     if (!formOpen) return
@@ -68,6 +76,6 @@ export function AdminCatalogPage({ kind }: { kind: CatalogKind }) {
     {items.isError && <section className="admin-state"><AlertCircle /><h2>Không thể tải danh mục</h2><p>{getErrorMessage(items.error)}</p><button className="admin-button admin-button--secondary" type="button" onClick={() => void items.refetch()}><RefreshCw />Thử lại</button></section>}
     {remove.isError && <p className="admin-feedback admin-feedback--error" role="alert">{getErrorMessage(remove.error)}</p>}
     {items.data?.content.length === 0 && <section className="admin-state"><Inbox /><h2>Chưa có dữ liệu</h2><p>Không tìm thấy {config[kind].singular} phù hợp.</p></section>}
-    {items.data && items.data.content.length > 0 && <><section className="admin-grid admin-grid--three">{items.data.content.map((item) => <article className="admin-card" key={item.id}><div className="admin-card__top"><div><span className="admin-badge">{item.active ? 'ACTIVE' : 'INACTIVE'}</span><h2>{item.name}</h2></div><small>{item.slug}</small></div><p>{item.description || 'Chưa có mô tả.'}</p><dl>{kind === 'categories' && <div><dt>Parent</dt><dd>{item.parentName ?? 'Danh mục gốc'} · thứ tự {item.displayOrder}</dd></div>}<div><dt>ID</dt><dd>{item.id}</dd></div></dl><div className="admin-card__actions"><button className="admin-button admin-button--secondary" type="button" onClick={() => startEdit(item)}><Pencil />Sửa</button><button className="admin-button admin-button--danger" type="button" disabled={remove.isPending} onClick={() => { if (window.confirm(`Ngừng kích hoạt ${item.name}?`)) remove.mutate(item.id) }}><Trash2 />Xóa</button></div></article>)}</section><nav className="admin-pagination"><button className="admin-button admin-button--secondary" disabled={!items.data.hasPrevious} onClick={() => updateParams({ page: page - 1 })}><ChevronLeft />Trước</button><span>Trang {items.data.page + 1}/{Math.max(1, items.data.totalPages)} · {items.data.totalElements} mục</span><button className="admin-button admin-button--secondary" disabled={!items.data.hasNext} onClick={() => updateParams({ page: page + 1 })}>Sau<ChevronRight /></button></nav></>}
+    {items.data && items.data.content.length > 0 && <><section className="admin-grid admin-grid--three">{items.data.content.map((item) => <article className="admin-card" key={item.id}><div className="admin-card__top"><div><span className="admin-badge">{activeStateLabels[item.active ? 'ACTIVE' : 'INACTIVE']}</span><h2>{item.name}</h2></div><small>{item.slug}</small></div><p>{item.description || 'Chưa có mô tả.'}</p><dl>{kind === 'categories' && <div><dt>Parent</dt><dd>{item.parentName ?? 'Danh mục gốc'} · thứ tự {item.displayOrder}</dd></div>}<div><dt>ID</dt><dd>{item.id}</dd></div></dl><div className="admin-card__actions"><button className="admin-button admin-button--secondary" type="button" onClick={() => startEdit(item)}><Pencil />Sửa</button><button className="admin-button admin-button--danger" type="button" disabled={remove.isPending} onClick={() => { if (window.confirm(`Ngừng kích hoạt ${item.name}?`)) remove.mutate(item.id) }}><Trash2 />Xóa</button></div></article>)}</section><nav className="admin-pagination"><button className="admin-button admin-button--secondary" disabled={!items.data.hasPrevious} onClick={() => updateParams({ page: page - 1 })}><ChevronLeft />Trước</button><span>Trang {items.data.page + 1}/{Math.max(1, items.data.totalPages)} · {items.data.totalElements} mục</span><button className="admin-button admin-button--secondary" disabled={!items.data.hasNext} onClick={() => updateParams({ page: page + 1 })}>Sau<ChevronRight /></button></nav></>}
   </main>
 }

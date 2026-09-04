@@ -7,6 +7,7 @@ import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ButtonLink } from '../../components/ui/Button'
 import { getMyApplications } from '../applications/applications.api'
+import { applicationStatusLabels } from '../applications/application-presenter'
 import { useAuth } from '../auth/auth-context'
 import { AppError, getErrorMessage } from '../../lib/api/error-adapter'
 import type { ApplicationStatus, ApplicationSummary } from '../../types/models/application'
@@ -20,16 +21,6 @@ import '../jobs/jobs-page.css'
 const profileRoute = '/candidate/profile'
 const resumeRoute = '/candidate/resumes'
 const applicationsRoute = '/candidate/applications'
-
-const applicationStatusLabels: Record<ApplicationStatus, string> = {
-  APPLIED: 'Đã ứng tuyển',
-  SCREENING: 'Đang sàng lọc',
-  INTERVIEW: 'Phỏng vấn',
-  OFFER: 'Đề nghị',
-  HIRED: 'Đã tuyển',
-  REJECTED: 'Từ chối',
-  WITHDRAWN: 'Đã rút',
-}
 
 function isNotFound(error: unknown) {
   return error instanceof AppError && error.status === 404
@@ -224,7 +215,7 @@ function RecentApplications({ applications }: { applications: ApplicationSummary
       {applications.slice(0, 5).map((application) => (
         <Link to={`/candidate/applications/${application.id}`} key={application.id}>
           <span className="candidate-application-list__icon"><BriefcaseBusiness size={19} /></span>
-          <div><strong>Mã việc làm: {application.jobId.slice(0, 8)}</strong><small>Ứng tuyển ngày {formatDate(application.appliedAt)}</small></div>
+          <div><strong>Mã việc làm: {application.jobId.slice(0, 8)}</strong><small>Ứng tuyển ngày {formatDate(application.appliedAtInstant ?? application.appliedAt)}</small></div>
           <span className={`candidate-status-chip candidate-status-chip--${application.status.toLowerCase()}`}>{applicationStatusLabels[application.status]}</span>
           <ArrowRight size={17} aria-hidden="true" />
         </Link>

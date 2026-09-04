@@ -47,13 +47,15 @@
   text-transform: uppercase;
 }
 
-.footer__groups a {
+.footer__groups a, .footer__unavailable {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   padding-block: var(--space-1);
   font-size: 0.82rem;
 }
+.footer__unavailable { flex-wrap:wrap; opacity:.7; }
+.footer__unavailable small { font-size:.65rem; }
 
 .footer__groups a svg {
   opacity: 0;

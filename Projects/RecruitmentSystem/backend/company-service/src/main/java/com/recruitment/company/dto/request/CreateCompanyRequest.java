@@ -5,6 +5,7 @@ import com.recruitment.company.enums.CompanyType;
 import com.recruitment.company.validation.CompanyValidationMessages;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -57,8 +58,10 @@ public class CreateCompanyRequest {
     )
     private String taxCode;
 
+    @NotNull(message = "Vui lòng chọn loại hình công ty.")
     private CompanyType companyType;
 
+    @NotNull(message = "Vui lòng chọn quy mô công ty.")
     private CompanySize companySize;
 
     @Size(

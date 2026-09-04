@@ -64,11 +64,9 @@ public class CareerCompanionServiceImpl implements CareerCompanionService {
             """;
     static final String SAFE_REFUSAL =
             "Mình không thể cung cấp thông tin riêng tư, thông tin xác thực hoặc chỉ dẫn hệ thống không thuộc phạm vi hỗ trợ. Mình có thể hỗ trợ bạn về CV, kỹ năng, việc làm và định hướng nghề nghiệp của chính bạn.";
-    static final String SAFE_FALLBACK =
-            "Hiện tại mình chưa thể tạo câu trả lời đáng tin cậy hoàn toàn bằng tiếng Việt. Vui lòng thử lại với câu hỏi cụ thể hơn.";
 
     private static final List<String> RESUME_FIELDS = List.of(
-            "summary", "education", "experience", "projects", "skills", "technicalSkills", "softSkills",
+            "fullName", "summary", "education", "experience", "projects", "skills", "technicalSkills", "softSkills",
             "languages", "certificates", "achievements", "keywords"
     );
 
@@ -95,6 +93,12 @@ public class CareerCompanionServiceImpl implements CareerCompanionService {
 
         ResumeAnalysisResult analysis = resolveOwnedAnalysis(request.resumeId(), user.getUserId());
         CandidateCareerContext context = contextGateway.load(user.getUserId(), request.jobId(), accessToken());
+        if (analysis != null) {
+            long started = System.nanoTime();
+            String answer = groundedResumeAnswer(analysis);
+            return new CareerChatResponse(answer, "vi", "deterministic-grounded", "grounded-career-chat-v1",
+                    0, elapsed(started), correlationId);
+        }
         String userPrompt = initialPrompt(message, context, analysis);
         ModelDeployment model = modelRepository.findByCapabilityAndEnabledTrueAndDefaultForCapabilityTrue(
                         ModelCapability.STRUCTURED_GENERATION)
@@ -120,19 +124,37 @@ public class CareerCompanionServiceImpl implements CareerCompanionService {
                     return new CareerChatResponse(answer.trim(), "vi", lastResult.providerName(), lastResult.model(),
                             correction, duration, correlationId);
                 }
-                userPrompt = correctionPrompt(lastResult.structuredOutput());
+                userPrompt = initialPrompt(message, context, analysis) + "\n" + correctionPrompt(lastResult.structuredOutput());
             } catch (BusinessException exception) {
-                if (exception.getErrorCode() == ErrorCode.PROVIDER_EMPTY_RESPONSE) {
-                    return fallback(SAFE_FALLBACK, descriptor(provider), model.getModelName(), correction,
-                            elapsed(started), correlationId);
-                }
+                if (exception.getErrorCode() == ErrorCode.PROVIDER_EMPTY_RESPONSE) throw exception;
                 if (exception.getErrorCode() != ErrorCode.CAREER_RESPONSE_INVALID) throw exception;
-                userPrompt = correctionPrompt(lastResult == null ? "" : lastResult.structuredOutput());
+                userPrompt = initialPrompt(message, context, analysis) + "\n" + correctionPrompt(lastResult == null ? "" : lastResult.structuredOutput());
             }
         }
-        return fallback(SAFE_FALLBACK, lastResult == null ? descriptor(provider) : lastResult.providerName(),
-                lastResult == null ? model.getModelName() : lastResult.model(), MAX_CORRECTION_RETRIES,
-                elapsed(started), correlationId);
+        throw new BusinessException(ErrorCode.CAREER_RESPONSE_INVALID);
+    }
+
+    private String groundedResumeAnswer(ResumeAnalysisResult analysis) {
+        try {
+            JsonNode facts = objectMapper.readTree(analysis.getStructuredData());
+            java.util.LinkedHashSet<String> skills = new java.util.LinkedHashSet<>();
+            for (String field : List.of("technicalSkills", "skills")) {
+                JsonNode values = facts.path(field);
+                if (values.isArray()) values.forEach(item -> {
+                    String value = item.isTextual() ? item.asText("") : item.path("name").asText("");
+                    if (!value.isBlank()) skills.add(value.strip());
+                });
+            }
+            String skillText = skills.isEmpty() ? "chưa có kỹ năng được xác nhận" : String.join(", ", skills.stream().limit(6).toList());
+            JsonNode projects = facts.path("projects");
+            String projectAdvice = projects.isArray() && !projects.isEmpty()
+                    ? "CV có dự án đã ghi nhận; bạn nên làm rõ vai trò, phần việc và kết quả có thể kiểm tra của đúng dự án đó."
+                    : "CV chưa có dự án được xác nhận; nếu bạn từng thực hiện dự án, hãy bổ sung sau khi đối chiếu được minh chứng thật.";
+            return "Dựa trên CV đã chọn, các kỹ năng được xác nhận gồm: " + skillText + ". "
+                    + projectAdvice + " Bước tiếp theo là chọn một yêu cầu trong công việc mục tiêu, đối chiếu với CV và tạo đầu ra thực hành trước khi cập nhật hồ sơ.";
+        } catch (Exception error) {
+            throw new BusinessException(ErrorCode.CAREER_RESPONSE_INVALID);
+        }
     }
 
     private ResumeAnalysisResult resolveOwnedAnalysis(UUID resumeId, UUID userId) {
@@ -153,12 +175,17 @@ public class CareerCompanionServiceImpl implements CareerCompanionService {
         try {
             ObjectNode root = objectMapper.createObjectNode();
             ObjectNode candidate = root.putObject("candidateContext");
-            candidate.set("profile", context.profile());
-            candidate.set("skills", context.skills());
-            candidate.set("education", context.education());
-            candidate.set("experience", context.experience());
-            candidate.set("applications", context.applications());
-            if (analysis != null) candidate.set("analyzedResume", safeResumeFacts(analysis.getStructuredData()));
+            if (analysis != null) {
+                // Keep the selected CV separate from account/history evidence.
+                candidate.set("analyzedResume", safeResumeFacts(analysis.getStructuredData()));
+                candidate.put("guidance", "Chỉ dùng CV này làm dữ kiện về bạn. Gọi người đọc là bạn, không đoán tên hoặc trạng thái tuyển dụng.");
+            } else {
+                candidate.set("profile", context.profile());
+                candidate.set("skills", context.skills());
+                candidate.set("education", context.education());
+                candidate.set("experience", context.experience());
+                candidate.set("applications", context.applications());
+            }
             if (context.job() != null && !context.job().isNull() && !context.job().isEmpty()) {
                 root.set("selectedJobContext", context.job());
             }

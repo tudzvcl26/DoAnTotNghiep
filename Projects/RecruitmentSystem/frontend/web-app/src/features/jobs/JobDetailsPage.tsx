@@ -23,6 +23,13 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 export function JobDetailsPage() {
   const { jobId } = useParams()
+  // Retire the mutation observer and dialog when moving between job routes.
+  // A late response must keep the submitted job's cache key and callbacks.
+  return <JobDetailsContent key={jobId} />
+}
+
+function JobDetailsContent() {
+  const { jobId } = useParams()
   const validJobId = Boolean(jobId && UUID_PATTERN.test(jobId))
   const { currentUser, isAuthenticated } = useAuth()
   const queryClient = useQueryClient()

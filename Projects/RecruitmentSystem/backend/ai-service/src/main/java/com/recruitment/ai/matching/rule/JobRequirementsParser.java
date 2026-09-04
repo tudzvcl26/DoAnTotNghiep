@@ -13,14 +13,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
 public class JobRequirementsParser {
 
-    private static final Pattern YEARS = Pattern.compile("(?i)(\\d{1,2})\\s*\\+?\\s*(?:years?|yrs?)");
     private static final Set<String> STOP_WORDS = Set.of(
             "and", "the", "with", "for", "you", "your", "our", "are", "will", "from", "have", "has",
             "job", "work", "team", "role", "skills", "skill", "requirements", "responsibilities", "candidate",
@@ -73,12 +70,7 @@ public class JobRequirementsParser {
     }
 
     private int minimumYears(String text) {
-        Matcher matcher = YEARS.matcher(text);
-        int result = 0;
-        while (matcher.find()) {
-            result = Math.max(result, Integer.parseInt(matcher.group(1)));
-        }
-        return result;
+        return MatchingText.explicitYears(text);
     }
 
     private int experienceLevelYears(String level) {

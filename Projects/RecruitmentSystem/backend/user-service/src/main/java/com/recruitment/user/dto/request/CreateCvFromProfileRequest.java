@@ -6,5 +6,5 @@ import jakarta.validation.constraints.Size;
 
 public record CreateCvFromProfileRequest(
         @NotBlank @Size(max = 150) String title,
-        @NotBlank @Pattern(regexp = "classic|modern|ats|student|professional") String templateId
+        @NotBlank @Pattern(regexp = com.recruitment.user.dto.cv.CvTemplateCatalog.ID_PATTERN) String templateId
 ) {}

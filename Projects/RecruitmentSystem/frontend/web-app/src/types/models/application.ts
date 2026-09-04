@@ -26,6 +26,7 @@ export type Application = {
   status: ApplicationStatus
   coverLetter: string | null
   appliedAt: string
+  appliedAtInstant?: string | null
   active: boolean
   matchingScore: number | null
   matchingVersion: string | null
@@ -38,6 +39,7 @@ export type Application = {
   statusHistory: ApplicationStatusHistory[]
   createdAt: string
   updatedAt: string
+  updatedAtInstant?: string | null
 }
 
 export type ResumeSnapshot = {
@@ -80,6 +82,7 @@ export type ApplicationStatusHistory = {
   reasonDetail: string | null
   changedBy: string
   changedAt: string
+  changedAtInstant?: string | null
   createdAt: string
 }
 
@@ -94,7 +97,9 @@ export type ApplicationSummary = {
   matchingScore: number | null
   matchingVersion: string | null
   appliedAt: string
+  appliedAtInstant?: string | null
   active: boolean
   createdAt: string
   updatedAt: string
+  updatedAtInstant?: string | null
 }

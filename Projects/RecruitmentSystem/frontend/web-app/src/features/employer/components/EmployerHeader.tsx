@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Building2, Menu, Plus, UsersRound } from 'lucide-react'
+import { Bell, BriefcaseBusiness, Building2, Menu, Plus, UsersRound } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, NavLink } from 'react-router-dom'
 import { ProductAccountMenu } from '../../../components/navigation/ProductAccountMenu'
@@ -11,6 +11,7 @@ const accountLinks = [
   { label: 'Công ty', to: '/employer/company' },
   { label: 'Việc làm', to: '/employer/jobs' },
   { label: 'Ứng viên & đơn', to: '/employer/applications' },
+  { label: 'Thông báo', to: '/employer/notifications' },
 ]
 
 export function EmployerHeader({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; menuOpen: boolean }) {
@@ -32,6 +33,7 @@ export function EmployerHeader({ onOpenMenu, menuOpen }: { onOpenMenu: () => voi
         <NavLink to="/employer/applications"><UsersRound size={16} /> Ứng viên</NavLink>
       </nav>
       <div className="employer-product-header__actions">
+        <Link className="employer-product-header__create employer-product-header__notification" to="/employer/notifications" aria-label="Thông báo"><Bell size={17} /> <span>Thông báo</span></Link>
         <Link className="employer-product-header__create" to="/employer/jobs/new"><Plus size={17} /> <span>Tạo việc làm</span></Link>
         <ProductAccountMenu label="Nhà tuyển dụng" links={accountLinks} />
       </div>

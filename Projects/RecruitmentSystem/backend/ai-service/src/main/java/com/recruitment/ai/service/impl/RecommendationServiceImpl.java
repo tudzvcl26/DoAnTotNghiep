@@ -22,6 +22,7 @@ import com.recruitment.ai.messaging.RecommendationRefreshPublisher;
 import com.recruitment.ai.provider.*;
 import com.recruitment.ai.provider.llm.*;
 import com.recruitment.ai.recommendation.RecommendationJsonValidator;
+import com.recruitment.ai.recommendation.GroundedRecommendationComposer;
 import com.recruitment.ai.recommendation.CandidateConsentGateway;
 import com.recruitment.ai.repository.*;
 import com.recruitment.ai.security.CurrentUser;
@@ -68,6 +69,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final JobGateway jobGateway;
     private final GenerationContextBuilder contextBuilder;
     private final RecommendationJsonValidator validator;
+    private final GroundedRecommendationComposer groundedRecommendationComposer;
     private final VietnameseGenerationPolicy vietnameseGenerationPolicy;
     private final ModelRouter modelRouter;
     private final ProviderUsageRecorder usageRecorder;
@@ -284,33 +286,14 @@ public class RecommendationServiceImpl implements RecommendationService {
         ModelDeployment model = modelRepository.findByCapabilityAndEnabledTrueAndDefaultForCapabilityTrue(
                 ModelCapability.STRUCTURED_GENERATION)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_MODEL_NOT_CONFIGURED));
-        StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
         long started = System.nanoTime();
-        try {
-            StructuredGenerationRequest request = new StructuredGenerationRequest(
-                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
-                    prompt.getUserPromptTemplate().replace("{{context}}", contextBuilder.build(match, job)),
-                    prompt.getOutputSchema(), message.correlationId());
-            StructuredGenerationResult result = vietnameseGenerationPolicy.generate(
-                    provider, request, "JOB_RECOMMENDATION_REFRESH", JOB_RECOMMENDATION_FALLBACK);
-            Generated generated = new Generated(message.taskId(), prompt, model, result,
-                    validator.validateJob(result.structuredOutput()), elapsed(started), message.correlationId());
-            record(generated, "JOB_RECOMMENDATION_REFRESH", true);
-            return new RefreshGenerated(generated, false);
-        } catch (RuntimeException exception) {
-            long duration = elapsed(started);
-            usageRecorder.record(new ProviderUsage(provider.descriptor().providerName(), model.getModelName(),
-                    "JOB_RECOMMENDATION_REFRESH", 0, 0, duration, false, message.correlationId()));
-            JsonNode fallback = objectMapper.createObjectNode()
-                    .put("recommendationSummary", "Điểm phù hợp theo quy tắc: " + match.getOverallScore() + "/100.")
-                    .put("gapSummary", readList(match.getMissingSkills()).isEmpty()
-                            ? "Chưa ghi nhận kỹ năng bắt buộc còn thiếu." : String.join("; ", readList(match.getMissingSkills())))
-                    .put("recommendationReason", "Kết quả được tạo từ bộ quy tắc có phiên bản vì mô hình AI tạm thời chưa sẵn sàng.");
-            StructuredGenerationResult result = new StructuredGenerationResult(
-                    "deterministic-fallback", "rules", fallback.toString(), 0, 0);
-            return new RefreshGenerated(new Generated(message.taskId(), prompt, model, result, fallback,
-                    duration, message.correlationId()), true);
-        }
+        JsonNode data = groundedRecommendationComposer.job(match);
+        StructuredGenerationResult result = new StructuredGenerationResult(
+                "deterministic-grounded", GroundedRecommendationComposer.POLICY_VERSION, data.toString(), 0, 0);
+        Generated generated = new Generated(message.taskId(), prompt, model, result, data,
+                elapsed(started), message.correlationId());
+        record(generated, "JOB_RECOMMENDATION_REFRESH", true);
+        return new RefreshGenerated(generated, false);
     }
 
     private void saveRefreshRecommendation(JobMatchResult match, Generated generated) {
@@ -338,6 +321,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private String recommendationChecksum(ResumeAnalysisResult analysis, List<JobSnapshot> jobs) {
         StringBuilder value = new StringBuilder(recommendationProperties.getCacheVersion())
+                .append('|').append(GroundedRecommendationComposer.POLICY_VERSION)
                 .append('|').append(analysis.getId()).append('|').append(analysis.getUpdatedAt())
                 .append('|').append(matchingProperties.getRuleVersion())
                 .append('|').append(matchingProperties.getWeightsVersion());
@@ -404,27 +388,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_MODEL_NOT_CONFIGURED));
         String correlationId = correlationId();
         AiTask task = createTask(code, match.getId(), correlationId);
-        StructuredGenerationProvider provider = modelRouter.structuredGenerationProvider();
         long started = System.nanoTime();
-        try {
-            StructuredGenerationRequest request = new StructuredGenerationRequest(
-                    model.getModelName(), vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
-                    prompt.getUserPromptTemplate().replace("{{context}}", contextBuilder.build(match, job)),
-                    prompt.getOutputSchema(), correlationId);
-            StructuredGenerationResult result = vietnameseGenerationPolicy.generate(
-                    provider, request, code,
-                    candidateFacing ? JOB_RECOMMENDATION_FALLBACK : CANDIDATE_RECOMMENDATION_FALLBACK);
-            JsonNode data = candidateFacing ? validator.validateJob(result.structuredOutput())
-                    : validator.validateCandidate(result.structuredOutput());
-            return new Generated(task.getId(), prompt, model, result, data, elapsed(started), correlationId);
-        } catch (RuntimeException exception) {
-            long duration = elapsed(started); failTask(task.getId(), exception);
-            usageRecorder.record(new ProviderUsage(provider.descriptor().providerName(), model.getModelName(),
-                    code, 0, 0, duration, false, correlationId));
-            log.warn("Recommendation generation failed type={} matchId={} durationMs={} correlationId={}",
-                    code, match.getId(), duration, correlationId);
-            throw exception;
-        }
+        JsonNode data = candidateFacing ? groundedRecommendationComposer.job(match)
+                : groundedRecommendationComposer.candidate(match);
+        StructuredGenerationResult result = new StructuredGenerationResult(
+                "deterministic-grounded", GroundedRecommendationComposer.POLICY_VERSION, data.toString(), 0, 0);
+        return new Generated(task.getId(), prompt, model, result, data, elapsed(started), correlationId);
     }
 
     private AiTask createTask(String type, UUID matchId, String correlationId) {

@@ -172,14 +172,14 @@ public class ResumeServiceImpl implements ResumeService {
         long started = System.nanoTime();
 
         try {
-            StructuredGenerationResult generated = provider.generate(new StructuredGenerationRequest(
+            StructuredGenerationResult generated = vietnameseGenerationPolicy.generateResume(provider, new StructuredGenerationRequest(
                     model.getModelName(),
                     vietnameseGenerationPolicy.applyContract(prompt.getSystemPrompt(), prompt.getOutputSchema()),
                     prompt.getUserPromptTemplate().replace("{{resumeText}}", document.getExtractedText()),
                     prompt.getOutputSchema(),
                     correlationId
             ));
-            JsonNode facts = jsonValidator.parseAndValidate(generated.structuredOutput());
+            JsonNode facts = jsonValidator.parseAndValidate(generated.structuredOutput(), document.getExtractedText());
             ResumeQualityScore score = qualityScorer.score(facts, document.getExtractedText());
             long duration = elapsedMillis(started);
             ResumeAnalysisResult result = persistSuccessfulAnalysis(
@@ -228,6 +228,24 @@ public class ResumeServiceImpl implements ResumeService {
 
     private AiTask createTask(ResumeDocument document, CurrentUser user, String correlationId) {
         return transaction().execute(status -> {
+            // Serialize only the claim, not the slow provider request. The DB lock
+            // also coordinates multiple service instances sharing this database.
+            documentRepository.lockActiveById(document.getId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
+            taskRepository.findFirstBySubjectIdAndTaskTypeAndStatusOrderByCreatedAtDesc(
+                    document.getId(), TASK_TYPE, AiTaskStatus.RUNNING).ifPresent(active -> {
+                if (active.getStartedAt() == null || active.getStartedAt().isAfter(LocalDateTime.now().minusMinutes(10))) {
+                    throw new BusinessException(ErrorCode.RESUME_ANALYSIS_RUNNING);
+                }
+                // All synchronous provider budgets are below ten minutes. Recover
+                // a claim abandoned by a crashed process without an endless lock.
+                active.setStatus(AiTaskStatus.FAILED);
+                active.setCompletedAt(LocalDateTime.now());
+                active.setErrorCode(ErrorCode.PROVIDER_TIMEOUT.getCode());
+                active.setErrorMessage("Tác vụ trước đã hết hạn. Bạn có thể phân tích lại.");
+                active.setRetryable(true);
+                taskRepository.saveAndFlush(active);
+            });
             AiTask task = new AiTask();
             task.setTaskType(TASK_TYPE);
             task.setStatus(AiTaskStatus.RUNNING);
@@ -254,10 +272,11 @@ public class ResumeServiceImpl implements ResumeService {
             String correlationId
     ) {
         return transaction().execute(status -> {
-            ResumeDocument document = documentRepository.findById(documentId)
+            ResumeDocument document = documentRepository.findByIdAndDeletedAtIsNull(documentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
             AiTask task = taskRepository.findById(taskId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.TASK_NOT_FOUND));
+            if (task.getStatus() != AiTaskStatus.RUNNING) throw new BusinessException(ErrorCode.PROVIDER_TIMEOUT);
             PromptTemplateVersion prompt = promptRepository.getReferenceById(promptId);
             ModelDeployment model = modelRepository.getReferenceById(modelId);
             ResumeAnalysisResult result = analysisRepository.findByResumeDocumentId(documentId)
@@ -315,9 +334,9 @@ public class ResumeServiceImpl implements ResumeService {
 
     private void saveSkills(ResumeAnalysisResult result, JsonNode facts) {
         List<AnalysisSkillItem> items = new ArrayList<>();
-        addSkills(items, result, facts.path("skills"), SkillCategory.GENERAL);
         addSkills(items, result, facts.path("technicalSkills"), SkillCategory.TECHNICAL);
         addSkills(items, result, facts.path("softSkills"), SkillCategory.SOFT);
+        addSkills(items, result, facts.path("skills"), SkillCategory.GENERAL);
         skillRepository.saveAll(items);
     }
 
@@ -331,9 +350,10 @@ public class ResumeServiceImpl implements ResumeService {
             return;
         }
         Set<String> seen = new LinkedHashSet<>();
+        target.forEach(item -> seen.add(com.recruitment.ai.matching.util.MatchingText.canonicalSkill(item.getSkillName())));
         for (JsonNode value : values) {
             String name = itemText(value, "name");
-            if (!name.isBlank() && seen.add(name.toLowerCase(Locale.ROOT)) && target.size() < 300) {
+            if (!name.isBlank() && seen.add(com.recruitment.ai.matching.util.MatchingText.canonicalSkill(name)) && target.size() < 300) {
                 AnalysisSkillItem item = new AnalysisSkillItem();
                 item.setAnalysisResult(result);
                 item.setSkillName(limit(name, 255));

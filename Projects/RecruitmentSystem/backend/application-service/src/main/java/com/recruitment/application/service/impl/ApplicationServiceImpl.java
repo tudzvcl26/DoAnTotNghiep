@@ -52,9 +52,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -117,7 +119,9 @@ public class ApplicationServiceImpl implements ApplicationService {
         application.setJobId(job.getId());
         application.setStatus(ApplicationStatus.APPLIED);
         application.setCoverLetter(request.getCoverLetter());
+        Instant appliedAtInstant = Instant.now();
         application.setAppliedAt(LocalDateTime.now());
+        application.setAppliedAtInstant(appliedAtInstant);
         application.setActive(true);
 
         Application savedApplication = applicationRepository.save(application);
@@ -159,6 +163,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setToStatus(ApplicationStatus.APPLIED);
         history.setChangedBy(candidateId);
         history.setChangedAt(savedApplication.getAppliedAt());
+        history.setChangedAtInstant(appliedAtInstant);
         statusHistoryRepository.save(history);
 
         outboxService.applicationSubmitted(savedApplication, employerUserId);
@@ -215,6 +220,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setReasonDetail(request != null ? request.getReasonDetail() : null);
         history.setChangedBy(currentUser.getUserId());
         history.setChangedAt(LocalDateTime.now());
+        history.setChangedAtInstant(Instant.now());
         statusHistoryRepository.save(history);
 
         outboxService.applicationWithdrawn(updatedApplication, employerUserId);
@@ -361,6 +367,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         history.setReasonDetail(request.getReasonDetail());
         history.setChangedBy(currentUser.getUserId());
         history.setChangedAt(LocalDateTime.now());
+        history.setChangedAtInstant(Instant.now());
         statusHistoryRepository.save(history);
 
         outboxService.applicationStatusChanged(updatedApplication, oldStatus);
@@ -447,6 +454,11 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         List<ApplicationStatusHistory> histories = statusHistoryRepository.findByApplicationIdOrderByChangedAtAsc(application.getId());
         response.setStatusHistory(statusHistoryMapper.toResponseList(histories));
+        histories.stream()
+                .map(ApplicationStatusHistory::getChangedAtInstant)
+                .filter(java.util.Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .ifPresent(response::setUpdatedAtInstant);
 
         return response;
     }
@@ -461,8 +473,18 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .findByApplicationIdIn(applicationIds)
                 .stream()
                 .collect(Collectors.toMap(JobSnapshot::getApplicationId, Function.identity()));
+        Map<UUID, Instant> latestChangeInstants = applicationIds.isEmpty() ? Map.of() : statusHistoryRepository
+                .findByApplicationIdIn(applicationIds)
+                .stream()
+                .filter(history -> history.getChangedAtInstant() != null)
+                .collect(Collectors.toMap(
+                        ApplicationStatusHistory::getApplicationId,
+                        ApplicationStatusHistory::getChangedAtInstant,
+                        (left, right) -> left.isAfter(right) ? left : right
+                ));
         List<ApplicationSummaryResponse> content = page.getContent().stream().map(application -> {
             ApplicationSummaryResponse response = applicationMapper.toSummaryResponse(application);
+            response.setUpdatedAtInstant(latestChangeInstants.get(application.getId()));
             CandidateProfileSnapshot snapshot = snapshots.get(application.getId());
             if (snapshot != null) {
                 response.setCandidateProfileSnapshot(candidateProfileSnapshotMapper.toResponse(snapshot));

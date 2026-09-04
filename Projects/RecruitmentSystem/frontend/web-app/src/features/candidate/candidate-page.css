@@ -180,6 +180,7 @@ body.candidate-drawer-open {
 
 .candidate-dashboard {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   width: min(calc(100% - 2rem), 74rem);
   margin-inline: auto;
@@ -803,7 +804,9 @@ body.candidate-drawer-open {
   .candidate-ai-recommendation a { grid-column: auto; }
 }
 
-@media (min-width: 900px) {
+/* The desktop sidebar consumes 16.5rem at 1024px. Keep the search stacked
+   until its two minimum-width columns actually fit the workspace. */
+@media (min-width: 1280px) {
   .candidate-job-search { grid-template-columns: minmax(15rem, 0.8fr) minmax(25rem, 1.2fr); }
   .candidate-job-search form { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
   .candidate-job-search form button { grid-column: auto; }

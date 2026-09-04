@@ -368,10 +368,12 @@ export function CvPreview({
                       })
                     }
                   />
-                  <button
-                    type="button"
-                    aria-label={`Xóa kỹ năng ${index + 1}`}
-                    onClick={() =>
+                  <ItemControls
+                    index={index}
+                    count={content.skills.length}
+                    onDuplicate={() => structural({ ...content, skills: [...content.skills.slice(0, index + 1), skill, ...content.skills.slice(index + 1)] })}
+                    onMove={(direction) => structural({ ...content, skills: moveAt(content.skills, index, direction) })}
+                    onRemove={() =>
                       structural({
                         ...content,
                         skills: content.skills.filter(
@@ -379,9 +381,7 @@ export function CvPreview({
                         ),
                       })
                     }
-                  >
-                    <Trash2 />
-                  </button>
+                  />
                 </div>
               ) : hasText(skill) ? (
                 <span key={index}>{skill}</span>
@@ -588,7 +588,7 @@ export function CvPreview({
     "--cv-muted": design.theme.mutedColor,
     "--cv-background": design.theme.backgroundColor,
     "--cv-font-scale": design.fontScale,
-    fontFamily: design.fontFamily,
+    fontFamily: `"${design.fontFamily}", ${["Georgia", "Times New Roman"].includes(design.fontFamily) ? "Georgia, serif" : "Arial, sans-serif"}`,
   } as CSSProperties;
 
   return (

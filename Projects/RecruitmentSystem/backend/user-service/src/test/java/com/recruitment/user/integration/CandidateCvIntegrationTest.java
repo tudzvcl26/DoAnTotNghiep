@@ -2,6 +2,7 @@ package com.recruitment.user.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recruitment.user.dto.cv.CvTemplateCatalog;
 import com.recruitment.user.service.storage.StorageService;
 import com.recruitment.user.service.ProfileService;
 import io.jsonwebtoken.Jwts;
@@ -152,6 +153,40 @@ class CandidateCvIntegrationTest {
         root.put("title", title).put("templateId", template).put("language", "vi").put("candidateId", ignoredCandidateId.toString());
         root.set("content", content);
         return objectMapper.writeValueAsString(root);
+    }
+
+    @Test
+    void allOriginalTemplatePresetsRoundTripProfileDataAndSelectablePdf() throws Exception {
+        UUID candidate = UUID.randomUUID();
+        String auth = "Bearer " + token(candidate, "templates@cv.test", "CANDIDATE");
+        profileService.initialize(candidate, "Nguyễn Văn An");
+        String[] templates = CvTemplateCatalog.ID_PATTERN.split("\\|");
+        assertThat(templates).hasSize(24).doesNotHaveDuplicates();
+        for (String template : templates) {
+            String response = mockMvc.perform(post("/api/v1/cvs/from-profile").header("Authorization", auth)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(java.util.Map.of("title", "QA " + template, "templateId", template))))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            JsonNode created = objectMapper.readTree(response).path("data");
+            String id = created.path("id").asText();
+            assertThat(created.path("content").path("designConfig"))
+                    .isEqualTo(objectMapper.valueToTree(CvTemplateCatalog.design(template)));
+            String loaded = mockMvc.perform(get("/api/v1/cvs/" + id).header("Authorization", auth))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.templateId").value(template))
+                    .andExpect(jsonPath("$.data.content.personalInfo.fullName").value("Nguyễn Văn An"))
+                    .andReturn().getResponse().getContentAsString();
+            assertThat(objectMapper.readTree(loaded).path("data").path("content")).isEqualTo(created.path("content"));
+            byte[] bytes = mockMvc.perform(get("/api/v1/cvs/" + id + "/pdf").header("Authorization", auth))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+            try (var pdf = org.apache.pdfbox.pdmodel.PDDocument.load(bytes)) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Nguyễn Văn An", "templates@cv.test");
+            }
+            mockMvc.perform(delete("/api/v1/cvs/" + id).header("Authorization", auth)).andExpect(status().isOk());
+        }
+        mockMvc.perform(post("/api/v1/cvs/from-profile").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Invalid\",\"templateId\":\"unknown-template\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     private String token(UUID id, String email, String role) {

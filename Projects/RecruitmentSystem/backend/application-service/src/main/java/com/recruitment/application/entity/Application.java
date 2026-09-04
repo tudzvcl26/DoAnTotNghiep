@@ -12,6 +12,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -61,6 +62,9 @@ public class Application extends BaseEntity {
 
     @Column(name = "applied_at", nullable = false)
     private LocalDateTime appliedAt;
+
+    @Column(name = "applied_at_instant")
+    private Instant appliedAtInstant;
 
     @Column(nullable = false)
     private Boolean active = true;

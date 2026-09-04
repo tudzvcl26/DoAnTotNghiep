@@ -7,6 +7,15 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResumeQualityScorerTest {
+    @Test
+    void experienceEntryCountDoesNotPretendToBeDuration() throws Exception {
+        var mapper = new ObjectMapper();
+        var scorer = new ResumeQualityScorer();
+        var one = scorer.score(mapper.readTree("{\"experience\":[\"Developer at A\"]}"), "Experience");
+        var two = scorer.score(mapper.readTree("{\"experience\":[\"Developer at A\",\"Engineer at B\"]}"), "Experience");
+        assertThat(two.dimensions().get("experience").score()).isEqualTo(one.dimensions().get("experience").score());
+        assertThat(two.dimensions().get("experience").rationale()).contains("chưa xác định");
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ResumeQualityScorer scorer = new ResumeQualityScorer();

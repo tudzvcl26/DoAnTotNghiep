@@ -21,6 +21,12 @@ public class OllamaProperties {
     private Duration connectTimeout = Duration.ofSeconds(3);
     private Duration timeout;
 
+    public Duration getTimeout() {
+        Duration maximum = Duration.ofSeconds(180);
+        return timeout == null || timeout.isNegative() || timeout.isZero() || timeout.compareTo(maximum) > 0
+                ? maximum : timeout;
+    }
+
     public boolean isConfigured() {
         return enabled
                 && baseUrl != null

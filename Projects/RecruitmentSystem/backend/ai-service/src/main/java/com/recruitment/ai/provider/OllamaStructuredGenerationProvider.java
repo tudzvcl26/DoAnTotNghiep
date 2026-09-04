@@ -166,6 +166,7 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
 
         ObjectNode propertiesNode = schema.putObject("properties");
         JsonNode required = schema.path("required");
+        boolean resumeSchema = required.toString().contains("\"fullName\"") && required.toString().contains("\"technicalSkills\"");
         if (required.isArray()) {
             for (JsonNode fieldNode : required) {
                 String field = fieldNode.asText();
@@ -176,7 +177,11 @@ public class OllamaStructuredGenerationProvider implements StructuredGenerationP
                 } else if (STRING_ARRAY_FIELDS.contains(field)) {
                     propertiesNode.set(field, stringArraySchema());
                 } else {
-                    propertiesNode.set(field, stringSchema());
+                    if (resumeSchema && Set.of("fullName", "email", "phone", "location", "linkedIn", "portfolio", "summary").contains(field)) {
+                        ObjectNode nullable = objectMapper.createObjectNode();
+                        nullable.putArray("type").add("string").add("null");
+                        propertiesNode.set(field, nullable);
+                    } else propertiesNode.set(field, stringSchema());
                 }
             }
         }

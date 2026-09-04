@@ -15,6 +15,8 @@ class ApplicationMigrationsPostgresIT {
             assertThat(tableExists(connection,"application_outbox_events")).isTrue();
             assertThat(tableExists(connection,"candidate_profile_snapshots")).isTrue();
             assertThat(type(connection,"applications","candidate_profile_snapshot_id")).isEqualTo("uuid");
+            assertThat(type(connection,"applications","applied_at_instant")).isEqualTo("timestamp with time zone");
+            assertThat(type(connection,"application_status_histories","changed_at_instant")).isEqualTo("timestamp with time zone");
         }
     }
     private String type(Connection c,String table,String column)throws Exception{try(var ps=c.prepareStatement("select data_type from information_schema.columns where table_schema='application_service' and table_name=? and column_name=?")){ps.setString(1,table);ps.setString(2,column);try(ResultSet r=ps.executeQuery()){assertThat(r.next()).isTrue();return r.getString(1);}}}

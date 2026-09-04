@@ -100,6 +100,19 @@ class CareerCompanionServiceImplTest {
         assertThat(request.getValue().userPrompt()).contains("Java Developer").contains("What skills");
     }
 
+    @Test void selectedResumeRemainsTheAuthoritativeFactSourceWithoutProviderMixing() {
+        UUID resumeId = UUID.randomUUID();
+        ResumeDocument document = new ResumeDocument(); document.setOwnerUserId(candidateId);
+        ResumeAnalysisResult analysis = new ResumeAnalysisResult(); analysis.setResumeDocument(document);
+        analysis.setStructuredData("{\"fullName\":\"Name B\",\"summary\":\"CV được chọn: phát triển React.\",\"skills\":[\"React\"],\"projects\":[]}");
+        when(analysisRepository.findByResumeDocumentId(resumeId)).thenReturn(Optional.of(analysis));
+        var response = service.chat(new CareerChatRequest("Chỉ dùng CV được chọn", resumeId, null));
+        assertThat(response.answer()).contains("React", "CV đã chọn").doesNotContain("Java Developer", "Name A");
+        assertThat(response.providerName()).isEqualTo("deterministic-grounded");
+        assertThat(response.modelName()).isEqualTo("grounded-career-chat-v1");
+        verify(provider, never()).generate(any());
+    }
+
     @Test
     void correctsEnglishModelOutputWithRequiredVietnameseInstruction() {
         when(provider.generate(any()))
@@ -117,13 +130,13 @@ class CareerCompanionServiceImplTest {
     }
 
     @Test
-    void returnsVietnameseFallbackAfterOneCorrection() {
+    void returnsExplicitRetryableErrorAfterOneFailedCorrection() {
         when(provider.generate(any())).thenReturn(result("You should improve your career skills."));
 
-        var response = service.chat(new CareerChatRequest("Explain my resume.", null, null));
-
-        assertThat(response.answer()).isEqualTo(CareerCompanionServiceImpl.SAFE_FALLBACK);
-        assertThat(response.correctionAttempts()).isEqualTo(1);
+        assertThatThrownBy(() -> service.chat(new CareerChatRequest("Explain my resume.", null, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getErrorCode())
+                .isEqualTo(ErrorCode.CAREER_RESPONSE_INVALID);
         verify(provider, times(2)).generate(any());
     }
 
@@ -140,13 +153,13 @@ class CareerCompanionServiceImplTest {
     }
 
     @Test
-    void returnsVietnameseFallbackForEmptyProviderResponse() {
+    void propagatesRetryableErrorForEmptyProviderResponse() {
         when(provider.generate(any())).thenThrow(new BusinessException(ErrorCode.PROVIDER_EMPTY_RESPONSE));
 
-        var response = service.chat(new CareerChatRequest("CV của tôi có điểm mạnh gì?", null, null));
-
-        assertThat(response.answer()).isEqualTo(CareerCompanionServiceImpl.SAFE_FALLBACK);
-        assertThat(response.language()).isEqualTo("vi");
+        assertThatThrownBy(() -> service.chat(new CareerChatRequest("CV của tôi có điểm mạnh gì?", null, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getErrorCode())
+                .isEqualTo(ErrorCode.PROVIDER_EMPTY_RESPONSE);
     }
 
     @Test

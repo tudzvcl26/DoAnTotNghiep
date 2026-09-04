@@ -69,8 +69,38 @@ export async function generateMatchExplanation(matchId: string): Promise<MatchEx
   return response.data.data
 }
 
+export async function queueMatchExplanation(matchId: string): Promise<AiTask> {
+  const response = await apiClient.post<ApiResponse<AiTask>>(`${AI}/matching/${matchId}/explanation/tasks`, null, { timeout: 30_000 })
+  return response.data.data
+}
+
+export async function getLatestExplanationTask(matchId: string): Promise<AiTask | null> {
+  const response = await apiClient.get<ApiResponse<AiTask | null>>(`${AI}/matching/${matchId}/explanation/tasks/latest`)
+  return response.data.data
+}
+
+export async function getMatchExplanation(matchId: string): Promise<MatchExplanation> {
+  const response = await apiClient.get<ApiResponse<MatchExplanation>>(`${AI}/matching/${matchId}/explanation`)
+  return response.data.data
+}
+
 export async function generateInterviewPreparation(matchId: string): Promise<InterviewPreparation> {
   const response = await apiClient.post<ApiResponse<InterviewPreparation>>(`${AI}/matching/${matchId}/interview`)
+  return response.data.data
+}
+
+export async function queueInterviewPreparation(matchId: string): Promise<AiTask> {
+  const response = await apiClient.post<ApiResponse<AiTask>>(`${AI}/matching/${matchId}/interview/tasks`, null, { timeout: 30_000 })
+  return response.data.data
+}
+
+export async function getLatestInterviewTask(matchId: string): Promise<AiTask | null> {
+  const response = await apiClient.get<ApiResponse<AiTask | null>>(`${AI}/matching/${matchId}/interview/tasks/latest`)
+  return response.data.data
+}
+
+export async function getInterviewPreparation(matchId: string): Promise<InterviewPreparation> {
+  const response = await apiClient.get<ApiResponse<InterviewPreparation>>(`${AI}/matching/${matchId}/interview`)
   return response.data.data
 }
 

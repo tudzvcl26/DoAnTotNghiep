@@ -46,6 +46,8 @@ public class GatewayRouteConfig {
                         .uri(services.notification()))
                 .route("ai-service", route -> route
                         .path("/api/v1/ai/**")
+                        // Two bounded 180s generations plus context/persistence.
+                        .metadata("response-timeout", 390_000)
                         .uri(services.ai()))
                 .build();
     }

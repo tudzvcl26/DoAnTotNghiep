@@ -35,7 +35,7 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
       {groups.map((group) => <div className="admin-sidebar__group" key={group.label}>
         <strong>{group.label}</strong>
         {group.items.map(({ label, to, icon: Icon, end, planned }) => planned || !to
-          ? <span className="admin-sidebar__planned" aria-disabled="true" key={label}><Icon aria-hidden="true" /><span>{label}</span><small>Planned</small></span>
+          ? <span className="admin-sidebar__planned" aria-disabled="true" key={label}><Icon aria-hidden="true" /><span>{label}</span><small>Chưa triển khai</small></span>
           : <NavLink key={to} to={to} end={end} onClick={onNavigate} className={({ isActive }) => isActive ? 'is-active' : ''}><Icon aria-hidden="true" /><span>{label}</span></NavLink>,
         )}
       </div>)}
